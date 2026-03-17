@@ -1,0 +1,82 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function memberPath(groupId, userId) {
+      return /databases/$(database)/documents/groups/$(groupId)/members/$(userId);
+    }
+
+    function isGroupMember(groupId) {
+      return isSignedIn() && exists(memberPath(groupId, request.auth.uid));
+    }
+
+    function isGroupAdmin(groupId) {
+      return isGroupMember(groupId) && get(memberPath(groupId, request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{userId} {
+      allow read, write: if isSelf(userId);
+
+      match /pushTokens/{tokenId} {
+        allow read, write: if isSelf(userId);
+      }
+    }
+
+    match /groups/{groupId} {
+      allow read: if isGroupMember(groupId);
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isGroupAdmin(groupId);
+
+      match /members/{userId} {
+        allow read: if isGroupMember(groupId);
+        allow create, update, delete: if isGroupAdmin(groupId) || isSelf(userId);
+      }
+
+      match /invites/{inviteId} {
+        allow read: if isGroupMember(groupId);
+        allow create, update, delete: if isGroupAdmin(groupId);
+      }
+    }
+
+    match /locations/{locationId} {
+      allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
+      allow create, update: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && isGroupMember(request.resource.data.groupId);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /alerts/{alertId} {
+      allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
+      allow write: if false;
+    }
+
+    match /sos_events/{eventId} {
+      allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
+      allow create: if isSignedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && isGroupMember(request.resource.data.groupId);
+      allow update: if isSignedIn()
+        && (resource.data.senderId == request.auth.uid || isGroupAdmin(resource.data.groupId));
+      allow delete: if false;
+    }
+
+    match /evacuation_centers/{centerId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /emergency_hotlines/{hotlineId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+  }
+}
