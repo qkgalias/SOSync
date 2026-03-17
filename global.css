@@ -1,0 +1,9 @@
+/* Purpose: Register NativeWind layers and shared utility classes. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #0e1a2b;
+  background-color: #f4f9ff;
+}
