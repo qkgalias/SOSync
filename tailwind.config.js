@@ -1,5 +1,6 @@
 /** Purpose: Define SOSync design tokens for NativeWind utility classes. */
 module.exports = {
+  presets: [require("nativewind/preset")],
   content: ["./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
