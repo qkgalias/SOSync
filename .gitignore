@@ -47,5 +47,8 @@ GoogleService-Info.plist
 coverage/
 junit.xml
 
+# local emulator logs
+firestore-debug.log
+
 # firebase functions build output
 functions/lib/
