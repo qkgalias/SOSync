@@ -10,46 +10,55 @@ type ButtonProps = {
   icon?: ReactNode;
   disabled?: boolean;
   loading?: boolean;
-  variant?: "primary" | "secondary" | "danger" | "ghost";
+  variant?: "primary" | "secondary" | "danger" | "ghost" | "outline";
+  className?: string;
+  textClassName?: string;
 };
 
 const variantClasses: Record<NonNullable<ButtonProps["variant"]>, string> = {
   primary: "bg-primary",
-  secondary: "bg-surface border border-line",
-  danger: "bg-danger",
+  secondary: "bg-soft",
+  danger: "border border-danger bg-white",
   ghost: "bg-transparent",
+  outline: "border border-line bg-white",
 };
 
 const textClasses: Record<NonNullable<ButtonProps["variant"]>, string> = {
   primary: "text-white",
   secondary: "text-ink",
-  danger: "text-white",
+  danger: "text-danger",
   ghost: "text-primary",
+  outline: "text-ink",
 };
 
 export const Button = ({
+  className,
   disabled,
   icon,
   label,
   loading,
   onPress,
+  textClassName,
   variant = "primary",
 }: ButtonProps) => (
   <Pressable
     className={cn(
-      "min-h-14 flex-row items-center justify-center rounded-card px-5",
+      "min-h-12 flex-row items-center justify-center rounded-[18px] px-5 py-3",
       variantClasses[variant],
       disabled ? "opacity-60" : "active:scale-[0.98]",
+      className,
     )}
     disabled={disabled || loading}
     onPress={onPress}
   >
     {loading ? (
-      <ActivityIndicator color={variant === "secondary" || variant === "ghost" ? "#0E1A2B" : "#FFFFFF"} />
+      <ActivityIndicator color={variant === "primary" ? "#FFFFFF" : "#2E2C2C"} />
     ) : (
       <>
         {icon}
-        <Text className={cn("text-base font-bold", textClasses[variant], icon ? "ml-2" : "")}>{label}</Text>
+        <Text className={cn("text-[17px] font-semibold", textClasses[variant], icon ? "ml-2" : "", textClassName)}>
+          {label}
+        </Text>
       </>
     )}
   </Pressable>

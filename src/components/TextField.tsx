@@ -1,5 +1,8 @@
 /** Purpose: Standardize labeled text input fields across onboarding and settings flows. */
+import type { ReactNode } from "react";
 import { Text, TextInput, View } from "react-native";
+
+import { cn } from "@/utils/helpers";
 
 type TextFieldProps = {
   label: string;
@@ -11,32 +14,49 @@ type TextFieldProps = {
   secureTextEntry?: boolean;
   helperText?: string;
   error?: string;
+  containerClassName?: string;
+  inputClassName?: string;
+  labelClassName?: string;
+  hideLabel?: boolean;
+  rightSlot?: ReactNode;
+  errorClassName?: string;
+  helperClassName?: string;
 };
 
 export const TextField = ({
   autoCapitalize = "none",
+  containerClassName,
   error,
+  errorClassName,
   helperText,
+  helperClassName,
+  hideLabel,
+  inputClassName,
   keyboardType = "default",
   label,
+  labelClassName,
   onChangeText,
   placeholder,
+  rightSlot,
   secureTextEntry,
   value,
 }: TextFieldProps) => (
-  <View className="mb-4">
-    <Text className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-muted">{label}</Text>
-    <TextInput
-      autoCapitalize={autoCapitalize}
-      className="rounded-card border border-line bg-surface px-4 py-4 text-base text-ink"
-      keyboardType={keyboardType}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor="#94A1B5"
-      secureTextEntry={secureTextEntry}
-      value={value}
-    />
-    {error ? <Text className="mt-2 text-sm text-danger">{error}</Text> : null}
-    {!error && helperText ? <Text className="mt-2 text-sm text-muted">{helperText}</Text> : null}
+  <View className={cn("mb-4", containerClassName)}>
+    {!hideLabel ? <Text className={cn("mb-2 text-sm text-muted", labelClassName)}>{label}</Text> : null}
+    <View className={cn("flex-row items-center rounded-[12px] bg-white px-4 py-4", inputClassName)}>
+      <TextInput
+        autoCapitalize={autoCapitalize}
+        className="flex-1 p-0 text-base text-ink"
+        keyboardType={keyboardType}
+        onChangeText={onChangeText}
+        placeholder={placeholder ?? label}
+        placeholderTextColor="#8C8787"
+        secureTextEntry={secureTextEntry}
+        value={value}
+      />
+      {rightSlot ? <View className="ml-3">{rightSlot}</View> : null}
+    </View>
+    {error ? <Text className={cn("mt-2 text-sm text-danger", errorClassName)}>{error}</Text> : null}
+    {!error && helperText ? <Text className={cn("mt-2 text-sm text-muted", helperClassName)}>{helperText}</Text> : null}
   </View>
 );
