@@ -1,37 +1,48 @@
-/** Purpose: Expose safe accessors for Firebase native modules and emulator wiring. */
-import firebase from "@react-native-firebase/app";
-import auth from "@react-native-firebase/auth";
-import firestore from "@react-native-firebase/firestore";
-import functions from "@react-native-firebase/functions";
-import messaging from "@react-native-firebase/messaging";
+/** Purpose: Expose safe Firebase native accessors and connect emulators only when explicitly requested. */
+import { getApp, getApps } from "@react-native-firebase/app";
+import { connectAuthEmulator, getAuth } from "@react-native-firebase/auth";
+import { connectFirestoreEmulator, getFirestore } from "@react-native-firebase/firestore";
+import { connectFunctionsEmulator, getFunctions } from "@react-native-firebase/functions";
+import { getMessaging } from "@react-native-firebase/messaging";
+import { getStorage } from "@react-native-firebase/storage";
+
+import { backendRuntime } from "@/config/backendRuntime";
+import { env } from "@/config/env";
 
 let emulatorsConnected = false;
 
 export const hasFirebaseApp = () => {
   try {
-    firebase.app();
-    return true;
+    return getApps().length > 0 && Boolean(getApp());
   } catch {
     return false;
   }
 };
 
-export const firebaseAuth = () => auth();
-export const firebaseFirestore = () => firestore();
-export const firebaseFunctions = () => functions();
-export const firebaseMessaging = () => messaging();
+export const firebaseAuth = () => getAuth();
+export const firebaseFirestore = () => getFirestore();
+export const firebaseFunctions = () => getFunctions(undefined, env.functionsRegion);
+export const firebaseMessaging = () => getMessaging();
+export const firebaseStorage = () => getStorage();
 
 export const connectFirebaseEmulators = () => {
-  if (!__DEV__ || emulatorsConnected || !hasFirebaseApp()) {
+  if (!__DEV__ || emulatorsConnected || !hasFirebaseApp() || !backendRuntime.useFirebaseEmulators) {
+    return;
+  }
+
+  if (!backendRuntime.emulatorHost) {
+    console.warn(
+      "Firebase emulators are enabled, but no emulator host could be resolved. Set EXPO_PUBLIC_FIREBASE_EMULATOR_HOST when using a physical device.",
+    );
     return;
   }
 
   try {
-    auth().useEmulator("http://127.0.0.1:9099");
-    firestore().useEmulator("127.0.0.1", 8080);
-    functions().useEmulator("127.0.0.1", 5001);
+    connectAuthEmulator(firebaseAuth(), `http://${backendRuntime.emulatorHost}:9099`);
+    connectFirestoreEmulator(firebaseFirestore(), backendRuntime.emulatorHost, 8080);
+    connectFunctionsEmulator(firebaseFunctions(), backendRuntime.emulatorHost, 5001);
     emulatorsConnected = true;
-  } catch {
-    // Ignore emulator setup failures when native config is incomplete.
+  } catch (error) {
+    console.warn("Firebase emulator connection failed.", error);
   }
 };

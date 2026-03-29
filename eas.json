@@ -5,12 +5,34 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_DEFAULT_REGION": "PH",
+        "EXPO_PUBLIC_FUNCTIONS_REGION": "asia-southeast1",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "sosync-3276e",
+        "EXPO_PUBLIC_USE_FIREBASE_EMULATORS": "false"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "preview",
+        "EXPO_PUBLIC_DEFAULT_REGION": "PH",
+        "EXPO_PUBLIC_FUNCTIONS_REGION": "asia-southeast1",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "sosync-3276e",
+        "EXPO_PUBLIC_USE_FIREBASE_EMULATORS": "false"
+      }
     },
-    "production": {}
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_DEFAULT_REGION": "PH",
+        "EXPO_PUBLIC_FUNCTIONS_REGION": "asia-southeast1",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "sosync-3276e",
+        "EXPO_PUBLIC_USE_FIREBASE_EMULATORS": "false"
+      }
+    }
   },
   "submit": {
     "production": {}

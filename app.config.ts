@@ -4,7 +4,9 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 const appEnv = process.env.EXPO_PUBLIC_APP_ENV ?? "development";
 const defaultRegion = process.env.EXPO_PUBLIC_DEFAULT_REGION ?? "PH";
 const functionsRegion = process.env.EXPO_PUBLIC_FUNCTIONS_REGION ?? "asia-southeast1";
-const firebaseProjectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? "demo-sosync";
+const firebaseProjectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? "sosync-3276e";
+const useFirebaseEmulators = process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === "true";
+const firebaseEmulatorHost = process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST ?? "";
 const googleMapsAndroidApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY ?? "";
 const googleMapsIosApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY ?? "";
 const easProjectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? "";
@@ -23,7 +25,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   splash: {
     image: "./assets/splash-icon.png",
     resizeMode: "contain",
-    backgroundColor: "#F4F9FF",
+    backgroundColor: "#FFFFFF",
   },
   ios: {
     supportsTablet: true,
@@ -31,6 +33,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     googleServicesFile: iosGoogleServicesFile,
     config: googleMapsIosApiKey ? { googleMapsApiKey: googleMapsIosApiKey } : undefined,
     infoPlist: {
+      NSPhotoLibraryUsageDescription:
+        "Allow SOSync to access your library so you can choose a profile photo for your trusted circles.",
       NSLocationWhenInUseUsageDescription:
         "SOSync uses your location to share your position with trusted circles and show evacuation routes.",
       NSLocationAlwaysAndWhenInUseUsageDescription:
@@ -42,9 +46,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: "com.sosync.mobile",
     googleServicesFile: androidGoogleServicesFile,
     adaptiveIcon: {
-      backgroundColor: "#DDEBFF",
+      backgroundColor: "#FFFFFF",
       foregroundImage: "./assets/android-icon-foreground.png",
-      backgroundImage: "./assets/android-icon-background.png",
       monochromeImage: "./assets/android-icon-monochrome.png",
     },
     predictiveBackGestureEnabled: false,
@@ -60,7 +63,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     "expo-router",
+    "./plugins/withAndroidNeutralLaunchSplash",
     "expo-font",
+    [
+      "expo-image-picker",
+      {
+        photosPermission:
+          "Allow SOSync to access your photo library so you can set a profile picture for your trusted circles.",
+      },
+    ],
     [
       "expo-build-properties",
       {
@@ -86,7 +97,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       "expo-notifications",
       {
-        icon: "./assets/icon.png",
+        icon: "./assets/notification-icon.png",
         color: "#D6524E",
         defaultChannel: "sosync-alerts",
       },
@@ -100,6 +111,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     defaultRegion,
     functionsRegion,
     firebaseProjectId,
+    useFirebaseEmulators,
+    firebaseEmulatorHost,
     googleMapsAndroidApiKey,
     googleMapsIosApiKey,
     eas: {
