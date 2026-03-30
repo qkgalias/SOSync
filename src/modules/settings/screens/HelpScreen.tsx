@@ -1,30 +1,215 @@
-/** Purpose: Provide FAQs and support guidance for disaster readiness. */
-import { Text } from "react-native";
+/** Purpose: Provide support, legal, and app information in a Figma-aligned help and about layout. */
+import Constants from "expo-constants";
+import { useRouter } from "expo-router";
+import { Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useState } from "react";
 
-import { InfoCard } from "@/components/InfoCard";
+import { BackButton } from "@/components/BackButton";
+import { Button } from "@/components/Button";
 import { Screen } from "@/components/Screen";
+import { SettingsRow } from "@/components/SettingsRow";
+import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
+import { goBackOrReplace } from "@/utils/helpers";
+
+type HelpModalKey = "usage" | "faq" | "about" | "privacy" | "terms" | null;
+
+const HELP_MODAL_CONTENT = {
+  usage: {
+    title: "Emergency Usage Guide",
+    sections: [
+      {
+        title: "Use SOS only for real emergencies",
+        body: "Trigger SOS when you need urgent help from your trusted circle, and make sure your location permission is enabled so people can reach you faster.",
+      },
+      {
+        title: "Keep your circle updated",
+        body: "Use your shared safety status and live location features so the people in your circle can understand your situation before or after an SOS is sent.",
+      },
+      {
+        title: "Use official emergency hotlines when needed",
+        body: "SOSync helps your trusted circle coordinate quickly, but official emergency services and hotlines should still be used for immediate public response.",
+      },
+    ],
+  },
+  faq: {
+    title: "FAQs",
+    sections: [
+      {
+        title: "How do I join a circle?",
+        body: "Open Profile, tap Join circle, and enter the permanent 6-digit code shared by the circle owner or admin.",
+      },
+      {
+        title: "Can I belong to more than one circle?",
+        body: "Yes. SOSync keeps your memberships and lets you switch the active circle from the Account screen.",
+      },
+      {
+        title: "Will my own SOS appear as a notification?",
+        body: "No. The notification feed suppresses your own SOS events so Alerts only surface SOS activity from other people in your circle.",
+      },
+    ],
+  },
+  about: {
+    title: "About the App",
+    sections: [
+      {
+        title: "What SOSync is for",
+        body: "SOSync is a safety and social-support app focused on trusted-circle coordination, live location sharing, alerts, and SOS response during emergencies.",
+      },
+      {
+        title: "Current rollout",
+        body: "This build is designed to feel deployment-ready while the team continues refining the product for Android-first release quality.",
+      },
+    ],
+  },
+  privacy: {
+    title: "Privacy Policy",
+    sections: [
+      {
+        title: "What we collect",
+        body: "SOSync stores the profile, circle membership, location-sharing choices, and emergency activity needed to make the app function.",
+      },
+      {
+        title: "Why we use it",
+        body: "This information supports account access, trusted-circle coordination, live map updates, alerts, and SOS communication.",
+      },
+      {
+        title: "Your control",
+        body: "You can manage sharing preferences in Permissions and Privacy & Safety, and delete your account from Edit Profile.",
+      },
+    ],
+  },
+  terms: {
+    title: "Terms & Conditions",
+    sections: [
+      {
+        title: "Intended use",
+        body: "SOSync is designed for safety coordination and trusted-circle communication. It should not be used to harass others or trigger false emergency activity.",
+      },
+      {
+        title: "Availability",
+        body: "The app is still evolving, and some behaviors may continue to improve as the team validates production-ready flows.",
+      },
+    ],
+  },
+} satisfies Record<Exclude<HelpModalKey, null>, { title: string; sections: Array<{ title: string; body: string }> }>;
+
+const HelpModal = ({
+  modalKey,
+  onClose,
+}: {
+  modalKey: Exclude<HelpModalKey, null>;
+  onClose: () => void;
+}) => {
+  const content = HELP_MODAL_CONTENT[modalKey];
+
+  return (
+    <Modal animationType="fade" transparent visible onRequestClose={onClose}>
+      <View className="flex-1 justify-center bg-black/35 px-6 py-10">
+        <Pressable className="absolute inset-0" onPress={onClose} />
+        <View className="max-h-[78%] rounded-[28px] bg-white px-6 pb-5 pt-6">
+          <View className="mb-4 flex-row items-start justify-between">
+            <View className="mr-4 flex-1">
+              <Text className="text-[24px] font-semibold text-ink">{content.title}</Text>
+              <Text className="mt-2 text-sm leading-6 text-muted">In-app guidance for the current SOSync build.</Text>
+            </View>
+            <Pressable className="h-9 w-9 items-center justify-center rounded-full border border-profileAccent/20 bg-profileAccentSoft" hitSlop={10} onPress={onClose}>
+              <MaterialCommunityIcons color={PROFILE_ACCENT} name="close" size={22} />
+            </Pressable>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {content.sections.map((section) => (
+              <View key={section.title} className="mb-5">
+                <Text className="text-[15px] font-semibold text-ink">{section.title}</Text>
+                <Text className="mt-2 text-[14px] leading-6 text-muted">{section.body}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 export default function HelpScreen() {
+  const router = useRouter();
+  const version = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "1.0.0";
+  const [modalKey, setModalKey] = useState<HelpModalKey>(null);
+
   return (
-    <Screen title="Help and about" subtitle="Quick answers for setup, privacy, and emergency usage.">
-      <InfoCard title="How private is location sharing?" eyebrow="FAQ">
-        <Text className="text-sm leading-6 text-muted">
-          SOSync only shares location inside trusted circles, and this foundation keeps location updates disabled until
-          the user explicitly grants permission and turns sharing on in-app.
-        </Text>
-      </InfoCard>
-      <InfoCard title="What if I lose signal?" eyebrow="FAQ">
-        <Text className="text-sm leading-6 text-muted">
-          The first foundation stores the latest known map state locally and queues outbound SOS writes when a live
-          backend is connected again.
-        </Text>
-      </InfoCard>
-      <InfoCard title="Need support?" eyebrow="Contact">
-        <Text className="text-sm leading-6 text-muted">
-          Reach the operations team at support@sosync.app or use your region’s official disaster response channels for
-          urgent assistance.
-        </Text>
-      </InfoCard>
+    <Screen
+      title="Help and About"
+      centerTitle
+      leftSlot={<BackButton onPress={() => goBackOrReplace(router, "/general")} />}
+      contentClassName="pb-10"
+    >
+      <Text className="mb-5 pt-4 text-[16px] font-semibold text-ink">Support & Resources</Text>
+      <View>
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="medical-bag" size={22} />}
+          onPress={() => setModalKey("usage")}
+          subtitle="Learn how to use SOS and stay safe"
+          title="Emergency Usage Guide"
+        />
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="comment-question-outline" size={22} />}
+          onPress={() => setModalKey("faq")}
+          subtitle="Find answers to common questions"
+          title="FAQs"
+        />
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="help-circle-outline" size={22} />}
+          onPress={() => Linking.openURL("mailto:support@sosync.app?subject=SOSync%20Support")}
+          subtitle="Get help from our team"
+          title="Contact Support"
+        />
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="alert-outline" size={22} />}
+          onPress={() => Linking.openURL("mailto:support@sosync.app?subject=SOSync%20Problem%20Report")}
+          subtitle="Submit feedback or report an issue"
+          title="Report a Problem"
+        />
+      </View>
+
+      <Text className="mb-5 mt-8 text-[16px] font-semibold text-ink">Legal & Privacy</Text>
+      <View>
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="account-group-outline" size={22} />}
+          onPress={() => setModalKey("about")}
+          subtitle="Learn about our mission and team"
+          title="About the App"
+        />
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="file-document-outline" size={22} />}
+          onPress={() => setModalKey("privacy")}
+          subtitle="Understand how your data is collected and used"
+          title="Privacy Policy"
+        />
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="alert-outline" size={22} />}
+          onPress={() => setModalKey("terms")}
+          subtitle="Review the rules and responsibilities"
+          title="Terms & Conditions"
+        />
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="cellphone-information" size={22} />}
+          showChevron={false}
+          subtitle=""
+          title="App Version"
+          trailingText={version}
+        />
+      </View>
+
+      {modalKey ? <HelpModal modalKey={modalKey} onClose={() => setModalKey(null)} /> : null}
     </Screen>
   );
 }

@@ -1,66 +1,122 @@
-/** Purpose: Let users tune app preferences without exposing raw OS permission state. */
+/** Purpose: Let users manage privacy, data guidance, and trusted-circle sharing controls without legacy visibility tools. */
+import { useState } from "react";
 import { Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-import { Button } from "@/components/Button";
-import { InfoCard } from "@/components/InfoCard";
+import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
+import { SettingsRow } from "@/components/SettingsRow";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
+import { USER_SEED } from "@/utils/constants";
+import { goBackOrReplace } from "@/utils/helpers";
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { profile, saveProfile } = useAuthSession();
+  const [message, setMessage] = useState("");
 
-  const togglePreference = async (key: "disasterAlerts" | "sosAlerts" | "evacuationAlerts") => {
-    await saveProfile({
-      preferences: {
-        theme: profile?.preferences.theme ?? "light",
-        disasterAlerts: key === "disasterAlerts" ? !profile?.preferences.disasterAlerts : Boolean(profile?.preferences.disasterAlerts),
-        sosAlerts: key === "sosAlerts" ? !profile?.preferences.sosAlerts : Boolean(profile?.preferences.sosAlerts),
-        evacuationAlerts:
-          key === "evacuationAlerts" ? !profile?.preferences.evacuationAlerts : Boolean(profile?.preferences.evacuationAlerts),
-      },
-    });
-  };
-
-  const toggleLocationSharing = async () => {
-    await saveProfile({
-      privacy: {
-        locationSharingEnabled: !profile?.privacy.locationSharingEnabled,
-        shareWhileUsingOnly: true,
-        emergencyBroadcastEnabled: profile?.privacy.emergencyBroadcastEnabled ?? true,
-      },
-    });
-  };
+  const profilePrivacy = profile?.privacy ?? USER_SEED.privacy;
+  const profileSafety = profile?.safety ?? USER_SEED.safety;
 
   return (
-    <Screen title="Settings" subtitle="Control in-app privacy and emergency preferences without leaving the app.">
-      <InfoCard title="Safety preferences" eyebrow="Notifications">
-        <View className="gap-3">
-          <Button
-            label={`Disaster alerts: ${profile?.preferences.disasterAlerts ? "On" : "Off"}`}
-            onPress={() => togglePreference("disasterAlerts")}
-            variant="secondary"
-          />
-          <Button
-            label={`SOS alerts: ${profile?.preferences.sosAlerts ? "On" : "Off"}`}
-            onPress={() => togglePreference("sosAlerts")}
-            variant="secondary"
-          />
-          <Button
-            label={`Evacuation alerts: ${profile?.preferences.evacuationAlerts ? "On" : "Off"}`}
-            onPress={() => togglePreference("evacuationAlerts")}
-            variant="secondary"
-          />
-        </View>
-      </InfoCard>
-      <InfoCard title="Privacy controls" eyebrow="Location">
-        <Text className="mb-4 text-sm leading-6 text-muted">
-          OS permission state is handled natively. This toggle controls whether SOSync writes live location updates.
-        </Text>
-        <Button
-          label={`Location sharing: ${profile?.privacy.locationSharingEnabled ? "On" : "Off"}`}
-          onPress={toggleLocationSharing}
+    <Screen
+      title="Privacy & Safety"
+      centerTitle
+      leftSlot={<BackButton onPress={() => goBackOrReplace(router, "/general")} />}
+      contentClassName="pb-10"
+    >
+      <Text className="mb-3 mt-7 text-[12px] uppercase tracking-[0.18em] text-muted">Sharing controls</Text>
+      <View>
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="map-marker-radius-outline" size={22} />}
+          onToggleChange={(value) =>
+            saveProfile({
+              privacy: {
+                emergencyBroadcastEnabled: profilePrivacy.emergencyBroadcastEnabled,
+                locationSharingEnabled: value,
+                shareWhileUsingOnly: true,
+              },
+            })
+              .then(() => setMessage("Location sharing preference updated."))
+              .catch((error) => {
+                setMessage(error instanceof Error ? error.message : "Unable to update location sharing.");
+              })
+          }
+          subtitle="Control whether your live map updates are shared with your trusted circle."
+          title="Live location sharing"
+          toggleActiveColor={PROFILE_ACCENT}
+          toggleValue={Boolean(profilePrivacy.locationSharingEnabled)}
         />
-      </InfoCard>
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="crosshairs-gps" size={22} />}
+          onToggleChange={(value) =>
+            saveProfile({
+              safety: {
+                autoCallHotlineOnSos: profileSafety.autoCallHotlineOnSos,
+                autoShareLocationOnSos: value,
+                shareStatusEnabled: profileSafety.shareStatusEnabled,
+              },
+            })
+              .then(() => setMessage("SOS location sharing updated."))
+              .catch((error) => {
+                setMessage(error instanceof Error ? error.message : "Unable to update SOS location sharing.");
+              })
+          }
+          subtitle="Attach your latest coordinates whenever SOS is triggered."
+          title="Auto-share location on SOS"
+          toggleActiveColor={PROFILE_ACCENT}
+          toggleValue={Boolean(profileSafety.autoShareLocationOnSos)}
+        />
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="account-heart-outline" size={22} />}
+          onToggleChange={(value) =>
+            saveProfile({
+              safety: {
+                autoCallHotlineOnSos: profileSafety.autoCallHotlineOnSos,
+                autoShareLocationOnSos: profileSafety.autoShareLocationOnSos,
+                shareStatusEnabled: value,
+              },
+            })
+              .then(() => setMessage("Status sharing preference updated."))
+              .catch((error) => {
+                setMessage(error instanceof Error ? error.message : "Unable to update status sharing.");
+              })
+          }
+          subtitle="Let your circle see whether you are safe, need help, or need evacuation."
+          title="Shared safety status"
+          toggleActiveColor={PROFILE_ACCENT}
+          toggleValue={Boolean(profileSafety.shareStatusEnabled)}
+        />
+      </View>
+
+      <Text className="mb-3 mt-8 text-[12px] uppercase tracking-[0.18em] text-muted">Privacy & security</Text>
+      <View>
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="shield-check-outline" size={22} />}
+          subtitle="SOSync keeps profile, circle, alert, and location data scoped to authenticated sessions and trusted-circle access rules."
+          title="Data security"
+        />
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="shield-lock-outline" size={22} />}
+          subtitle="Your trusted circle is your support model. Separate trusted-contact and auto-call hotline flows are no longer surfaced."
+          title="Privacy management"
+        />
+        <SettingsRow
+          className="rounded-[22px]"
+          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="file-document-outline" size={22} />}
+          subtitle="This build stores the profile, circle, and emergency details required for SOSync to coordinate alerts and SOS activity."
+          title="Privacy policy"
+        />
+      </View>
+
+      {message ? <Text className="mt-3 text-sm text-profileAccent">{message}</Text> : null}
     </Screen>
   );
 }

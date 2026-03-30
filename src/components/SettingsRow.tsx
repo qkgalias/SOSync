@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { Pressable, Switch, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
+import { cn } from "@/utils/helpers";
+
 type SettingsRowProps = {
   title: string;
   subtitle?: string;
@@ -11,36 +13,54 @@ type SettingsRowProps = {
   toggleValue?: boolean;
   onToggleChange?: (value: boolean) => void;
   trailingText?: string;
+  className?: string;
+  titleClassName?: string;
+  subtitleClassName?: string;
+  iconContainerClassName?: string;
+  showChevron?: boolean;
+  chevronColor?: string;
+  toggleActiveColor?: string;
 };
 
 export const SettingsRow = ({
+  className,
   icon,
+  iconContainerClassName,
   onPress,
   onToggleChange,
+  showChevron,
   subtitle,
+  subtitleClassName,
   title,
+  titleClassName,
+  chevronColor = "#111111",
+  toggleActiveColor = "#5C1515",
   toggleValue,
   trailingText,
 }: SettingsRowProps) => (
   <Pressable
-    className="mb-3 flex-row items-center rounded-[14px] bg-panel px-4 py-3"
+    className={cn("mb-4 flex-row items-center rounded-[20px] bg-panel px-5 py-4", className)}
     disabled={!onPress && onToggleChange === undefined}
     onPress={onPress}
   >
-    {icon ? <View className="mr-3">{icon}</View> : null}
+    {icon ? <View className={cn("mr-4 h-8 w-8 items-center justify-center", iconContainerClassName)}>{icon}</View> : null}
     <View className="flex-1">
-      <Text className="text-[16px] text-ink">{title}</Text>
-      {subtitle ? <Text className="mt-1 text-xs leading-4 text-muted">{subtitle}</Text> : null}
+      <Text className={cn("text-[18px] font-medium leading-[22px] text-ink", titleClassName)}>{title}</Text>
+      {subtitle ? (
+        <Text className={cn("mt-1 text-[13px] leading-[18px] text-muted", subtitleClassName)}>{subtitle}</Text>
+      ) : null}
     </View>
     {typeof toggleValue === "boolean" && onToggleChange ? (
       <Switch
         onValueChange={onToggleChange}
         thumbColor="#FFFFFF"
-        trackColor={{ false: "#8A8A8A", true: "#7B2C28" }}
+        trackColor={{ false: "#8A8A8A", true: toggleActiveColor }}
         value={toggleValue}
       />
     ) : null}
-    {trailingText ? <Text className="text-sm text-muted">{trailingText}</Text> : null}
-    {onPress ? <MaterialCommunityIcons color="#111111" name="chevron-right" size={26} /> : null}
+    {trailingText ? <Text className="mr-1 text-[15px] text-muted">{trailingText}</Text> : null}
+    {(showChevron ?? Boolean(onPress)) ? (
+      <MaterialCommunityIcons color={chevronColor} name="chevron-right" size={26} />
+    ) : null}
   </Pressable>
 );

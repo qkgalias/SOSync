@@ -12,6 +12,8 @@ module.exports = {
         line: "#E4D8D8",
         primary: "#D06B6B",
         accent: "#7B2C28",
+        profileAccent: "#5C1515",
+        profileAccentSoft: "#F4E2E1",
         caution: "#D78B4A",
         danger: "#8A2D2B",
         focus: "#B85757",
