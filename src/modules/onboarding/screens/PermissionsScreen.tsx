@@ -1,20 +1,27 @@
-/** Purpose: Confirm privacy choices and native permissions before entering the app. */
+/** Purpose: Confirm native permissions and first-run safety defaults before entering the app. */
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Platform, Text, View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { Button } from "@/components/Button";
-import { InfoCard } from "@/components/InfoCard";
 import { Screen } from "@/components/Screen";
+import { SettingsRow } from "@/components/SettingsRow";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { notificationService } from "@/services/notificationService";
+import { USER_SEED } from "@/utils/constants";
 import { requestLocationPermission, requestNotificationPermission } from "@/utils/permissions";
 
 export default function PermissionsScreen() {
   const router = useRouter();
   const { authUser, profile, saveProfile } = useAuthSession();
-  const [locationGranted, setLocationGranted] = useState(false);
-  const [notificationsGranted, setNotificationsGranted] = useState(false);
+  const profilePreferences = profile?.preferences ?? USER_SEED.preferences;
+  const profilePrivacy = profile?.privacy ?? USER_SEED.privacy;
+  const profileSafety = profile?.safety ?? USER_SEED.safety;
+  const [locationGranted, setLocationGranted] = useState(Boolean(profilePrivacy.locationSharingEnabled));
+  const [notificationsGranted, setNotificationsGranted] = useState(Boolean(profilePreferences.disasterAlerts));
+  const [shareStatusEnabled, setShareStatusEnabled] = useState(Boolean(profileSafety.shareStatusEnabled));
+  const [autoShareLocationOnSos, setAutoShareLocationOnSos] = useState(Boolean(profileSafety.autoShareLocationOnSos));
   const [loading, setLoading] = useState(false);
 
   const handleFinish = async () => {
@@ -34,10 +41,15 @@ export default function PermissionsScreen() {
           permissionsComplete: true,
         },
         preferences: {
-          theme: profile?.preferences.theme ?? "light",
+          theme: profilePreferences.theme,
           disasterAlerts: notificationsGranted,
           sosAlerts: notificationsGranted,
           evacuationAlerts: notificationsGranted,
+        },
+        safety: {
+          shareStatusEnabled,
+          autoShareLocationOnSos,
+          autoCallHotlineOnSos: profileSafety.autoCallHotlineOnSos,
         },
       });
       router.replace("/");
@@ -47,29 +59,30 @@ export default function PermissionsScreen() {
   };
 
   return (
-    <Screen title="Confirm permissions" subtitle="You stay in control of both location sharing and emergency alerts.">
-      <InfoCard title="Location access" eyebrow={locationGranted ? "Granted" : "Pending"}>
-        <Text className="mb-4 text-sm leading-6 text-muted">
-          Location stays inside your trusted circles and is only shared while the app is in use during this first
-          foundation release.
-        </Text>
-        <Button
-          label={locationGranted ? "Location enabled" : "Allow location"}
+    <Screen title="Permission & Privacy" centerTitle contentClassName="pb-10">
+      <Text className="pt-6 text-center text-[15px] leading-6 text-muted">
+        You stay in control. SOSync only shares with your trusted circle, and every permission can be changed later.
+      </Text>
+      <View className="mt-8">
+        <SettingsRow
+          title="Location Access"
+          subtitle="Needed for live map positioning and SOS coordinates."
+          icon={<MaterialCommunityIcons color="#7B2C28" name="map-marker-radius-outline" size={22} />}
+          trailingText={locationGranted ? "Allowed" : "Pending"}
           onPress={async () => {
             const status = await requestLocationPermission();
             setLocationGranted(status === "granted");
           }}
-          variant={locationGranted ? "secondary" : "primary"}
         />
-      </InfoCard>
-      <InfoCard title="Push notifications" eyebrow={notificationsGranted ? "Granted" : "Pending"}>
-        <Text className="mb-4 text-sm leading-6 text-muted">
-          {Platform.OS === "ios"
-            ? "SOSync will keep your iPhone notification permissions ready, while full background remote delivery is finalized when APNs is configured for release."
-            : "Disaster alerts, SOS notifications, and evacuation warnings will only be routed to the circles you belong to."}
-        </Text>
-        <Button
-          label={notificationsGranted ? "Notifications enabled" : "Allow notifications"}
+        <SettingsRow
+          title="Notifications"
+          subtitle={
+            Platform.OS === "ios"
+              ? "Prepare device alerts while iOS remote push remains APNs-dependent."
+              : "Receive disaster alerts and SOS activity from your circle."
+          }
+          icon={<MaterialCommunityIcons color="#7B2C28" name="bell-outline" size={22} />}
+          trailingText={notificationsGranted ? "Allowed" : "Pending"}
           onPress={async () => {
             const status = await requestNotificationPermission();
             const granted = Boolean(status);
@@ -78,12 +91,22 @@ export default function PermissionsScreen() {
               await notificationService.registerDevice(authUser.uid).catch(() => undefined);
             }
           }}
-          variant={notificationsGranted ? "secondary" : "primary"}
         />
-      </InfoCard>
-      <View className="mt-2">
-        <Button label="Finish onboarding" loading={loading} onPress={handleFinish} />
       </View>
+      <Text className="mb-3 mt-8 text-[12px] uppercase tracking-[0.18em] text-muted">Safety Defaults</Text>
+      <SettingsRow
+        title="Share preset status"
+        subtitle="Let your circle see if you are safe, need help, or need evacuation."
+        toggleValue={shareStatusEnabled}
+        onToggleChange={setShareStatusEnabled}
+      />
+      <SettingsRow
+        title="Auto-share location on SOS"
+        subtitle="Attach your latest coordinates when you trigger an emergency."
+        toggleValue={autoShareLocationOnSos}
+        onToggleChange={setAutoShareLocationOnSos}
+      />
+      <Button label="Finish" loading={loading} onPress={handleFinish} className="mt-6" />
     </Screen>
   );
 }

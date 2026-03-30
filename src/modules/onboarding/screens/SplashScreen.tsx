@@ -1,29 +1,117 @@
-/** Purpose: Establish the SOSync brand and lead new users into onboarding. */
+/** Purpose: Establish the SOSync brand before handing off to the prototype-style onboarding flow. */
 import { useEffect } from "react";
 import { useRouter } from "expo-router";
-import { Text, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { Image, Text, useWindowDimensions, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 
-import { Screen } from "@/components/Screen";
+const splashMarkSource = require("../../../../assets/branding/brand-mark.png");
 
 export default function SplashScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const rowProgress = useSharedValue(0);
+  const markShiftProgress = useSharedValue(0);
+  const wordmarkProgress = useSharedValue(0.86);
+  const markSize = Math.min(width * 0.18, 78);
+  const gap = Math.min(width * 0.018, 9);
+  const wordmarkWidth = Math.min(width * 0.24, 108);
+  const sosSize = Math.min(width * 0.073, 32);
+  const syncSize = Math.max(sosSize - 5, 20);
 
   useEffect(() => {
-    const timeout = setTimeout(() => router.replace("/(onboarding)/welcome"), 1200);
+    rowProgress.value = withTiming(1, {
+      duration: 300,
+      easing: Easing.out(Easing.cubic),
+    });
+    markShiftProgress.value = withDelay(
+      220,
+      withTiming(1, {
+        duration: 460,
+        easing: Easing.out(Easing.cubic),
+      }),
+    );
+    wordmarkProgress.value = withDelay(
+      120,
+      withTiming(1, {
+        duration: 520,
+        easing: Easing.out(Easing.cubic),
+      }),
+    );
+
+    const timeout = setTimeout(() => router.replace("/(onboarding)/welcome"), 1700);
     return () => clearTimeout(timeout);
-  }, [router]);
+  }, [markShiftProgress, router, rowProgress, wordmarkProgress]);
+
+  const rowAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: rowProgress.value,
+    transform: [
+      {
+        scale: interpolate(rowProgress.value, [0, 1], [0.94, 1]),
+      },
+      {
+        translateY: interpolate(rowProgress.value, [0, 1], [8, 0]),
+      },
+    ],
+  }));
+
+  const markAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(markShiftProgress.value, [0, 1], [0, -6]),
+      },
+    ],
+  }));
+
+  const wordmarkAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: rowProgress.value,
+    width: interpolate(wordmarkProgress.value, [0.86, 1], [wordmarkWidth * 0.84, wordmarkWidth]),
+  }));
 
   return (
-    <Screen scroll={false} title="SOSync" subtitle="Private coordination for the moments that matter most.">
-      <View className="mt-16 rounded-[36px] bg-primary p-8 shadow-soft">
-        <Text className="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">Safety network</Text>
-        <Text className="mt-4 text-5xl font-black text-white">Stay located.</Text>
-        <Text className="mt-2 text-5xl font-black text-white">Stay informed.</Text>
-        <Text className="mt-6 text-base leading-7 text-white/80">
-          SOSync keeps trusted circles aligned during floods, storms, and evacuations without exposing your location
-          outside the people you choose.
-        </Text>
+    <SafeAreaView className="flex-1 bg-page">
+      <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
+      <View className="flex-1 items-center justify-center px-8">
+        <Animated.View className="flex-row items-center justify-center" style={[rowAnimatedStyle, { gap }]}>
+          <Animated.View className="items-center justify-center" style={markAnimatedStyle}>
+            <Image
+              source={splashMarkSource}
+              style={{ height: markSize, width: markSize }}
+              resizeMode="contain"
+            />
+          </Animated.View>
+          <Animated.View className="overflow-hidden" style={wordmarkAnimatedStyle}>
+            <View className="flex-row items-start" style={{ width: wordmarkWidth }}>
+              <Text
+                className="font-semibold text-[#5C1515]"
+                style={{ fontSize: sosSize, letterSpacing: -0.9, lineHeight: sosSize + 2 }}
+              >
+                SoS
+              </Text>
+              <Text
+                className="font-semibold text-black"
+                style={{
+                  fontSize: syncSize,
+                  letterSpacing: -0.6,
+                  lineHeight: syncSize + 2,
+                  marginLeft: -1,
+                  marginTop: 4,
+                }}
+              >
+                ync
+              </Text>
+            </View>
+          </Animated.View>
+        </Animated.View>
       </View>
-    </Screen>
+    </SafeAreaView>
   );
 }

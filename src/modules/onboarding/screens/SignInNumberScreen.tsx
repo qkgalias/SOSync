@@ -1,57 +1,41 @@
-/** Purpose: Start the phone-based authentication flow and OTP request. */
-import { useState } from "react";
+/** Purpose: Preserve the legacy phone sign-in route while redirecting users into email sign-in. */
+import { useEffect } from "react";
 import { useRouter } from "expo-router";
 import { Text, View } from "react-native";
 
+import { AuthScreen } from "@/components/AuthScreen";
+import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/Button";
-import { Screen } from "@/components/Screen";
-import { TextField } from "@/components/TextField";
-import { useAuthSession } from "@/hooks/useAuthSession";
-import { phoneSignInSchema } from "@/utils/validators";
+import { goBackOrReplace } from "@/utils/helpers";
 
 export default function SignInNumberScreen() {
   const router = useRouter();
-  const { startPhoneSignIn } = useAuthSession();
-  const [phoneNumber, setPhoneNumber] = useState("+63");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const handleContinue = async () => {
-    const parsed = phoneSignInSchema.safeParse({ phoneNumber });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Enter a valid phone number.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      await startPhoneSignIn(phoneNumber);
-      router.push("/(onboarding)/verification");
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to send the verification code.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    router.replace("/(onboarding)/signInEmail");
+  }, [router]);
 
   return (
-    <Screen title="Verify your number" subtitle="We’ll send a short OTP code for secure sign-in.">
-      <TextField
-        label="Phone number"
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
-        keyboardType="phone-pad"
-        helperText="Use 111111 as the OTP if you're running without Firebase credentials."
-        error={error}
-      />
-      <Button label="Send code" loading={loading} onPress={handleContinue} />
-      <View className="mt-4">
-        <Text className="text-sm leading-6 text-muted">
-          By continuing, you only authenticate your identity. Location sharing is still opt-in later in onboarding.
-        </Text>
+    <AuthScreen
+      scrollable={false}
+      title="Sign In"
+      topSlot={<BackButton onPress={() => goBackOrReplace(router, "/(onboarding)/welcome")} />}
+      sheetClassName="mt-4 flex-1 px-6 pt-6"
+    >
+      <View className="flex-1 justify-center">
+        <View>
+          <Text className="mb-4 text-center text-[23px] font-semibold text-white">Phone sign-in has been removed</Text>
+          <Text className="text-center text-[14px] leading-6 text-white/95">
+            Continue with your email and password. We now verify new accounts with a code sent to email instead of SMS.
+          </Text>
+          <Button
+            label="Go to email sign in"
+            onPress={() => router.replace("/(onboarding)/signInEmail")}
+            variant="secondary"
+            className="mx-auto mt-10 w-[230px] rounded-full"
+          />
+        </View>
       </View>
-    </Screen>
+    </AuthScreen>
   );
 }
