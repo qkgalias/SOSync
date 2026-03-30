@@ -22,7 +22,9 @@ export const useNotificationLifecycle = (enabled: boolean) => {
           router.replace(route as Href);
         }
       })
-      .catch(() => undefined);
+      .catch((error) => {
+        console.warn("Notification bootstrap failed.", error);
+      });
 
     const unsubscribeForeground = notificationService.listenToForegroundMessages((item) => {
       notificationService.presentForegroundNotification(item).catch(() => undefined);

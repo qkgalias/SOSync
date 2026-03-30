@@ -22,7 +22,7 @@ const RootNavigator = () => {
 export default function RootLayout() {
   return (
     <AppProviders>
-      <StatusBar style="dark" />
+      <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
       <RootNavigator />
     </AppProviders>
   );

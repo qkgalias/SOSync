@@ -5,6 +5,7 @@ describe("helpers", () => {
   it("builds a share-ready invite message", () => {
     expect(buildInviteMessage("Family Circle", "SOS-1234")).toContain("Family Circle");
     expect(buildInviteMessage("Family Circle", "SOS-1234")).toContain("SOS-1234");
+    expect(buildInviteMessage("Family Circle", "SOS-1234")).toContain("Join circle");
   });
 
   it("formats distance labels for meters and kilometers", () => {

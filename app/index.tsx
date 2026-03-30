@@ -2,27 +2,17 @@
 import { Redirect } from "expo-router";
 
 import { useAuthSession } from "@/hooks/useAuthSession";
-
-const onboardingHref = (step?: string) => {
-  switch (step) {
-    case "profile":
-      return "/(onboarding)/profileSetup";
-    case "circle":
-      return "/(onboarding)/createCircle";
-    case "permissions":
-      return "/(onboarding)/permissions";
-    case "verify":
-      return "/(onboarding)/verification";
-    default:
-      return "/(onboarding)/welcome";
-  }
-};
+import { resolveSignedInHref } from "@/utils/sessionRouting";
 
 export default function IndexRoute() {
-  const { isOnboardingComplete, profile, status } = useAuthSession();
+  const { authUser, isOnboardingComplete, profile, status } = useAuthSession();
 
   if (status === "loading") {
     return null;
+  }
+
+  if (status === "signedIn" && authUser?.emailVerified === false) {
+    return <Redirect href="/(onboarding)/verification" />;
   }
 
   if (status === "signedIn" && isOnboardingComplete) {
@@ -30,7 +20,7 @@ export default function IndexRoute() {
   }
 
   if (status === "signedIn") {
-    return <Redirect href={onboardingHref(profile?.onboarding.currentStep)} />;
+    return <Redirect href={resolveSignedInHref(profile)} />;
   }
 
   return <Redirect href="/(onboarding)/splash" />;

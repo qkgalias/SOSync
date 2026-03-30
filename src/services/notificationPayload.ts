@@ -4,7 +4,7 @@ import type { FirebaseMessagingTypes } from "@react-native-firebase/messaging";
 import type { NotificationFeedItem, NotificationKind, NotificationPayloadType } from "@/types";
 
 type NotificationDataShape = Partial<
-  Record<"alertId" | "body" | "createdAt" | "entityId" | "eventId" | "groupId" | "kind" | "targetRoute" | "threadId" | "title" | "type", string>
+  Record<"alertId" | "body" | "createdAt" | "entityId" | "eventId" | "groupId" | "kind" | "senderId" | "targetRoute" | "threadId" | "title" | "type", string>
 >;
 
 const DEFAULT_TITLE = "Incoming update";
@@ -74,6 +74,7 @@ export const buildNotificationFeedItem = (
     title: remoteMessage.notification?.title ?? data.title ?? DEFAULT_TITLE,
     body: remoteMessage.notification?.body ?? data.body ?? DEFAULT_BODY,
     createdAt: data.createdAt ?? new Date().toISOString(),
+    actorUserId: data.senderId,
     targetRoute: resolveNotificationRoute(data) ?? undefined,
   };
 };

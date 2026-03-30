@@ -5,10 +5,13 @@ export type OnboardingStep =
   | "verify"
   | "profile"
   | "circle"
+  | "circle-name"
+  | "invite"
   | "permissions"
   | "complete";
 
-export type ThemePreference = "light" | "system";
+export type ThemePreference = "light" | "dark" | "system";
+export type SafetyStatus = "safe" | "need_help" | "need_evacuation" | "unavailable";
 
 export type UserOnboarding = {
   currentStep: OnboardingStep;
@@ -30,6 +33,17 @@ export type UserPrivacy = {
   emergencyBroadcastEnabled: boolean;
 };
 
+export type UserSecurity = {
+  emailVerified: boolean;
+  emailVerifiedAt?: string;
+};
+
+export type UserSafety = {
+  autoShareLocationOnSos: boolean;
+  autoCallHotlineOnSos: boolean;
+  shareStatusEnabled: boolean;
+};
+
 export type UserProfile = {
   userId: string;
   name: string;
@@ -42,4 +56,6 @@ export type UserProfile = {
   onboarding: UserOnboarding;
   preferences: UserPreferences;
   privacy: UserPrivacy;
+  security: UserSecurity;
+  safety: UserSafety;
 };

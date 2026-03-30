@@ -2,12 +2,23 @@
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
+import {
+  deleteToken as deleteMessagingToken,
+  getInitialNotification as getInitialRemoteNotification,
+  getMessaging,
+  getToken,
+  onMessage,
+  onNotificationOpenedApp,
+  onTokenRefresh,
+  registerDeviceForRemoteMessages,
+} from "@react-native-firebase/messaging";
 import { Platform } from "react-native";
 
+import { resolveActiveFirebaseClientMode } from "@/config/backendRuntime";
 import type { NotificationFeedItem, PushToken } from "@/types";
 import { buildNotificationFeedItem, buildNotificationResponseData, resolveNotificationResponseRoute } from "@/services/notificationPayload";
+import { hasFirebaseApp } from "@/services/firebase";
 import { firestoreService } from "@/services/firestoreService";
-import { firebaseMessaging, hasFirebaseApp } from "@/services/firebase";
 
 const hasGrantedPermission = async () => {
   const settings = await Notifications.getPermissionsAsync();
@@ -24,9 +35,12 @@ const buildPushToken = (token: string): PushToken => ({
   updatedAt: new Date().toISOString(),
 });
 
+const messagingInstance = () => getMessaging();
+const getClientMode = () => resolveActiveFirebaseClientMode(hasFirebaseApp());
+
 const getCurrentToken = async () => {
   try {
-    return await firebaseMessaging().getToken();
+    return await getToken(messagingInstance());
   } catch {
     return null;
   }
@@ -34,12 +48,12 @@ const getCurrentToken = async () => {
 
 export const notificationService = {
   async registerDevice(userId: string) {
-    if (!hasFirebaseApp() || !(await hasGrantedPermission())) {
+    if (getClientMode() === "demo" || !(await hasGrantedPermission())) {
       return null;
     }
 
     try {
-      await firebaseMessaging().registerDeviceForRemoteMessages();
+      await registerDeviceForRemoteMessages(messagingInstance());
     } catch {
       // iOS without APNs or incomplete native setup should not break onboarding flows.
     }
@@ -55,21 +69,25 @@ export const notificationService = {
   },
 
   listenToTokenRefresh(userId: string) {
-    if (!hasFirebaseApp()) {
+    if (getClientMode() === "demo") {
       return () => undefined;
     }
 
-    return firebaseMessaging().onTokenRefresh(async (token) => {
-      await firestoreService.savePushToken(userId, buildPushToken(token));
+    return onTokenRefresh(messagingInstance(), async (token) => {
+      try {
+        await firestoreService.savePushToken(userId, buildPushToken(token));
+      } catch (error) {
+        console.warn("Push token refresh sync failed.", error);
+      }
     });
   },
 
   listenToForegroundMessages(callback: (item: NotificationFeedItem) => void) {
-    if (!hasFirebaseApp()) {
+    if (getClientMode() === "demo") {
       return () => undefined;
     }
 
-    return firebaseMessaging().onMessage((message) => callback(buildNotificationFeedItem(message)));
+    return onMessage(messagingInstance(), (message) => callback(buildNotificationFeedItem(message)));
   },
 
   async presentForegroundNotification(item: NotificationFeedItem) {
@@ -84,6 +102,7 @@ export const notificationService = {
   },
 
   listenToNotificationOpens(callback: (route: string) => void) {
+    const clientMode = getClientMode();
     const localSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const route = resolveNotificationResponseRoute(response.notification.request.content.data);
       if (route) {
@@ -91,11 +110,11 @@ export const notificationService = {
       }
     });
 
-    if (!hasFirebaseApp()) {
+    if (clientMode === "demo") {
       return () => localSubscription.remove();
     }
 
-    const unsubscribeRemote = firebaseMessaging().onNotificationOpenedApp((message) => {
+    const unsubscribeRemote = onNotificationOpenedApp(messagingInstance(), (message) => {
       const route = message ? buildNotificationFeedItem(message).targetRoute : null;
       if (route) {
         callback(route);
@@ -109,6 +128,7 @@ export const notificationService = {
   },
 
   async getInitialNotificationRoute() {
+    const clientMode = getClientMode();
     const response = await Notifications.getLastNotificationResponseAsync();
     const localRoute = resolveNotificationResponseRoute(response?.notification.request.content.data);
     if (localRoute) {
@@ -116,16 +136,16 @@ export const notificationService = {
       return localRoute;
     }
 
-    if (!hasFirebaseApp()) {
+    if (clientMode === "demo") {
       return null;
     }
 
-    const message = await firebaseMessaging().getInitialNotification();
+    const message = await getInitialRemoteNotification(messagingInstance());
     return message ? buildNotificationFeedItem(message).targetRoute ?? null : null;
   },
 
   async deleteCurrentToken(userId: string, tokenId?: string) {
-    if (!hasFirebaseApp()) {
+    if (getClientMode() === "demo") {
       return;
     }
 
@@ -135,6 +155,6 @@ export const notificationService = {
     }
 
     await firestoreService.removePushToken(userId, currentToken).catch(() => undefined);
-    await firebaseMessaging().deleteToken().catch(() => undefined);
+    await deleteMessagingToken(messagingInstance()).catch(() => undefined);
   },
 };

@@ -2,8 +2,11 @@
 import { createContext, startTransition, useContext, useEffect, useMemo, useState } from "react";
 import type { PropsWithChildren } from "react";
 
-import type { Group, GroupInvite, UserProfile } from "@/types";
+import type { Group, GroupRole, UserProfile } from "@/types";
+import { resolveActiveFirebaseClientMode } from "@/config/backendRuntime";
 import { authService, type AuthIdentity } from "@/services/authService";
+import { circleService } from "@/services/circleService";
+import { hasFirebaseApp } from "@/services/firebase";
 import { firestoreService } from "@/services/firestoreService";
 import { notificationService } from "@/services/notificationService";
 import { USER_SEED } from "@/utils/constants";
@@ -14,16 +17,24 @@ type SessionContextValue = {
   profile: UserProfile | null;
   groups: Group[];
   selectedGroupId: string | null;
-  pendingPhoneNumber: string;
+  pendingVerificationEmail: string;
   isOnboardingComplete: boolean;
-  setSelectedGroupId: (groupId: string) => void;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (name: string, email: string, password: string) => Promise<void>;
-  startPhoneSignIn: (phoneNumber: string) => Promise<void>;
-  confirmPhoneCode: (code: string) => Promise<void>;
+  setSelectedGroupId: (groupId: string | null) => void;
+  signInWithEmail: (email: string, password: string) => Promise<AuthIdentity>;
+  signUpWithEmail: (name: string, email: string, password: string) => Promise<AuthIdentity>;
+  sendEmailOtp: () => Promise<{ resendAvailableAt: string; sentAt: string }>;
+  resendEmailOtp: () => Promise<{ resendAvailableAt: string; sentAt: string }>;
+  verifyEmailOtp: (code: string) => Promise<AuthIdentity>;
+  updatePassword: (currentPassword: string, nextPassword: string) => Promise<void>;
   saveProfile: (nextProfile: Partial<UserProfile>) => Promise<UserProfile>;
   createCircle: (name: string) => Promise<Group>;
-  createInvite: (contact: string, channel: GroupInvite["channel"]) => Promise<GroupInvite>;
+  joinCircleWithInvite: (inviteCode: string) => Promise<void>;
+  skipCircleSetup: () => Promise<UserProfile>;
+  leaveCircle: (groupId: string) => Promise<void>;
+  removeCircleMember: (groupId: string, targetUserId: string) => Promise<void>;
+  updateCircleMemberRole: (groupId: string, targetUserId: string, nextRole: GroupRole) => Promise<void>;
+  transferCircleOwnership: (groupId: string, nextOwnerUserId: string) => Promise<void>;
+  deleteAccount: (currentPassword?: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -34,8 +45,51 @@ export const SessionProvider = ({ children }: PropsWithChildren) => {
   const [authUser, setAuthUser] = useState<AuthIdentity | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const pendingPhoneNumber = authService.getPendingPhoneNumber();
+  const [selectedGroupId, setSelectedGroupIdState] = useState<string | null>(null);
+  const pendingVerificationEmail = authService.getPendingVerificationEmail();
+  const defaultOnboarding: UserProfile["onboarding"] = {
+    currentStep: "welcome",
+    profileComplete: false,
+    circleComplete: false,
+    permissionsComplete: false,
+  };
+
+  const normalizeProfile = (nextProfile: UserProfile | null) => {
+    if (!nextProfile) {
+      return null;
+    }
+
+    const nextProfileSecurity = nextProfile.security ?? USER_SEED.security;
+
+    return {
+      ...nextProfile,
+      name: nextProfile.name ?? authUser?.displayName ?? "",
+      email: nextProfile.email ?? authUser?.email ?? undefined,
+      phoneNumber: nextProfile.phoneNumber ?? authUser?.phoneNumber ?? undefined,
+      photoURL: nextProfile.photoURL ?? authUser?.photoURL ?? undefined,
+      onboarding: {
+        ...defaultOnboarding,
+        ...(nextProfile.onboarding ?? {}),
+      },
+      preferences: {
+        ...USER_SEED.preferences,
+        ...(nextProfile.preferences ?? {}),
+      },
+      privacy: {
+        ...USER_SEED.privacy,
+        ...(nextProfile.privacy ?? {}),
+      },
+      security: {
+        ...USER_SEED.security,
+        ...nextProfileSecurity,
+        emailVerified: Boolean(nextProfileSecurity.emailVerified || authUser?.emailVerified),
+      },
+      safety: {
+        ...USER_SEED.safety,
+        ...(nextProfile.safety ?? {}),
+      },
+    };
+  };
 
   useEffect(() => authService.subscribe((user) => {
     setAuthUser(user);
@@ -47,14 +101,14 @@ export const SessionProvider = ({ children }: PropsWithChildren) => {
       startTransition(() => {
         setProfile(null);
         setGroups([]);
-        setSelectedGroupId(null);
+        setSelectedGroupIdState(null);
       });
       return;
     }
 
     const unsubscribeProfile = firestoreService.listenToProfile(authUser.uid, (nextProfile) => {
       startTransition(() => {
-        setProfile(nextProfile);
+        setProfile(normalizeProfile(nextProfile));
       });
     });
 
@@ -71,8 +125,27 @@ export const SessionProvider = ({ children }: PropsWithChildren) => {
   }, [authUser]);
 
   useEffect(() => {
-    if (!selectedGroupId) {
-      setSelectedGroupId(profile?.defaultGroupId ?? groups[0]?.groupId ?? null);
+    if (!groups.length) {
+      if (selectedGroupId !== null) {
+        setSelectedGroupIdState(null);
+      }
+      return;
+    }
+
+    const selectedGroupStillExists = selectedGroupId
+      ? groups.some((group) => group.groupId === selectedGroupId)
+      : false;
+
+    if (selectedGroupStillExists) {
+      return;
+    }
+
+    const preferredGroupId = profile?.defaultGroupId;
+    const nextGroupId =
+      groups.find((group) => group.groupId === preferredGroupId)?.groupId ?? groups[0]?.groupId ?? null;
+
+    if (nextGroupId !== selectedGroupId) {
+      setSelectedGroupIdState(nextGroupId);
     }
   }, [groups, profile?.defaultGroupId, selectedGroupId]);
 
@@ -81,7 +154,9 @@ export const SessionProvider = ({ children }: PropsWithChildren) => {
       return;
     }
 
-    notificationService.registerDevice(authUser.uid).catch(() => undefined);
+    notificationService.registerDevice(authUser.uid).catch((error) => {
+      console.warn("Device push registration failed.", error);
+    });
     const unsubscribeTokenRefresh = notificationService.listenToTokenRefresh(authUser.uid);
 
     return () => {
@@ -89,42 +164,273 @@ export const SessionProvider = ({ children }: PropsWithChildren) => {
     };
   }, [authUser?.uid]);
 
-  const saveProfile = async (nextProfile: Partial<UserProfile>) => {
-    const currentUser = authUser ?? { uid: USER_SEED.userId };
-    const mergedProfile: UserProfile = {
-      ...(profile ?? USER_SEED),
+  const buildMergedProfile = (nextProfile: Partial<UserProfile>, userId: string): UserProfile => {
+    const baseProfile =
+      profile ?? {
+        ...USER_SEED,
+        userId,
+        name: authUser?.displayName ?? "",
+        email: authUser?.email ?? undefined,
+        phoneNumber: authUser?.phoneNumber ?? undefined,
+        photoURL: authUser?.photoURL ?? undefined,
+        defaultGroupId: undefined,
+        createdAt: new Date().toISOString(),
+        lastActive: new Date().toISOString(),
+        onboarding: {
+          ...defaultOnboarding,
+        },
+      };
+
+    const mergedSecurity = {
+      ...(baseProfile.security ?? USER_SEED.security),
+      ...(nextProfile.security ?? {}),
+      emailVerified: Boolean(
+        baseProfile.security?.emailVerified ||
+          nextProfile.security?.emailVerified ||
+          authUser?.emailVerified,
+      ),
+    };
+
+    return {
+      ...baseProfile,
       ...nextProfile,
-      userId: currentUser.uid,
+      userId,
       email: nextProfile.email ?? profile?.email ?? authUser?.email ?? USER_SEED.email,
-      phoneNumber:
-        nextProfile.phoneNumber ?? profile?.phoneNumber ?? authUser?.phoneNumber ?? USER_SEED.phoneNumber,
+      phoneNumber: nextProfile.phoneNumber ?? profile?.phoneNumber ?? authUser?.phoneNumber ?? USER_SEED.phoneNumber,
+      onboarding: {
+        ...(profile?.onboarding ?? defaultOnboarding),
+        ...(nextProfile.onboarding ?? {}),
+      },
+      preferences: {
+        ...(profile?.preferences ?? USER_SEED.preferences),
+        ...(nextProfile.preferences ?? {}),
+      },
+      privacy: {
+        ...(profile?.privacy ?? USER_SEED.privacy),
+        ...(nextProfile.privacy ?? {}),
+      },
+      security: mergedSecurity,
+      safety: {
+        ...(profile?.safety ?? USER_SEED.safety),
+        ...(nextProfile.safety ?? {}),
+      },
       lastActive: new Date().toISOString(),
+    };
+  };
+
+  const upsertGroupState = (nextGroup: Group) => {
+    setGroups((currentGroups) => {
+      const existingIndex = currentGroups.findIndex((group) => group.groupId === nextGroup.groupId);
+      if (existingIndex === -1) {
+        return [nextGroup, ...currentGroups];
+      }
+
+      const updatedGroups = [...currentGroups];
+      updatedGroups[existingIndex] = { ...updatedGroups[existingIndex], ...nextGroup };
+      return updatedGroups;
+    });
+  };
+
+  const patchGroupState = (groupId: string, updates: Partial<Group>) => {
+    setGroups((currentGroups) =>
+      currentGroups.map((group) => (group.groupId === groupId ? { ...group, ...updates } : group)),
+    );
+  };
+
+  const syncProfileInBackground = (nextProfile: UserProfile) => {
+    void firestoreService.saveProfile(nextProfile).then((savedProfile) => {
+      startTransition(() => {
+        setProfile(savedProfile);
+      });
+    }).catch((error) => {
+      console.warn("Background profile sync failed.", error);
+    });
+  };
+
+  const requireSessionUserId = () => {
+    const resolvedUserId = authUser?.uid ?? authService.getCurrentUserIdentity()?.uid;
+
+    if (resolveActiveFirebaseClientMode(hasFirebaseApp()) === "firebase" && !resolvedUserId) {
+      throw new Error("Your Firebase session is still loading. Please try again.");
+    }
+
+    return resolvedUserId ?? USER_SEED.userId;
+  };
+
+  const setSelectedGroupId = (groupId: string | null) => {
+    setSelectedGroupIdState(groupId);
+
+    if (!authUser?.uid || !profile) {
+      return;
+    }
+
+    const optimisticProfile = buildMergedProfile({ defaultGroupId: groupId ?? undefined }, authUser.uid);
+    startTransition(() => {
+      setProfile(optimisticProfile);
+    });
+    syncProfileInBackground(optimisticProfile);
+  };
+
+  const saveProfile = async (nextProfile: Partial<UserProfile>) => {
+    const currentUser = { uid: requireSessionUserId() };
+    const mergedProfile: UserProfile = {
+      ...buildMergedProfile(nextProfile, currentUser.uid),
     };
 
     const savedProfile = await firestoreService.saveProfile(mergedProfile);
+    await firestoreService.syncGroupMemberProfile(currentUser.uid, groups, savedProfile).catch(() => undefined);
     setProfile(savedProfile);
     return savedProfile;
   };
 
-  const createCircle = async (name: string) => {
-    const userId = authUser?.uid ?? USER_SEED.userId;
-    const group = await firestoreService.createGroup(userId, name);
-    setSelectedGroupId(group.groupId);
-    await saveProfile({
-      defaultGroupId: group.groupId,
-      onboarding: {
-        currentStep: "permissions",
+  const resolveCircleOnboardingState = (nextStep: "invite" | "permissions") => {
+    const alreadyComplete = Boolean(
+      profile?.security?.emailVerified &&
+        profile?.onboarding?.profileComplete &&
+        profile?.onboarding?.circleComplete &&
+        profile?.onboarding?.permissionsComplete,
+    );
+
+    if (alreadyComplete) {
+      return {
+        currentStep: "complete" as const,
         profileComplete: true,
         circleComplete: true,
-        permissionsComplete: false,
-      },
+        permissionsComplete: true,
+      };
+    }
+
+    return {
+      currentStep: nextStep,
+      profileComplete: true,
+      circleComplete: true,
+      permissionsComplete: false,
+    };
+  };
+
+  const createCircle = async (name: string) => {
+    const userId = requireSessionUserId();
+    const group = await circleService.createCircle({
+      name,
+      displayName: profile?.name ?? authUser?.displayName ?? "Responder",
     });
+    const optimisticProfile: UserProfile = buildMergedProfile(
+      {
+        defaultGroupId: group.groupId,
+        onboarding: resolveCircleOnboardingState("invite"),
+      },
+      userId,
+    );
+
+    startTransition(() => {
+      setSelectedGroupIdState(group.groupId);
+      upsertGroupState(group);
+      setProfile(optimisticProfile);
+    });
+
+    syncProfileInBackground(optimisticProfile);
+    await firestoreService.syncGroupMemberProfile(userId, [group], optimisticProfile).catch(() => undefined);
+
     return group;
   };
 
-  const createInvite = async (contact: string, channel: GroupInvite["channel"]) => {
-    const groupId = selectedGroupId ?? groups[0]?.groupId ?? "demo-group";
-    return firestoreService.createInvite(groupId, authUser?.uid ?? USER_SEED.userId, contact, channel);
+  const joinCircleWithInvite = async (inviteCode: string) => {
+    const userId = requireSessionUserId();
+
+    const response = await circleService.joinCircleByCode({
+      inviteCode,
+      displayName: profile?.name ?? authUser?.displayName ?? "Responder",
+    });
+    const joinedGroup = response.group;
+
+    const optimisticProfile: UserProfile = buildMergedProfile(
+      {
+        defaultGroupId: joinedGroup.groupId,
+        onboarding: resolveCircleOnboardingState("permissions"),
+      },
+      userId,
+    );
+
+    startTransition(() => {
+      setSelectedGroupIdState(joinedGroup.groupId);
+      upsertGroupState(joinedGroup);
+      setProfile(optimisticProfile);
+    });
+
+    syncProfileInBackground(optimisticProfile);
+    await firestoreService.syncGroupMemberProfile(userId, [joinedGroup], optimisticProfile).catch(() => undefined);
+  };
+
+  const skipCircleSetup = async () => {
+    const userId = requireSessionUserId();
+    const optimisticProfile: UserProfile = buildMergedProfile(
+      {
+        defaultGroupId: undefined,
+        onboarding: {
+          currentStep: "permissions",
+          profileComplete: true,
+          circleComplete: true,
+          permissionsComplete: false,
+        },
+      },
+      userId,
+    );
+
+    startTransition(() => {
+      setSelectedGroupIdState(null);
+      setProfile(optimisticProfile);
+    });
+
+    syncProfileInBackground(optimisticProfile);
+    return optimisticProfile;
+  };
+
+  const leaveCircle = async (groupId: string) => {
+    const userId = requireSessionUserId();
+    await circleService.leaveCircle({ groupId });
+
+    const remainingGroups = groups.filter((group) => group.groupId !== groupId);
+    const nextDefaultGroupId =
+      selectedGroupId === groupId
+        ? remainingGroups.find((group) => group.groupId === profile?.defaultGroupId)?.groupId ??
+          remainingGroups[0]?.groupId ??
+          null
+        : profile?.defaultGroupId ?? remainingGroups[0]?.groupId ?? null;
+
+    startTransition(() => {
+      setGroups(remainingGroups);
+      if (selectedGroupId === groupId) {
+        setSelectedGroupIdState(nextDefaultGroupId);
+      }
+    });
+
+    if (profile) {
+      const optimisticProfile = buildMergedProfile({ defaultGroupId: nextDefaultGroupId ?? undefined }, userId);
+      startTransition(() => {
+        setProfile(optimisticProfile);
+      });
+      syncProfileInBackground(optimisticProfile);
+    }
+  };
+
+  const removeCircleMember = async (groupId: string, targetUserId: string) => {
+    await circleService.removeMember({ groupId, targetUserId });
+    const currentGroup = groups.find((group) => group.groupId === groupId);
+    if (currentGroup) {
+      patchGroupState(groupId, { membersCount: Math.max(currentGroup.membersCount - 1, 0) });
+    }
+  };
+
+  const updateCircleMemberRole = async (groupId: string, targetUserId: string, nextRole: GroupRole) => {
+    await circleService.updateMemberRole({ groupId, targetUserId, nextRole });
+    if (targetUserId === authUser?.uid) {
+      patchGroupState(groupId, { memberRole: nextRole });
+    }
+  };
+
+  const transferCircleOwnership = async (groupId: string, nextOwnerUserId: string) => {
+    await circleService.transferOwnership({ groupId, nextOwnerUserId });
+    patchGroupState(groupId, { ownerId: nextOwnerUserId });
   };
 
   const value = useMemo<SessionContextValue>(
@@ -134,28 +440,61 @@ export const SessionProvider = ({ children }: PropsWithChildren) => {
       profile,
       groups,
       selectedGroupId,
-      pendingPhoneNumber,
+      pendingVerificationEmail,
       isOnboardingComplete: Boolean(
-        profile?.onboarding.profileComplete &&
-          profile?.onboarding.circleComplete &&
-          profile?.onboarding.permissionsComplete,
+        profile?.security?.emailVerified &&
+        profile?.onboarding?.profileComplete &&
+          profile?.onboarding?.circleComplete &&
+          profile?.onboarding?.permissionsComplete,
       ),
       setSelectedGroupId,
       signInWithEmail: async (email, password) => {
-        await authService.signInWithEmail(email, password);
+        const nextUser = await authService.signInWithEmail(email, password);
+        startTransition(() => {
+          setAuthUser(nextUser);
+        });
+        return nextUser;
       },
       signUpWithEmail: async (name, email, password) => {
-        await authService.signUpWithEmail(name, email, password);
+        const nextUser = await authService.signUpWithEmail(name, email, password);
+        startTransition(() => {
+          setAuthUser(nextUser);
+        });
+        return nextUser;
       },
-      startPhoneSignIn: async (phoneNumber) => {
-        await authService.startPhoneSignIn(phoneNumber);
+      sendEmailOtp: async () => {
+        return authService.sendEmailOtp();
       },
-      confirmPhoneCode: async (code) => {
-        await authService.confirmPhoneCode(code);
+      resendEmailOtp: async () => {
+        return authService.resendEmailOtp();
+      },
+      verifyEmailOtp: async (code) => {
+        const nextUser = await authService.verifyEmailOtp(code);
+        startTransition(() => {
+          setAuthUser(nextUser);
+        });
+        return nextUser;
+      },
+      updatePassword: async (currentPassword, nextPassword) => {
+        await authService.updatePassword(currentPassword, nextPassword);
       },
       saveProfile,
       createCircle,
-      createInvite,
+      joinCircleWithInvite,
+      skipCircleSetup,
+      leaveCircle,
+      removeCircleMember,
+      updateCircleMemberRole,
+      transferCircleOwnership,
+      deleteAccount: async (currentPassword) => {
+        if (authUser?.uid) {
+          await firestoreService.deleteAccountData(
+            authUser.uid,
+            groups.map((group) => group.groupId),
+          );
+        }
+        await authService.deleteAccount(currentPassword);
+      },
       signOut: async () => {
         if (authUser?.uid) {
           await notificationService.deleteCurrentToken(authUser.uid).catch(() => undefined);
@@ -163,7 +502,7 @@ export const SessionProvider = ({ children }: PropsWithChildren) => {
         await authService.signOut();
       },
     }),
-    [authUser, createCircle, groups, pendingPhoneNumber, profile, selectedGroupId, status],
+    [authUser, groups, pendingVerificationEmail, profile, selectedGroupId, status],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

@@ -10,6 +10,20 @@ export const locationService = {
     return Location.requestForegroundPermissionsAsync();
   },
 
+  async reverseGeocode(coordinate: { latitude: number; longitude: number }) {
+    const [result] = await Location.reverseGeocodeAsync(coordinate);
+    if (!result) {
+      return null;
+    }
+
+    const primaryLine = [result.streetNumber, result.street].filter(Boolean).join(" ").trim();
+    if (primaryLine) {
+      return primaryLine;
+    }
+
+    return [result.district, result.city, result.region].filter(Boolean).join(", ").trim() || null;
+  },
+
   async getCurrentPosition() {
     const permission = await Location.requestForegroundPermissionsAsync();
     if (permission.status !== "granted") {

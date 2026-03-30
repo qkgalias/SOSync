@@ -1,12 +1,15 @@
-/** Purpose: Group, member, and invite contracts for trusted circle collaboration. */
+/** Purpose: Group, member, and circle-preference contracts for trusted circle collaboration. */
+import type { SafetyStatus } from "@/types/user";
+
 export type GroupRole = "admin" | "member";
 
 export type Group = {
   groupId: string;
   name: string;
   createdBy: string;
+  ownerId: string;
   createdAt: string;
-  groupCode: string;
+  inviteCode: string;
   membersCount: number;
   memberRole?: GroupRole;
   region: string;
@@ -20,20 +23,23 @@ export type GroupMember = {
   joinedAt: string;
   phoneNumber?: string;
   email?: string;
+  photoURL?: string;
 };
 
-export type GroupInviteStatus = "pending" | "accepted" | "expired";
-
-export type GroupInviteChannel = "share" | "sms" | "email";
-
-export type GroupInvite = {
-  inviteId: string;
+export type GroupPreferences = {
   groupId: string;
-  createdBy: string;
-  inviteCode: string;
-  channel: GroupInviteChannel;
-  contact: string;
-  status: GroupInviteStatus;
+  primaryContactIds: string[];
+  preferredHotlineId?: string;
+};
+
+export type GroupStatus = {
+  groupId: string;
+  userId: string;
+  status: SafetyStatus;
+  updatedAt: string;
+};
+
+export type BlockedUser = {
+  blockedUserId: string;
   createdAt: string;
-  expiresAt: string;
 };

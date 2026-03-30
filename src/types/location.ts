@@ -1,5 +1,7 @@
 /** Purpose: Location, route, and evacuation center contracts for mapping flows. */
 export type SharingState = "live" | "paused" | "sos";
+export type MapCoordinate = { latitude: number; longitude: number };
+export type HomeMapAppearance = "light" | "dark";
 
 export type GroupLocation = {
   locationId: string;
@@ -29,3 +31,21 @@ export type RouteSummary = {
   encodedPolyline: string;
   targetCenterId: string;
 };
+
+export type HomeMapMarker = {
+  markerId: string;
+  userId: string;
+  displayName: string;
+  role?: string;
+  photoURL?: string;
+  latitude: number;
+  longitude: number;
+  sharingState: SharingState;
+  isCurrentUser: boolean;
+  isPrimaryContact: boolean;
+};
+
+export type HomeMapFocusTarget =
+  | { kind: "currentUser"; token: number }
+  | { kind: "center"; centerId: string; token: number }
+  | { kind: "marker"; markerId: string; token: number };

@@ -1,4 +1,4 @@
-/** Purpose: Prepare splash handling, emulator wiring, and root app readiness. */
+/** Purpose: Prepare splash handling, explicit emulator opt-in wiring, and root app readiness. */
 import { useEffect, useState } from "react";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";

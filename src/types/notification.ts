@@ -10,6 +10,13 @@ export type NotificationFeedItem = {
   body: string;
   createdAt: string;
   targetRoute?: string;
+  actorUserId?: string;
+  readAt?: string | null;
+};
+
+export type NotificationReadReceipt = {
+  feedItemId: string;
+  readAt: string;
 };
 
 export type PushToken = {
