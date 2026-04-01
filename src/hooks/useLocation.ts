@@ -1,5 +1,5 @@
 /** Purpose: Track the current user position, nearby centers, and active group map data. */
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { EvacuationCenter, GroupLocation, RouteSummary } from "@/types";
 import { apiService } from "@/services/apiService";
@@ -12,30 +12,15 @@ export const useLocation = (
   userId: string | undefined,
   groupId: string | null,
   sharingEnabled: boolean,
+  blockedUserIds: string[] = [],
   region = "PH",
 ) => {
   const [permissionStatus, setPermissionStatus] = useState<"idle" | "granted" | "denied">("idle");
   const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
-  const [groupLocations, setGroupLocations] = useState<GroupLocation[]>([]);
+  const [rawGroupLocations, setRawGroupLocations] = useState<GroupLocation[]>([]);
   const [centers, setCenters] = useState<EvacuationCenter[]>([]);
   const [route, setRoute] = useState<RouteSummary | null>(null);
-
-  const persistLocation = useEffectEvent(async (next: CurrentLocation) => {
-    setCurrentLocation(next);
-
-    if (!userId || !groupId || !sharingEnabled) {
-      return;
-    }
-
-    await firestoreService.upsertLocation({
-      userId,
-      groupId,
-      latitude: next.latitude,
-      longitude: next.longitude,
-      accuracy: next.accuracy,
-      sharingState: "live",
-    });
-  });
+  const previousSharingEnabled = useRef(sharingEnabled);
 
   useEffect(() => {
     firestoreService.listEvacuationCenters(region).then(setCenters).catch(() => setCenters([]));
@@ -43,11 +28,11 @@ export const useLocation = (
 
   useEffect(() => {
     if (!groupId) {
-      setGroupLocations([]);
+      setRawGroupLocations([]);
       return;
     }
 
-    return firestoreService.listenToLocations(groupId, setGroupLocations);
+    return firestoreService.listenToLocations(groupId, setRawGroupLocations);
   }, [groupId]);
 
   useEffect(() => {
@@ -62,13 +47,13 @@ export const useLocation = (
         }
 
         setPermissionStatus("granted");
-        persistLocation({
+        setCurrentLocation({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           accuracy: location.coords.accuracy ?? undefined,
         });
         return locationService.watchPosition((next) =>
-          persistLocation({
+          setCurrentLocation({
             latitude: next.coords.latitude,
             longitude: next.coords.longitude,
             accuracy: next.coords.accuracy ?? undefined,
@@ -88,11 +73,56 @@ export const useLocation = (
       active = false;
       subscription?.remove();
     };
-  }, [persistLocation]);
+  }, []);
+
+  useEffect(() => {
+    if (!currentLocation || !userId || !groupId) {
+      previousSharingEnabled.current = sharingEnabled;
+      return;
+    }
+
+    if (sharingEnabled) {
+      previousSharingEnabled.current = true;
+      void firestoreService.upsertLocation({
+        userId,
+        groupId,
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        accuracy: currentLocation.accuracy,
+        sharingState: "live",
+      });
+      return;
+    }
+
+    if (previousSharingEnabled.current) {
+      void firestoreService.upsertLocation({
+        userId,
+        groupId,
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        accuracy: currentLocation.accuracy,
+        sharingState: "paused",
+      });
+    }
+
+    previousSharingEnabled.current = false;
+  }, [
+    currentLocation,
+    groupId,
+    sharingEnabled,
+    userId,
+  ]);
 
   const nearestCenter = useMemo(
     () => locationService.getNearestCenter(currentLocation, centers),
     [centers, currentLocation],
+  );
+  const groupLocations = useMemo(
+    () =>
+      rawGroupLocations.filter(
+        (location) => !blockedUserIds.includes(location.userId) && location.sharingState !== "paused",
+      ),
+    [blockedUserIds, rawGroupLocations],
   );
 
   const requestRoute = async () => {
