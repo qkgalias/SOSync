@@ -2,17 +2,11 @@
 import { useEffect, useState } from "react";
 
 import { env } from "@/config/env";
+import type { EmergencyHotline } from "@/types";
 import { firestoreService } from "@/services/firestoreService";
 
-type Hotline = {
-  hotlineId: string;
-  name: string;
-  phone: string;
-  region: string;
-};
-
 export const useHotlines = () => {
-  const [hotlines, setHotlines] = useState<Hotline[]>([]);
+  const [hotlines, setHotlines] = useState<EmergencyHotline[]>([]);
 
   useEffect(() => firestoreService.listenToHotlines(env.defaultRegion, setHotlines), []);
 
