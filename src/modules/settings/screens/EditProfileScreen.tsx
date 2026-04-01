@@ -108,11 +108,7 @@ export default function EditProfileScreen() {
                   This permanently removes your SOSync profile, circles, alerts, and saved preferences.
                 </Text>
               </View>
-              <Pressable
-                className="h-9 w-9 items-center justify-center rounded-full border border-profileAccent/20 bg-profileAccentSoft"
-                hitSlop={10}
-                onPress={closeDeleteModal}
-              >
+              <Pressable className="h-9 w-9 items-center justify-center" hitSlop={10} onPress={closeDeleteModal}>
                 <MaterialCommunityIcons color={PROFILE_ACCENT} name="close" size={22} />
               </Pressable>
             </View>

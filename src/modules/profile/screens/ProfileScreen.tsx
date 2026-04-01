@@ -1,6 +1,6 @@
 /** Purpose: Present the polished signed-in profile hub with circle summary, settings entry points, and modal join flow. */
 import { useMemo, useState } from "react";
-import { Image, Modal, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Modal, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -11,6 +11,7 @@ import { SettingsRow } from "@/components/SettingsRow";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
 import { useGroupMembers } from "@/hooks/useGroupMembers";
+import { profileMediaService } from "@/services/profileMediaService";
 import { toInitials } from "@/utils/helpers";
 import { inviteCodeSchema } from "@/utils/validators";
 
@@ -37,11 +38,13 @@ const AvatarPreview = ({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { authUser, groups, joinCircleWithInvite, profile, selectedGroupId, signOut } = useAuthSession();
+  const { authUser, groups, joinCircleWithInvite, profile, saveProfile, selectedGroupId, signOut } = useAuthSession();
   const [inviteCode, setInviteCode] = useState("");
   const [joinVisible, setJoinVisible] = useState(false);
   const [loadingAction, setLoadingAction] = useState<"join" | null>(null);
+  const [avatarLoading, setAvatarLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [statusTone, setStatusTone] = useState<"success" | "error">("success");
   const [joinError, setJoinError] = useState("");
 
   const activeGroup = groups.find((group) => group.groupId === selectedGroupId) ?? groups[0];
@@ -72,6 +75,7 @@ export default function ProfileScreen() {
     setLoadingAction("join");
     setJoinError("");
     setStatusMessage("");
+    setStatusTone("success");
 
     try {
       await joinCircleWithInvite(parsed.data.inviteCode);
@@ -84,10 +88,38 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleChooseAvatar = async () => {
+    if (!authUser?.uid) {
+      setStatusTone("error");
+      setStatusMessage("Your session is still loading. Please try updating your profile photo again.");
+      return;
+    }
+
+    setAvatarLoading(true);
+    setStatusMessage("");
+    setStatusTone("success");
+
+    try {
+      const asset = await profileMediaService.pickImage();
+      if (!asset?.uri) {
+        return;
+      }
+
+      const uploadedPhotoUrl = await profileMediaService.uploadProfilePhoto(authUser.uid, asset.uri);
+      await saveProfile({ photoURL: uploadedPhotoUrl });
+      setStatusMessage("Profile photo updated.");
+    } catch (error) {
+      setStatusTone("error");
+      setStatusMessage(error instanceof Error ? error.message : "Unable to update your profile photo right now.");
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
   return (
     <Screen title="Profile" centerTitle contentClassName="pb-10">
       <View className="items-center px-2 pt-5">
-        <Pressable className="relative" onPress={() => router.push("/account/edit" as never)}>
+        <View className="relative">
           <View className="h-28 w-28 items-center justify-center rounded-full bg-panel">
             {profile?.photoURL ? (
               <Image className="h-28 w-28 rounded-full" resizeMode="cover" source={{ uri: profile.photoURL }} />
@@ -95,10 +127,19 @@ export default function ProfileScreen() {
               <Text className="text-[30px] font-semibold text-muted">{toInitials(profile?.name ?? "SOSync")}</Text>
             )}
           </View>
-          <View className="absolute bottom-1 right-1 h-10 w-10 items-center justify-center rounded-full border border-line bg-page shadow-soft">
-            <MaterialCommunityIcons color={PROFILE_ACCENT} name="pencil-outline" size={20} />
-          </View>
-        </Pressable>
+          <Pressable
+            className="absolute bottom-1 right-1 h-10 w-10 items-center justify-center rounded-full border border-line bg-page shadow-soft"
+            disabled={avatarLoading}
+            hitSlop={10}
+            onPress={() => void handleChooseAvatar()}
+          >
+            {avatarLoading ? (
+              <ActivityIndicator color={PROFILE_ACCENT} size="small" />
+            ) : (
+              <MaterialCommunityIcons color={PROFILE_ACCENT} name="pencil-outline" size={20} />
+            )}
+          </Pressable>
+        </View>
 
         <Text className="mt-5 text-[30px] font-semibold text-ink">{profile?.name ?? "Responder"}</Text>
         {contactLines.map((line) => (
@@ -144,7 +185,7 @@ export default function ProfileScreen() {
               <Button
                 className="min-h-10 rounded-full bg-profileAccent px-4 py-2"
                 label="Manage"
-                onPress={() => router.push("/account" as never)}
+                onPress={() => router.push(`/account/circle/${activeGroup.groupId}` as never)}
                 textClassName="text-sm text-white"
               />
             </View>
@@ -183,7 +224,11 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {statusMessage ? <Text className="mt-4 text-sm text-profileAccent">{statusMessage}</Text> : null}
+      {statusMessage ? (
+        <Text className={`mt-4 text-sm ${statusTone === "error" ? "text-danger" : "text-profileAccent"}`}>
+          {statusMessage}
+        </Text>
+      ) : null}
 
       <SettingsRow
         className="mt-8 rounded-[22px] px-5 py-5"
@@ -220,11 +265,7 @@ export default function ProfileScreen() {
                   Enter the 6-digit invite code shared with you by a trusted circle owner or admin.
                 </Text>
               </View>
-              <Pressable
-                className="h-9 w-9 items-center justify-center rounded-full border border-profileAccent/20 bg-profileAccentSoft"
-                hitSlop={10}
-                onPress={closeJoinModal}
-              >
+              <Pressable className="h-9 w-9 items-center justify-center" hitSlop={10} onPress={closeJoinModal}>
                 <MaterialCommunityIcons color={PROFILE_ACCENT} name="close" size={22} />
               </Pressable>
             </View>

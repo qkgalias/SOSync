@@ -33,7 +33,7 @@ export default function GeneralScreen() {
           className="rounded-[22px]"
           icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="account-circle-outline" size={23} />}
           onPress={() => router.push("/account" as never)}
-          subtitle="Manage your login and security settings"
+          subtitle="Manage your profile, circles, and security settings"
           subtitleClassName="text-[13px] leading-5 text-muted"
           titleClassName="text-[18px] font-medium text-ink"
           title="Account"

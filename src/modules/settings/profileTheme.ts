@@ -1,6 +1,5 @@
 /** Purpose: Keep the signed-in profile/settings stack on one consistent Home-red visual standard. */
 export const PROFILE_ACCENT = "#5C1515";
-export const PROFILE_ACCENT_SOFT = "#F4E2E1";
 
 export const getCircleRoleLabel = (isOwner: boolean, role?: "admin" | "member") => {
   if (isOwner) {

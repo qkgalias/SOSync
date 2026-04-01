@@ -113,7 +113,7 @@ const HelpModal = ({
               <Text className="text-[24px] font-semibold text-ink">{content.title}</Text>
               <Text className="mt-2 text-sm leading-6 text-muted">In-app guidance for the current SOSync build.</Text>
             </View>
-            <Pressable className="h-9 w-9 items-center justify-center rounded-full border border-profileAccent/20 bg-profileAccentSoft" hitSlop={10} onPress={onClose}>
+            <Pressable className="h-9 w-9 items-center justify-center" hitSlop={10} onPress={onClose}>
               <MaterialCommunityIcons color={PROFILE_ACCENT} name="close" size={22} />
             </Pressable>
           </View>
