@@ -16,7 +16,10 @@ export default function TabsLayout() {
       detachInactiveScreens={false}
       initialRouteName="home"
       screenOptions={{
+        animation: "none",
+        freezeOnBlur: false,
         headerShown: false,
+        lazy: false,
       }}
       tabBar={(props) => <PrototypeTabBar {...props} />}
     >
