@@ -14,12 +14,25 @@ type StoredPushToken = {
 
 const staleTokenErrorCodes = new Set(["messaging/invalid-registration-token", "messaging/registration-token-not-registered"]);
 
-const getGroupTokens = async (groupId: string, excludeUserId?: string) => {
+const usersAreBlocked = async (leftUserId: string, rightUserId: string) => {
+  const [leftBlocksRight, rightBlocksLeft] = await Promise.all([
+    adminDb.collection("users").doc(leftUserId).collection("blockedUsers").doc(rightUserId).get(),
+    adminDb.collection("users").doc(rightUserId).collection("blockedUsers").doc(leftUserId).get(),
+  ]);
+
+  return leftBlocksRight.exists || rightBlocksLeft.exists;
+};
+
+const getGroupTokens = async (groupId: string, excludeUserId?: string, actorUserId?: string) => {
   const members = await adminDb.collection("groups").doc(groupId).collection("members").get();
   const tokenGroups = await Promise.all(
     members.docs
       .filter((member) => member.id !== excludeUserId)
       .map(async (member) => {
+        if (actorUserId && member.id !== actorUserId && await usersAreBlocked(actorUserId, member.id)) {
+          return [];
+        }
+
         const snapshot = await adminDb.collection("users").doc(member.id).collection("pushTokens").get();
         return snapshot.docs.map((doc) => ({
           ref: doc.ref,
@@ -37,8 +50,9 @@ const sendGroupNotification = async (
   groupId: string,
   payload: { title: string; body: string; data: Record<string, string> },
   excludeUserId?: string,
+  actorUserId?: string,
 ) => {
-  const tokens = await getGroupTokens(groupId, excludeUserId);
+  const tokens = await getGroupTokens(groupId, excludeUserId, actorUserId);
   const androidTokens = tokens.filter((entry) => entry.platform === "android");
   const deferredIosCount = tokens.length - androidTokens.length;
 
@@ -109,10 +123,12 @@ export const fanOutSosEvent = onDocumentCreated(
           createdAt: data.createdAt,
           eventId: event.params.eventId,
           groupId: data.groupId,
+          senderId: data.senderId,
           targetRoute: "/notifications",
           type: "sos_alert",
         },
       },
+      data.senderId,
       data.senderId,
     );
   },

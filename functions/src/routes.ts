@@ -3,24 +3,54 @@ import axios from "axios";
 import { onRequest } from "firebase-functions/v2/https";
 
 import { functionsRegion, googleDirectionsApiKey } from "./config.js";
+import {
+  ensurePostRequest,
+  handleCorsPreflight,
+  requireAuthenticatedRequest,
+  sendJsonError,
+  setCorsHeaders,
+} from "./http.js";
+import { coerceCoordinate } from "./httpValidation.js";
+
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 
 export const getEvacuationRoute = onRequest(
   { region: functionsRegion, secrets: [googleDirectionsApiKey] },
   async (request, response) => {
-    response.set("Access-Control-Allow-Origin", "*");
+    setCorsHeaders(response);
 
-    if (request.method === "OPTIONS") {
-      response.status(204).send("");
+    if (handleCorsPreflight(request, response)) {
       return;
     }
 
-    const { destination, origin } = request.body as {
+    if (!ensurePostRequest(request, response)) {
+      return;
+    }
+
+    const authContext = await requireAuthenticatedRequest(request, response, {
+      authenticatedLimit: 30,
+      routeKey: "getEvacuationRoute",
+      unauthenticatedLimit: 60,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+    if (!authContext) {
+      return;
+    }
+
+    const body = typeof request.body === "object" && request.body ? request.body : {};
+    const { destination, origin } = body as {
       destination?: { centerId: string; latitude: number; longitude: number };
       origin?: { latitude: number; longitude: number };
     };
 
-    if (!origin || !destination) {
-      response.status(400).json({ error: "origin and destination are required." });
+    const originLatitude = coerceCoordinate(origin?.latitude, -90, 90);
+    const originLongitude = coerceCoordinate(origin?.longitude, -180, 180);
+    const destinationLatitude = coerceCoordinate(destination?.latitude, -90, 90);
+    const destinationLongitude = coerceCoordinate(destination?.longitude, -180, 180);
+    const centerId = String(destination?.centerId ?? "").trim();
+
+    if (!centerId || centerId.length > 120 || originLatitude === null || originLongitude === null || destinationLatitude === null || destinationLongitude === null) {
+      sendJsonError(response, 400, "Valid origin and destination coordinates are required.");
       return;
     }
 
@@ -30,7 +60,7 @@ export const getEvacuationRoute = onRequest(
           distanceMeters: 1850,
           durationSeconds: 660,
           encodedPolyline: "",
-          targetCenterId: destination.centerId,
+          targetCenterId: centerId,
         },
       });
       return;
@@ -38,8 +68,8 @@ export const getEvacuationRoute = onRequest(
 
     const apiResponse = await axios.get("https://maps.googleapis.com/maps/api/directions/json", {
       params: {
-        origin: `${origin.latitude},${origin.longitude}`,
-        destination: `${destination.latitude},${destination.longitude}`,
+        origin: `${originLatitude},${originLongitude}`,
+        destination: `${destinationLatitude},${destinationLongitude}`,
         key: googleDirectionsApiKey.value(),
       },
     });
@@ -52,7 +82,7 @@ export const getEvacuationRoute = onRequest(
         distanceMeters: leg?.distance?.value ?? 0,
         durationSeconds: leg?.duration?.value ?? 0,
         encodedPolyline: polyline,
-        targetCenterId: destination.centerId,
+        targetCenterId: centerId,
       },
     });
   },

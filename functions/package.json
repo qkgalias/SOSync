@@ -6,7 +6,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "serve": "firebase emulators:start --only functions",
-    "deploy": "firebase deploy --only functions"
+    "deploy": "firebase deploy --only functions",
+    "backfill:circle-data": "node scripts/backfillCircleInviteCodes.mjs",
+    "seed:test-data": "node scripts/seedLiveTestData.mjs",
+    "seed:manual-alert": "node scripts/createManualAlert.mjs"
   },
   "engines": {
     "node": "22"

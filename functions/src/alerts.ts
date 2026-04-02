@@ -7,8 +7,16 @@ import { logger } from "firebase-functions";
 import { adminDb } from "./admin.js";
 import { functionsRegion, googleFloodApiKey, openMeteoForecastUrl } from "./config.js";
 import { buildAlertId, nowIso, toAlertSeverity, toAlertType } from "./helpers.js";
+import {
+  ensurePostRequest,
+  handleCorsPreflight,
+  requireAuthenticatedRequest,
+  sendJsonError,
+  setCorsHeaders,
+} from "./http.js";
 
 type GroupDoc = { groupId: string; name: string; region: string };
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 
 const syncAlertsForGroups = async (groups: GroupDoc[]) => {
   const forecast = await axios.get(openMeteoForecastUrl, {
@@ -55,17 +63,44 @@ const syncAlertsForGroups = async (groups: GroupDoc[]) => {
 export const syncDisasterAlerts = onRequest(
   { region: functionsRegion, secrets: [googleFloodApiKey] },
   async (request, response) => {
-    response.set("Access-Control-Allow-Origin", "*");
+    setCorsHeaders(response);
 
-    if (request.method === "OPTIONS") {
-      response.status(204).send("");
+    if (handleCorsPreflight(request, response)) {
       return;
     }
 
-    const requestedGroupId = String(request.body?.groupId ?? "");
-    const snapshot = requestedGroupId
-      ? await adminDb.collection("groups").where("__name__", "==", requestedGroupId).get()
-      : await adminDb.collection("groups").where("region", "==", "PH").get();
+    if (!ensurePostRequest(request, response)) {
+      return;
+    }
+
+    const authContext = await requireAuthenticatedRequest(request, response, {
+      authenticatedLimit: 10,
+      routeKey: "syncDisasterAlerts",
+      unauthenticatedLimit: 20,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    });
+    if (!authContext) {
+      return;
+    }
+
+    const body = typeof request.body === "object" && request.body ? request.body : {};
+    const requestedGroupId = String((body as { groupId?: unknown }).groupId ?? "").trim();
+    if (!requestedGroupId) {
+      sendJsonError(response, 400, "groupId is required.");
+      return;
+    }
+
+    const memberSnapshot = await adminDb.collection("groups").doc(requestedGroupId).collection("members").doc(authContext.userId).get();
+    if (!memberSnapshot.exists) {
+      sendJsonError(response, 403, "You are not a member of this trusted circle.");
+      return;
+    }
+
+    const snapshot = await adminDb.collection("groups").where("__name__", "==", requestedGroupId).limit(1).get();
+    if (snapshot.empty) {
+      sendJsonError(response, 404, "Trusted circle not found.");
+      return;
+    }
 
     const groups = snapshot.docs.map((doc) => ({ groupId: doc.id, ...doc.data() }) as GroupDoc);
     const alerts = await syncAlertsForGroups(groups);
