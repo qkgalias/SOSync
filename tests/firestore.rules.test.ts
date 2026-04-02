@@ -82,4 +82,24 @@ describeIfEmulator("firestore rules", () => {
     const db = testEnv.authenticatedContext("user-2").firestore();
     await assertSucceeds(db.collection("alerts").doc("alert-1").get());
   });
+
+  it("allows a user to read their own membership document", async () => {
+    const db = testEnv.authenticatedContext("user-2").firestore();
+    await assertSucceeds(db.collection("groups").doc("group-1").collection("members").doc("user-2").get());
+  });
+
+  it("allows a user to query their own memberships via collection group", async () => {
+    const db = testEnv.authenticatedContext("user-2").firestore();
+    await assertSucceeds(db.collectionGroup("members").where("userId", "==", "user-2").get());
+  });
+
+  it("blocks direct access to email verification documents", async () => {
+    const db = testEnv.authenticatedContext("user-1").firestore();
+    await assertFails(db.collection("email_verifications").doc("user-1").get());
+    await assertFails(
+      db.collection("email_verifications").doc("user-1").set({
+        email: "user@example.com",
+      }),
+    );
+  });
 });
