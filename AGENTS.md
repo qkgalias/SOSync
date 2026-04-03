@@ -15,17 +15,22 @@ SOSync is a privacy-focused disaster awareness and evacuation app built with Exp
 ## Current Truths
 
 - Android is the primary validation platform.
+- Live Firebase is the default development and smoke-test path.
+- The initial production rollout uses the same live Firebase project as development.
+- Emulator usage is supported, but it is explicit and opt-in.
 - iOS is supported in code, but remote push is deferred because APNs is not configured.
 - The generated `ios/` folder was intentionally removed and should be treated as disposable output.
-- The biggest runtime blocker is emulator wiring in `src/services/firebase.ts`, which currently forces Auth, Firestore, and Functions to localhost in `__DEV__`.
+- In live or emulator mode, missing native Firebase config should now surface an explicit configuration error instead of silently falling back to demo data.
 - Do not assume iOS push works.
 - Do not assume the planned “messages” feature exists end-to-end. Notification payload helpers include a message shape, but no chat/message module is implemented.
 
 ## Working Rules
 
 - Prefer Android validation paths and device/emulator smoke tests on Android first.
+- Prefer the same live Firebase backend for development and initial production planning unless there is a deliberate environment split.
 - Read the docs before changing runtime behavior, push flows, or Firebase wiring.
 - Keep `docs/PROJECT_STATUS.md`, `docs/KNOWN_ISSUES.md`, and `docs/DECISIONS.md` up to date when project state changes.
+- Treat demo mode as explicit only. Do not reintroduce silent fallback from live or emulator mode into seeded/mock behavior.
 - Treat generated native folders as outputs, not source of truth.
 - Avoid writing docs that present aspirational behavior as if it already exists.
 
@@ -40,7 +45,8 @@ SOSync is a privacy-focused disaster awareness and evacuation app built with Exp
 
 ## Known Sensitive Areas
 
-- `src/services/firebase.ts`: live-vs-emulator behavior is not production-safe yet.
+- `src/config/backendRuntime.ts`: this is the source of truth for live, emulator, and demo behavior. Keep Firebase SDK and HTTP backend mode aligned.
+- `src/services/firebase.ts`: emulator connections must remain opt-in and must not silently override live development.
 - `functions/src/notifications.ts`: Android-first push delivery only.
 - `firestore.rules`: group member permissions should be revisited before production.
 - `functions/src/alerts.ts`: alert geography is still coarse and Philippines-first rather than group-specific.

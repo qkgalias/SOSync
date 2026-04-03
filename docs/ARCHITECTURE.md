@@ -29,7 +29,7 @@
 - `users/{userId}/pushTokens`
 - `groups`
 - `groups/{groupId}/members`
-- `groups/{groupId}/invites`
+- `groups/{groupId}/statuses`
 - `locations`
 - `alerts`
 - `sos_events`
@@ -45,7 +45,7 @@ The data model is circle-scoped. Locations, alerts, and SOS events are tied to a
 - `functions/src/alerts.ts`
   - Syncs weather-driven alerts and writes group-scoped alert documents.
 - `functions/src/groups.ts`
-  - Resolves invite claims into group membership updates.
+  - Creates circles with permanent invite codes, joins circles by code, and enforces owner/admin/member mutations.
 - `functions/src/notifications.ts`
   - Fans out push payloads for alerts and SOS events.
   - Currently sends remote push only to Android tokens and logs deferred iOS tokens.
