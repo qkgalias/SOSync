@@ -10,7 +10,7 @@ import { Button } from "@/components/Button";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { goBackOrReplace } from "@/utils/helpers";
 
 const ActionCard = ({
@@ -25,20 +25,39 @@ const ActionCard = ({
   title: string;
 }) => (
   <Pressable className="mb-4 flex-row items-center rounded-[22px] bg-panel px-5 py-5" onPress={onPress}>
-    <View className="h-8 w-8 items-center justify-center">
-      <MaterialCommunityIcons color={PROFILE_ACCENT} name={icon} size={22} />
-    </View>
-    <View className="ml-4 flex-1">
-      <Text className="text-[18px] font-semibold text-ink">{title}</Text>
-      <Text className="mt-1 text-sm leading-5 text-muted">{description}</Text>
-    </View>
-    <MaterialCommunityIcons color={PROFILE_ACCENT} name="chevron-right" size={24} />
+    <ActionCardInner description={description} icon={icon} title={title} />
   </Pressable>
 );
+
+const ActionCardInner = ({
+  description,
+  icon,
+  title,
+}: {
+  description: string;
+  icon: ComponentProps<typeof MaterialCommunityIcons>["name"];
+  title: string;
+}) => {
+  const { themeTokens } = useAppTheme();
+
+  return (
+    <>
+      <View className="h-8 w-8 items-center justify-center">
+        <MaterialCommunityIcons color={themeTokens.accentPrimary} name={icon} size={22} />
+      </View>
+      <View className="ml-4 flex-1">
+        <Text className="text-[18px] font-semibold text-ink">{title}</Text>
+        <Text className="mt-1 text-sm leading-5 text-muted">{description}</Text>
+      </View>
+      <MaterialCommunityIcons color={themeTokens.accentPrimary} name="chevron-right" size={24} />
+    </>
+  );
+};
 
 export default function EditProfileScreen() {
   const router = useRouter();
   const { authUser, deleteAccount } = useAuthSession();
+  const { themeTokens } = useAppTheme();
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteFeedback, setDeleteFeedback] = useState("");
@@ -100,7 +119,7 @@ export default function EditProfileScreen() {
       <Modal animationType="fade" transparent visible={deleteVisible} onRequestClose={closeDeleteModal}>
         <View className="flex-1 justify-center bg-black/35 px-6 py-10">
           <Pressable className="absolute inset-0" onPress={closeDeleteModal} />
-          <View className="rounded-[28px] bg-white px-6 pb-5 pt-6 shadow-soft">
+          <View className="rounded-[28px] bg-panel px-6 pb-5 pt-6 shadow-soft">
             <View className="flex-row items-start justify-between">
               <View className="mr-4 flex-1">
                 <Text className="text-[24px] font-semibold text-ink">Delete account</Text>
@@ -109,7 +128,7 @@ export default function EditProfileScreen() {
                 </Text>
               </View>
               <Pressable className="h-9 w-9 items-center justify-center" hitSlop={10} onPress={closeDeleteModal}>
-                <MaterialCommunityIcons color={PROFILE_ACCENT} name="close" size={22} />
+                <MaterialCommunityIcons color={themeTokens.accentPrimary} name="close" size={22} />
               </Pressable>
             </View>
 

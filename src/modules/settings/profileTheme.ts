@@ -1,5 +1,7 @@
 /** Purpose: Keep the signed-in profile/settings stack on one consistent Home-red visual standard. */
-export const PROFILE_ACCENT = "#5C1515";
+import { appConfig } from "@/config/appConfig";
+
+export const PROFILE_ACCENT = appConfig.theme.colors.primary;
 
 export const getCircleRoleLabel = (isOwner: boolean, role?: "admin" | "member") => {
   if (isOwner) {

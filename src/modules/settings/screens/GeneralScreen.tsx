@@ -6,11 +6,12 @@ import { View } from "react-native";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { SettingsRow } from "@/components/SettingsRow";
-import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { goBackOrReplace } from "@/utils/helpers";
 
 export default function GeneralScreen() {
   const router = useRouter();
+  const { themeTokens } = useAppTheme();
 
   return (
     <Screen
@@ -22,7 +23,7 @@ export default function GeneralScreen() {
       <View className="mt-7">
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="shield-check-outline" size={23} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="shield-check-outline" size={23} />}
           onPress={() => router.push("/permissions" as never)}
           subtitle="Control how the app accesses your information"
           subtitleClassName="text-[13px] leading-5 text-muted"
@@ -31,7 +32,7 @@ export default function GeneralScreen() {
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="account-circle-outline" size={23} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="account-circle-outline" size={23} />}
           onPress={() => router.push("/account" as never)}
           subtitle="Manage your profile, circles, and security settings"
           subtitleClassName="text-[13px] leading-5 text-muted"
@@ -40,7 +41,7 @@ export default function GeneralScreen() {
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="shield-lock-outline" size={23} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="shield-lock-outline" size={23} />}
           onPress={() => router.push("/settings" as never)}
           subtitle="Control how your information is shared"
           subtitleClassName="text-[13px] leading-5 text-muted"
@@ -49,7 +50,7 @@ export default function GeneralScreen() {
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="help-circle-outline" size={23} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="help-circle-outline" size={23} />}
           onPress={() => router.push("/help" as never)}
           subtitle="Learn more about the app and get support"
           subtitleClassName="text-[13px] leading-5 text-muted"

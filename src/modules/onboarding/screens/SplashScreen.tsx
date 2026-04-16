@@ -1,7 +1,6 @@
 /** Purpose: Establish the SOSync brand before handing off to the prototype-style onboarding flow. */
 import { useEffect } from "react";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { Image, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, {
@@ -13,10 +12,13 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { useAppTheme } from "@/providers/AppThemeProvider";
+
 const splashMarkSource = require("../../../../assets/branding/brand-mark.png");
 
 export default function SplashScreen() {
   const router = useRouter();
+  const { themeTokens } = useAppTheme();
   const { width } = useWindowDimensions();
   const rowProgress = useSharedValue(0);
   const markShiftProgress = useSharedValue(0);
@@ -78,7 +80,6 @@ export default function SplashScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-page">
-      <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
       <View className="flex-1 items-center justify-center px-8">
         <Animated.View className="flex-row items-center justify-center" style={[rowAnimatedStyle, { gap }]}>
           <Animated.View className="items-center justify-center" style={markAnimatedStyle}>
@@ -91,14 +92,15 @@ export default function SplashScreen() {
           <Animated.View className="overflow-hidden" style={wordmarkAnimatedStyle}>
             <View className="flex-row items-start" style={{ width: wordmarkWidth }}>
               <Text
-                className="font-semibold text-[#5C1515]"
-                style={{ fontSize: sosSize, letterSpacing: -0.9, lineHeight: sosSize + 2 }}
+                className="font-semibold"
+                style={{ color: themeTokens.accentPrimary, fontSize: sosSize, letterSpacing: -0.9, lineHeight: sosSize + 2 }}
               >
                 SoS
               </Text>
               <Text
-                className="font-semibold text-black"
+                className="font-semibold"
                 style={{
+                  color: themeTokens.textPrimary,
                   fontSize: syncSize,
                   letterSpacing: -0.6,
                   lineHeight: syncSize + 2,

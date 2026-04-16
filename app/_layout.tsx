@@ -2,7 +2,6 @@
 import "../global.css";
 
 import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 
 import { AppProviders } from "@/providers/AppProviders";
 import { useAppBootstrap } from "@/hooks/useAppBootstrap";
@@ -22,7 +21,6 @@ const RootNavigator = () => {
 export default function RootLayout() {
   return (
     <AppProviders>
-      <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
       <RootNavigator />
     </AppProviders>
   );

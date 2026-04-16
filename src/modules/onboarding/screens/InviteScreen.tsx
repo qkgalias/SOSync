@@ -10,6 +10,7 @@ import { Button } from "@/components/Button";
 import { Screen } from "@/components/Screen";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useGroups } from "@/hooks/useGroups";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { buildInviteMessage, goBackOrReplace } from "@/utils/helpers";
 
 const channelConfig = [
@@ -23,6 +24,7 @@ export default function InviteScreen() {
   const router = useRouter();
   const { groups, selectedGroupId } = useGroups();
   const { saveProfile } = useAuthSession();
+  const { themeTokens } = useAppTheme();
   const [actionMessage, setActionMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -82,6 +84,7 @@ export default function InviteScreen() {
     <Screen
       title="Invite your Trusted Circle"
       centerTitle
+      scroll={false}
       leftSlot={
         <BackButton
           onPress={async () => {
@@ -97,49 +100,59 @@ export default function InviteScreen() {
           }}
         />
       }
-      contentClassName="pb-10"
+      contentClassName="flex-1 pb-10"
     >
-      <View className="pt-8">
-        <Text className="mb-3 text-[16px] font-medium text-ink">Invite code</Text>
-        <View className="flex-row items-center rounded-[16px] bg-panel">
-          <View className="flex-1 px-5 py-4">
-            <Text className="text-[28px] font-semibold tracking-[4px] text-ink">{inviteCode || "------"}</Text>
-          </View>
-          <Pressable
-            className="h-full min-h-14 items-center justify-center rounded-r-[16px] bg-[#8E8A8A] px-5"
-            onPress={() => {
-              void handleShare("link");
-            }}
-          >
-            <MaterialCommunityIcons color="#1E1E1E" name="clipboard-text-outline" size={24} />
-          </Pressable>
-        </View>
-        <Text className="mt-3 text-sm text-muted">Share this permanent code with trusted individuals.</Text>
-      </View>
-
-      <View className="mt-16">
-        <Text className="mb-5 text-[18px] font-medium text-ink">Share Invite via:</Text>
-        <View className="flex-row flex-wrap justify-between gap-y-4">
-          {channelConfig.map((entry) => (
+      <View className="flex-1 pt-8">
+        <View>
+          <Text className="mb-3 text-[16px] font-medium text-ink">Invite code</Text>
+          <View className="flex-row items-center rounded-[16px] bg-panel">
+            <View className="flex-1 px-5 py-4">
+              <Text className="text-[28px] font-semibold tracking-[4px] text-ink">{inviteCode || "------"}</Text>
+            </View>
             <Pressable
-              key={entry.value}
-              className="h-24 w-[22%] min-w-[72px] items-center justify-center rounded-[16px] bg-primary"
+              className="h-full min-h-14 items-center justify-center rounded-r-[16px] px-5"
+              style={{ backgroundColor: themeTokens.surfaceElevated }}
               onPress={() => {
-                void handleShare(entry.value);
+                void handleShare("link");
               }}
             >
-              <MaterialCommunityIcons color="#FFFFFF" name={entry.icon} size={24} />
-              <Text className="mt-2 text-center text-[13px] text-white">{entry.label}</Text>
+              <MaterialCommunityIcons color={themeTokens.textPrimary} name="clipboard-text-outline" size={24} />
             </Pressable>
-          ))}
+          </View>
+          <Text className="mt-3 text-sm text-muted">Share this permanent code with trusted individuals.</Text>
         </View>
-      </View>
 
-      {actionMessage ? <Text className="mt-8 text-center text-sm text-muted">{actionMessage}</Text> : null}
+        <View className="mt-auto pb-4">
+          <Text className="mb-6 text-[18px] font-medium text-ink">Share Invite via:</Text>
+          <View className="flex-row justify-between">
+            {channelConfig.map((entry) => (
+              <Pressable
+                key={entry.value}
+                className="h-24 w-[22%] min-w-[72px] items-center justify-center rounded-[16px] bg-primary"
+                onPress={() => {
+                  void handleShare(entry.value);
+                }}
+              >
+                <MaterialCommunityIcons color="#FFFFFF" name={entry.icon} size={24} />
+                <Text className="mt-2 text-center text-[13px] text-white">{entry.label}</Text>
+              </Pressable>
+            ))}
+          </View>
 
-      <View className="mt-auto">
-        <Button label="Skip for now" loading={loading} onPress={handleContinue} className="mx-auto min-w-[210px]" />
-        <Text className="mt-4 text-center text-sm text-muted">You can always add more members later.</Text>
+          <View className="mt-6 min-h-5 items-center justify-center">
+            {actionMessage ? <Text className="text-center text-sm text-muted">{actionMessage}</Text> : null}
+          </View>
+
+          <View className="mt-8 items-center">
+            <Button
+              label="Skip for now"
+              loading={loading}
+              onPress={handleContinue}
+              className="min-w-[210px] px-8"
+            />
+            <Text className="mt-6 text-center text-sm text-muted">You can always add more members later.</Text>
+          </View>
+        </View>
       </View>
     </Screen>
   );

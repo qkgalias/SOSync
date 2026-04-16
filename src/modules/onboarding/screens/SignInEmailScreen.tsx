@@ -9,6 +9,7 @@ import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { goBackOrReplace } from "@/utils/helpers";
 import { emailSignInSchema } from "@/utils/validators";
 
@@ -21,11 +22,16 @@ type SignInErrors = {
 export default function SignInEmailScreen() {
   const router = useRouter();
   const { sendEmailOtp, signInWithEmail } = useAuthSession();
+  const { resolvedTheme, themeTokens } = useAppTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<SignInErrors>({});
   const [loading, setLoading] = useState(false);
+  const isDark = resolvedTheme === "dark";
+  const sheetTitleClassName = isDark ? "text-ink" : "text-white";
+  const supportTextClassName = isDark ? "text-secondary" : "text-white";
+  const errorTextClassName = isDark ? "text-dangerText" : "text-white/95";
 
   const handleSignIn = async () => {
     const parsed = emailSignInSchema.safeParse({ email, password });
@@ -79,12 +85,12 @@ export default function SignInEmailScreen() {
     <AuthScreen
       scrollable={false}
       topSlot={<BackButton onPress={() => goBackOrReplace(router, "/(onboarding)/welcome")} />}
-      hero={<Text className="text-center text-[32px] font-semibold tracking-[-0.03em] text-black">Sign In</Text>}
+      hero={<Text className="text-center text-[32px] font-semibold tracking-[-0.03em] text-ink">Sign In</Text>}
       sheetClassName="mt-4 flex-1 px-6 pt-6"
     >
       <View className="flex-1 justify-between">
         <View className="pt-1">
-          <Text className="mb-5 text-center text-[23px] font-semibold text-white">Welcome! Enter your email</Text>
+          <Text className={`mb-5 text-center text-[23px] font-semibold ${sheetTitleClassName}`}>Welcome! Enter your email</Text>
           <TextField
             label="Email"
             value={email}
@@ -96,9 +102,9 @@ export default function SignInEmailScreen() {
             hideLabel
             placeholder="example@gmail.com"
             containerClassName="mb-3"
-            inputClassName="rounded-[15px] border border-accent/80 bg-white"
+            inputClassName="rounded-[15px] border border-line bg-input"
             error={errors.email}
-            errorClassName="text-[12px] leading-5 text-white/95"
+            errorClassName={`text-[12px] leading-5 ${errorTextClassName}`}
           />
           <TextField
             label="Password"
@@ -111,34 +117,35 @@ export default function SignInEmailScreen() {
             hideLabel
             placeholder="Password"
             containerClassName="mb-0"
-            inputClassName="rounded-[15px] border border-accent/80 bg-white"
+            inputClassName="rounded-[15px] border border-line bg-input"
             rightSlot={(
               <Pressable hitSlop={10} onPress={() => setShowPassword((current) => !current)}>
                 <MaterialCommunityIcons
-                  color="#454040"
+                  color={themeTokens.textMuted}
                   name={showPassword ? "eye-outline" : "eye-off-outline"}
                   size={24}
                 />
               </Pressable>
             )}
             error={errors.password}
-            errorClassName="text-[12px] leading-5 text-white/95"
+            errorClassName={`text-[12px] leading-5 ${errorTextClassName}`}
           />
         </View>
         <View>
-          {errors.general ? <Text className="mb-3 text-center text-[12px] leading-5 text-white/95">{errors.general}</Text> : null}
+          {errors.general ? <Text className={`mb-3 text-center text-[12px] leading-5 ${errorTextClassName}`}>{errors.general}</Text> : null}
           <Button
             label="Continue"
             loading={loading}
             onPress={handleSignIn}
-            variant="secondary"
-            className="mx-auto w-[202px] rounded-full"
+            variant={isDark ? "outline" : "secondary"}
+            className={`mx-auto w-[202px] rounded-full ${isDark ? "border-0 bg-page" : ""}`}
+            textClassName={isDark ? "text-accent" : undefined}
           />
-          <View className="mt-6 h-px bg-white/70" />
+          <View className={`mt-6 h-px ${isDark ? "bg-line" : "bg-white/70"}`} />
           <View className="mt-4 flex-row items-center justify-center">
-            <Text className="text-[15px] leading-6 text-white">Need an account? </Text>
+            <Text className={`text-[15px] leading-6 ${supportTextClassName}`}>Need an account? </Text>
             <Pressable hitSlop={10} className="py-1" onPress={() => router.replace("/(onboarding)/signUp")}>
-              <Text className="text-[15px] font-medium underline text-white">Create one</Text>
+              <Text className={`text-[15px] font-medium underline ${isDark ? "text-ink" : "text-white"}`}>Create one</Text>
             </Pressable>
           </View>
         </View>

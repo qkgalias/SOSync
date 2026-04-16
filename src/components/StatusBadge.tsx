@@ -5,27 +5,27 @@ import { cn } from "@/utils/helpers";
 
 const badgeContainerClasses: Record<string, string> = {
   advisory: "bg-soft",
-  watch: "bg-caution/20",
-  warning: "bg-danger/15",
+  watch: "bg-warningSurface",
+  warning: "bg-dangerSurface",
   critical: "bg-danger",
-  active: "bg-danger/15",
-  resolved: "bg-white",
-  safe: "bg-white",
-  need_help: "bg-danger/15",
-  need_evacuation: "bg-caution/20",
-  unavailable: "bg-white",
+  active: "bg-dangerSurface",
+  resolved: "bg-successSurface",
+  safe: "bg-successSurface",
+  need_help: "bg-dangerSurface",
+  need_evacuation: "bg-warningSurface",
+  unavailable: "bg-panel",
 };
 
 const badgeTextClasses: Record<string, string> = {
   advisory: "text-accent",
-  watch: "text-caution",
-  warning: "text-danger",
+  watch: "text-warningText",
+  warning: "text-dangerText",
   critical: "text-white",
-  active: "text-danger",
-  resolved: "text-accent",
-  safe: "text-accent",
-  need_help: "text-danger",
-  need_evacuation: "text-caution",
+  active: "text-dangerText",
+  resolved: "text-successText",
+  safe: "text-successText",
+  need_help: "text-dangerText",
+  need_evacuation: "text-warningText",
   unavailable: "text-muted",
 };
 

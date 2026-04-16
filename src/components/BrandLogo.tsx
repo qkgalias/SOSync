@@ -1,6 +1,7 @@
 /** Purpose: Render the SOSync mark and wordmark across splash and onboarding flows. */
 import { Image, Text, View } from "react-native";
 
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { cn } from "@/utils/helpers";
 
 type BrandLogoProps = {
@@ -35,6 +36,7 @@ const sizeClasses = {
 const brandMarkSource = require("../../assets/branding/brand-mark.png");
 
 export const BrandLogo = ({ centered = false, size = "md" }: BrandLogoProps) => {
+  const { themeTokens } = useAppTheme();
   const token = sizeClasses[size];
 
   return (
@@ -47,14 +49,15 @@ export const BrandLogo = ({ centered = false, size = "md" }: BrandLogoProps) => 
       />
       <View className="flex-row items-start">
         <Text
-          className="font-semibold text-[#5C1515]"
-          style={{ fontSize: token.sosSize, letterSpacing: -0.8, lineHeight: token.sosSize + 2 }}
+          className="font-semibold"
+          style={{ color: themeTokens.accentPrimary, fontSize: token.sosSize, letterSpacing: -0.8, lineHeight: token.sosSize + 2 }}
         >
           SoS
         </Text>
         <Text
-          className="font-semibold text-black"
+          className="font-semibold"
           style={{
+            color: themeTokens.textPrimary,
             fontSize: token.syncSize,
             letterSpacing: -0.6,
             lineHeight: token.syncSize + 2,

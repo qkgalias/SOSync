@@ -11,7 +11,8 @@ import { Button } from "@/components/Button";
 import { Screen } from "@/components/Screen";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useGroupMembers } from "@/hooks/useGroupMembers";
-import { PROFILE_ACCENT, getCircleRoleLabel, getCircleRoleSummary } from "@/modules/settings/profileTheme";
+import { getCircleRoleLabel, getCircleRoleSummary } from "@/modules/settings/profileTheme";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import type { GroupMember, GroupRole } from "@/types/group";
 import { buildInviteMessage, goBackOrReplace, toInitials } from "@/utils/helpers";
 
@@ -58,6 +59,8 @@ const MemberActionModal = ({
   roleLabel: string;
   visible: boolean;
 }) => {
+  const { themeTokens } = useAppTheme();
+
   if (!member) {
     return null;
   }
@@ -69,14 +72,14 @@ const MemberActionModal = ({
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
       <View className="flex-1 justify-center bg-black/35 px-6 py-10">
         <Pressable className="absolute inset-0" onPress={onClose} />
-        <View className="rounded-[28px] bg-white px-6 pb-5 pt-6 shadow-soft">
+        <View className="rounded-[28px] bg-panel px-6 pb-5 pt-6 shadow-soft">
           <View className="flex-row items-start justify-between">
             <View className="mr-3 flex-1">
               <Text className="text-[24px] font-semibold text-ink">{member.displayName}</Text>
               <Text className="mt-2 text-sm font-medium text-profileAccent">{roleLabel}</Text>
             </View>
             <Pressable className="h-9 w-9 items-center justify-center" hitSlop={10} onPress={onClose}>
-              <MaterialCommunityIcons color={PROFILE_ACCENT} name="close" size={22} />
+              <MaterialCommunityIcons color={themeTokens.accentPrimary} name="close" size={22} />
             </Pressable>
           </View>
 
@@ -137,6 +140,7 @@ const MemberActionModal = ({
 
 export default function CircleDetailScreen() {
   const router = useRouter();
+  const { themeTokens } = useAppTheme();
   const { groupId: groupIdParam } = useLocalSearchParams<{ groupId?: string | string[] }>();
   const groupId = Array.isArray(groupIdParam) ? groupIdParam[0] : groupIdParam;
   const {
@@ -346,7 +350,7 @@ export default function CircleDetailScreen() {
       contentClassName="pb-10"
     >
       <SectionCard eyebrow={circle.name} title="Invite Code">
-        <Text className="text-[34px] font-semibold tracking-[6px] text-profileAccent">{circle.inviteCode}</Text>
+        <Text className="text-[34px] font-semibold tracking-[6px] text-accent">{circle.inviteCode}</Text>
         <Text className="mt-3 text-sm leading-6 text-muted">
           This permanent 6-digit code lets trusted people join {circle.name} from their own SOSync account.
         </Text>
@@ -384,7 +388,7 @@ export default function CircleDetailScreen() {
                 {ownerMember.photoURL ? (
                   <Image className="h-12 w-12 rounded-full" resizeMode="cover" source={{ uri: ownerMember.photoURL }} />
                 ) : (
-                  <Text className="text-sm font-semibold text-profileAccent">{toInitials(ownerMember.displayName)}</Text>
+                    <Text className="text-sm font-semibold text-accent">{toInitials(ownerMember.displayName)}</Text>
                 )}
               </View>
 
@@ -398,7 +402,7 @@ export default function CircleDetailScreen() {
                   {ownerMember.email ? ` · ${ownerMember.email}` : ""}
                 </Text>
               </View>
-              <MaterialCommunityIcons color="#111111" name="chevron-right" size={24} />
+              <MaterialCommunityIcons color={themeTokens.textPrimary} name="chevron-right" size={24} />
             </Pressable>
           </View>
         ) : null}
@@ -420,7 +424,7 @@ export default function CircleDetailScreen() {
                   {member.photoURL ? (
                     <Image className="h-12 w-12 rounded-full" resizeMode="cover" source={{ uri: member.photoURL }} />
                   ) : (
-                    <Text className="text-sm font-semibold text-profileAccent">{toInitials(member.displayName)}</Text>
+                    <Text className="text-sm font-semibold text-accent">{toInitials(member.displayName)}</Text>
                   )}
                 </View>
 
@@ -434,14 +438,14 @@ export default function CircleDetailScreen() {
                     {member.email ? ` · ${member.email}` : ""}
                   </Text>
                 </View>
-                <MaterialCommunityIcons color="#111111" name="chevron-right" size={24} />
+                <MaterialCommunityIcons color={themeTokens.textPrimary} name="chevron-right" size={24} />
               </View>
             </Pressable>
           ))}
         </View>
       </SectionCard>
 
-      {message ? <Text className="mt-1 text-sm text-profileAccent">{message}</Text> : null}
+      {message ? <Text className="mt-1 text-sm text-accent">{message}</Text> : null}
 
       <Button
         className="mt-2 min-h-11 rounded-full border border-danger bg-transparent"

@@ -273,14 +273,26 @@ export const SessionProvider = ({ children }: PropsWithChildren) => {
 
   const saveProfile = async (nextProfile: Partial<UserProfile>) => {
     const currentUser = { uid: requireSessionUserId() };
+    const previousProfile = profile;
     const mergedProfile: UserProfile = {
       ...buildMergedProfile(nextProfile, currentUser.uid),
     };
 
-    const savedProfile = await firestoreService.saveProfile(mergedProfile);
-    await firestoreService.syncGroupMemberProfile(currentUser.uid, groups, savedProfile).catch(() => undefined);
-    setProfile(savedProfile);
-    return savedProfile;
+    startTransition(() => {
+      setProfile(mergedProfile);
+    });
+
+    try {
+      const savedProfile = await firestoreService.saveProfile(mergedProfile);
+      await firestoreService.syncGroupMemberProfile(currentUser.uid, groups, savedProfile).catch(() => undefined);
+      setProfile(savedProfile);
+      return savedProfile;
+    } catch (error) {
+      startTransition(() => {
+        setProfile(previousProfile);
+      });
+      throw error;
+    }
   };
 
   const resolveCircleOnboardingState = (nextStep: "invite" | "permissions") => {

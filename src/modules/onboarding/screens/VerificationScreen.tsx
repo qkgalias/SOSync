@@ -9,6 +9,7 @@ import { Button } from "@/components/Button";
 import { CodeInput } from "@/components/CodeInput";
 import { env } from "@/config/env";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { goBackOrReplace } from "@/utils/helpers";
 import { resolveSignedInHref } from "@/utils/sessionRouting";
 import { verificationCodeSchema } from "@/utils/validators";
@@ -18,6 +19,7 @@ const RESEND_COOLDOWN_MS = 60_000;
 
 export default function VerificationScreen() {
   const router = useRouter();
+  const { resolvedTheme } = useAppTheme();
   const {
     pendingVerificationEmail,
     profile,
@@ -30,6 +32,9 @@ export default function VerificationScreen() {
   const [resending, setResending] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [resendAvailableAt, setResendAvailableAt] = useState(Date.now() + RESEND_COOLDOWN_MS);
+  const isDark = resolvedTheme === "dark";
+  const sheetTitleClassName = isDark ? "text-ink" : "text-white";
+  const supportTextClassName = isDark ? "text-secondary" : "text-white/95";
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -122,15 +127,15 @@ export default function VerificationScreen() {
     <AuthScreen
       scrollable={false}
       topSlot={<BackButton onPress={() => goBackOrReplace(router, "/(onboarding)/signInEmail")} />}
-      hero={<Text className="text-center text-[30px] font-semibold tracking-[-0.03em] text-black">{copy.title}</Text>}
+      hero={<Text className="text-center text-[30px] font-semibold tracking-[-0.03em] text-ink">{copy.title}</Text>}
       sheetClassName="mt-4 flex-1 px-6 pt-8"
     >
       <View className="flex-1 justify-between">
         <View className="items-center">
-          <Text className="text-center text-[24px] font-semibold text-white">{copy.heading}</Text>
-          <Text className="mt-3 text-center text-[14px] leading-6 text-white whitespace-pre-line">{copy.body}</Text>
+          <Text className={`text-center text-[24px] font-semibold ${sheetTitleClassName}`}>{copy.heading}</Text>
+          <Text className={`mt-3 text-center text-[14px] leading-6 whitespace-pre-line ${sheetTitleClassName}`}>{copy.body}</Text>
           {showDemoHint ? (
-            <Text className="mt-3 text-center text-[12px] leading-5 text-white/95">In demo mode, use 111111.</Text>
+            <Text className={`mt-3 text-center text-[12px] leading-5 ${supportTextClassName}`}>In demo mode, use 111111.</Text>
           ) : null}
 
           <View className="mt-10">
@@ -139,31 +144,31 @@ export default function VerificationScreen() {
               onChangeValue={setCode}
               emptyState="none"
               rowClassName="flex-row justify-center gap-3"
-              cellClassName="h-[70px] w-[52px] rounded-[16px] bg-white/85"
+              cellClassName={`h-[70px] w-[52px] rounded-[16px] ${isDark ? "border border-line bg-input" : "bg-white/85"}`}
             />
           </View>
 
           <View className="mt-7 self-start">
-            <Text className="text-[12px] leading-5 text-white/95">
+            <Text className={`text-[12px] leading-5 ${supportTextClassName}`}>
               {secondsRemaining > 0 ? `You can resend the code in ${secondsRemaining}s` : "You can request a new code now"}
             </Text>
             <Pressable className="mt-2 self-start" disabled={!canResend} onPress={handleResend}>
-              <Text className={`text-[15px] font-semibold ${canResend ? "text-white" : "text-white/60"}`}>
+              <Text className={`text-[15px] font-semibold ${canResend ? (isDark ? "text-ink" : "text-white") : isDark ? "text-muted" : "text-white/60"}`}>
                 {resending ? "Sending..." : "Resend Code"}
               </Text>
             </Pressable>
           </View>
 
-          {error ? <Text className="mt-4 self-stretch text-sm leading-5 text-white">{error}</Text> : null}
+          {error ? <Text className={`mt-4 self-stretch text-sm leading-5 ${isDark ? "text-dangerText" : "text-white"}`}>{error}</Text> : null}
         </View>
 
         <Button
           label="Verify"
           loading={loading}
           onPress={handleVerify}
-          variant="secondary"
-          className="mx-auto min-h-[58px] w-[202px] rounded-full"
-          textClassName="text-[18px]"
+          variant={isDark ? "outline" : "secondary"}
+          className={`mx-auto min-h-[58px] w-[202px] rounded-full ${isDark ? "border-0 bg-page" : ""}`}
+          textClassName={`text-[18px] ${isDark ? "text-accent" : ""}`}
         />
       </View>
     </AuthScreen>

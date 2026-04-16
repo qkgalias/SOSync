@@ -10,6 +10,7 @@ import { useBlockedUsers } from "@/hooks/useBlockedUsers";
 import { useGroupMembers } from "@/hooks/useGroupMembers";
 import { useLocation } from "@/hooks/useLocation";
 import { SlideToCancel } from "@/modules/sos/components/SlideToCancel";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { firestoreService } from "@/services/firestoreService";
 import { USER_SEED } from "@/utils/constants";
 import { toInitials } from "@/utils/helpers";
@@ -20,13 +21,19 @@ const IDLE_STATUS = "Tap or hold to send an SOS to everyone.";
 
 const AvatarOrbit = ({
   avatarSize,
+  backgroundColor,
+  borderColor,
+  initialsColor,
   index,
   member,
   radius,
   total,
 }: {
   avatarSize: number;
+  backgroundColor: string;
+  borderColor: string;
   index: number;
+  initialsColor: string;
   member: { displayName: string; photoURL?: string };
   radius: number;
   total: number;
@@ -38,8 +45,8 @@ const AvatarOrbit = ({
 
   return (
     <View
-      className="absolute items-center justify-center rounded-full border-2 border-white bg-white"
-      style={{ height: avatarSize, left, top, width: avatarSize }}
+      className="absolute items-center justify-center rounded-full border-2"
+      style={{ backgroundColor, borderColor, height: avatarSize, left, top, width: avatarSize }}
     >
       {member.photoURL ? (
         <Image
@@ -49,7 +56,9 @@ const AvatarOrbit = ({
           style={{ height: avatarSize - 4, width: avatarSize - 4 }}
         />
       ) : (
-        <Text className="text-sm font-semibold text-accent">{toInitials(member.displayName)}</Text>
+        <Text className="text-sm font-semibold" style={{ color: initialsColor }}>
+          {toInitials(member.displayName)}
+        </Text>
       )}
     </View>
   );
@@ -58,6 +67,7 @@ const AvatarOrbit = ({
 export default function SosScreen() {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { resolvedTheme, themeTokens } = useAppTheme();
   const { authUser, profile, selectedGroupId } = useAuthSession();
   const { blockedUserIds } = useBlockedUsers(authUser?.uid);
   const privacy = profile?.privacy ?? USER_SEED.privacy;
@@ -84,6 +94,11 @@ export default function SosScreen() {
   const avatarSize = clamp(width * 0.11, 38, 48);
   const orbitRadius = ringOuterSize * 0.48;
   const orbitContainerSize = orbitRadius * 2 + avatarSize;
+  const isDark = resolvedTheme === "dark";
+  const pageBackgroundColor = isDark ? themeTokens.bgApp : themeTokens.accentPrimary;
+  const ringBorderColor = isDark ? themeTokens.accentOutline : "#C11212";
+  const buttonFillColor = isDark ? themeTokens.accentPrimary : "#CD5751";
+  const orbitSurfaceColor = isDark ? themeTokens.surfaceElevated : "#FFFFFF";
 
   const startCountdown = () => {
     if (countdown !== null || sendingRef.current) {
@@ -162,12 +177,12 @@ export default function SosScreen() {
     countdown !== null
       ? `After ${countdown} seconds, your SOS will be sent to ${recipientCount} ${recipientCount === 1 ? "person" : "people"}.`
       : statusMessage === IDLE_STATUS
-        ? "Your trusted circle will receive your latest status and location the moment SOS is sent."
+        ? "Your trusted circle will receive your SOS alert and latest location the moment it is sent."
         : statusMessage;
 
   return (
-    <SafeAreaView className="flex-1 bg-accent" edges={["top", "left", "right"]}>
-      <View className="flex-1 bg-accent px-6">
+    <SafeAreaView className="flex-1" edges={["top", "left", "right"]} style={{ backgroundColor: pageBackgroundColor }}>
+      <View className="flex-1 px-6" style={{ backgroundColor: pageBackgroundColor }}>
         <View className="items-center pt-3">
           <Text className="text-[34px] font-semibold tracking-[0.01em] text-white">SOS</Text>
         </View>
@@ -187,25 +202,28 @@ export default function SosScreen() {
             }}
           >
             <View
-              className="absolute items-center justify-center rounded-full border-2 border-[#C11212]/95"
+              className="absolute items-center justify-center rounded-full border-2"
               style={{
+                borderColor: ringBorderColor,
                 height: ringOuterSize,
                 width: ringOuterSize,
               }}
             >
               <View
-                className="items-center justify-center rounded-full border-2 border-[#C11212]/95"
+                className="items-center justify-center rounded-full border-2"
                 style={{
+                  borderColor: ringBorderColor,
                   height: ringMiddleSize,
                   width: ringMiddleSize,
                 }}
               >
                 <Pressable
-                  className="items-center justify-center rounded-full bg-[#CD5751]"
+                  className="items-center justify-center rounded-full"
                   delayLongPress={450}
                   onLongPress={startCountdown}
                   onPress={startCountdown}
                   style={{
+                    backgroundColor: buttonFillColor,
                     height: ringInnerSize,
                     width: ringInnerSize,
                   }}
@@ -222,7 +240,10 @@ export default function SosScreen() {
               <AvatarOrbit
                 key={member.userId}
                 avatarSize={avatarSize}
+                backgroundColor={orbitSurfaceColor}
+                borderColor={orbitSurfaceColor}
                 index={index}
+                initialsColor={themeTokens.accentPrimary}
                 member={{ displayName: member.displayName, photoURL: member.photoURL }}
                 radius={orbitRadius}
                 total={orbitMembers.length}
@@ -244,10 +265,10 @@ export default function SosScreen() {
             <SlideToCancel active label="Slide to cancel" onComplete={cancelCountdown} />
           ) : (
             <Button
-              className="mx-auto mt-8 w-[220px] rounded-full border border-[#5B231F] bg-white"
+              className={`mx-auto mt-8 w-[220px] rounded-full border-0 ${isDark ? "bg-surface" : "bg-white"}`}
               label="Ready to send"
               onPress={startCountdown}
-              textClassName="text-accent"
+              textClassName={isDark ? "" : "text-accent"}
               variant="outline"
             />
           )}

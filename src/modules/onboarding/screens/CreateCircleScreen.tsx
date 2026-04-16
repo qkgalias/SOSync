@@ -9,12 +9,14 @@ import { Button } from "@/components/Button";
 import { CodeInput } from "@/components/CodeInput";
 import { Screen } from "@/components/Screen";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { goBackOrReplace } from "@/utils/helpers";
 import { inviteCodeSchema } from "@/utils/validators";
 
 export default function CreateCircleScreen() {
   const router = useRouter();
   const { joinCircleWithInvite, saveProfile, skipCircleSetup } = useAuthSession();
+  const { themeTokens } = useAppTheme();
   const [inviteCode, setInviteCode] = useState("");
   const [consentChecked, setConsentChecked] = useState(true);
   const [error, setError] = useState("");
@@ -112,7 +114,7 @@ export default function CreateCircleScreen() {
           }}
         >
           <View className="mr-3 mt-0.5 h-6 w-6 items-center justify-center rounded-[6px] border border-primary">
-            {consentChecked ? <MaterialCommunityIcons color="#7B2C28" name="check" size={18} /> : null}
+            {consentChecked ? <MaterialCommunityIcons color={themeTokens.accentPrimary} name="check" size={18} /> : null}
           </View>
           <Text className="flex-1 text-sm leading-6 text-muted">
             By joining, you agree to share your location with this group.

@@ -9,7 +9,7 @@ import { Button } from "@/components/Button";
 import { Screen } from "@/components/Screen";
 import { SettingsRow } from "@/components/SettingsRow";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { goBackOrReplace, toInitials } from "@/utils/helpers";
 
 const SectionCard = ({
@@ -28,6 +28,7 @@ const SectionCard = ({
 export default function AccountScreen() {
   const router = useRouter();
   const { authUser, profile } = useAuthSession();
+  const { themeTokens } = useAppTheme();
 
   return (
     <Screen
@@ -42,7 +43,7 @@ export default function AccountScreen() {
             {profile?.photoURL ? (
               <Image className="h-14 w-14 rounded-full" resizeMode="cover" source={{ uri: profile.photoURL }} />
             ) : (
-              <Text className="text-[20px] font-semibold text-profileAccent">{toInitials(profile?.name ?? "SOSync")}</Text>
+              <Text className="text-[20px] font-semibold text-accent">{toInitials(profile?.name ?? "SOSync")}</Text>
             )}
           </View>
 
@@ -53,13 +54,13 @@ export default function AccountScreen() {
 
         <View className="mt-4 border-t border-line pt-4">
           <View className="mb-3 flex-row items-center">
-            <MaterialCommunityIcons color={PROFILE_ACCENT} name="phone" size={20} />
+            <MaterialCommunityIcons color={themeTokens.accentPrimary} name="phone" size={20} />
             <Text className="ml-3 text-sm text-ink">
               {profile?.phoneNumber ?? authUser?.phoneNumber ?? "No phone number saved yet"}
             </Text>
           </View>
           <View className="flex-row items-center">
-            <MaterialCommunityIcons color={PROFILE_ACCENT} name="email-outline" size={20} />
+            <MaterialCommunityIcons color={themeTokens.accentPrimary} name="email-outline" size={20} />
             <Text className="ml-3 text-sm text-ink">
               {profile?.email ?? authUser?.email ?? "No email saved yet"}
             </Text>
@@ -77,7 +78,7 @@ export default function AccountScreen() {
       <Text className="mb-3 mt-1 text-[16px] font-semibold text-ink">Circle Membership</Text>
       <SettingsRow
         className="rounded-[22px] px-5 py-5"
-        icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="account-group-outline" size={22} />}
+        icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="account-group-outline" size={22} />}
         onPress={() => router.push("/account/circles" as never)}
         title="View Joined Circles"
         titleClassName="text-[18px] font-medium text-ink"

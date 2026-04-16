@@ -30,6 +30,18 @@ jest.mock("@/hooks/useHotlines", () => ({
   ],
 }));
 
+jest.mock("@/providers/AppThemeProvider", () => ({
+  useAppTheme: () => {
+    const { LIGHT_THEME_TOKENS } = jest.requireActual("@/theme/appTheme");
+
+    return {
+      resolvedTheme: "light",
+      themePreference: "light",
+      themeTokens: LIGHT_THEME_TOKENS,
+    };
+  },
+}));
+
 describe("HotlinesScreen", () => {
   beforeEach(() => {
     jest.spyOn(Alert, "alert").mockImplementation(jest.fn());

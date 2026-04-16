@@ -9,6 +9,7 @@ import { AuthScreen } from "@/components/AuthScreen";
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/Button";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { cn, goBackOrReplace } from "@/utils/helpers";
 import { formatPhoneDigits } from "@/utils/input";
 import { signUpFormSchema } from "@/utils/validators";
@@ -37,25 +38,33 @@ const FormField = ({
   rightSlot,
   secureTextEntry,
   value,
-}: FormFieldProps) => (
-  <View className={cn("mb-3", containerClassName)}>
-    <View className="flex-row items-center rounded-[18px] border border-[#D8B1B1] bg-white px-5 py-1 shadow-soft">
-      {leftSlot ? <View className="mr-3">{leftSlot}</View> : null}
-      <TextInput
-        autoCapitalize={autoCapitalize}
-        className="min-h-[54px] flex-1 text-[18px] text-ink"
-        keyboardType={keyboardType}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#918A8A"
-        secureTextEntry={secureTextEntry}
-        value={value}
-      />
-      {rightSlot ? <View className="ml-3">{rightSlot}</View> : null}
+}: FormFieldProps) => {
+  const { resolvedTheme, themeTokens } = useAppTheme();
+
+  return (
+    <View className={cn("mb-3", containerClassName)}>
+      <View className="flex-row items-center rounded-[18px] border border-line bg-input px-5 py-1 shadow-soft">
+        {leftSlot ? <View className="mr-3">{leftSlot}</View> : null}
+        <TextInput
+          autoCapitalize={autoCapitalize}
+          className="min-h-[54px] flex-1 text-[18px] text-ink"
+          keyboardType={keyboardType}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={themeTokens.textMuted}
+          secureTextEntry={secureTextEntry}
+          value={value}
+        />
+        {rightSlot ? <View className="ml-3">{rightSlot}</View> : null}
+      </View>
+      {error ? (
+        <Text className={cn("mt-2 text-[12px] leading-5", resolvedTheme === "dark" ? "text-dangerText" : "text-white/95")}>
+          {error}
+        </Text>
+      ) : null}
     </View>
-    {error ? <Text className="mt-2 text-[12px] leading-5 text-white/95">{error}</Text> : null}
-  </View>
-);
+  );
+};
 
 type SignUpErrors = {
   firstName?: string;
@@ -141,20 +150,21 @@ const LegalModal = ({
   onClose: () => void;
   modalKey: Exclude<LegalModalKey, null>;
 }) => {
+  const { themeTokens } = useAppTheme();
   const content = LEGAL_MODAL_CONTENT[modalKey];
 
   return (
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
       <View className="flex-1 justify-center bg-black/45 px-6 py-10">
         <Pressable className="absolute inset-0" onPress={onClose} />
-        <View className="max-h-[78%] rounded-[28px] bg-white px-6 pt-6 pb-5">
+        <View className="max-h-[78%] rounded-[28px] bg-panel px-6 pb-5 pt-6">
           <View className="mb-4 flex-row items-start justify-between">
             <View className="flex-1 pr-4">
               <Text className="text-[24px] font-semibold text-ink">{content.title}</Text>
               <Text className="mt-2 text-[13px] leading-5 text-muted">Local in-app copy for the current SOSync build.</Text>
             </View>
             <Pressable hitSlop={10} onPress={onClose}>
-              <MaterialCommunityIcons color="#2E2C2C" name="close" size={24} />
+              <MaterialCommunityIcons color={themeTokens.accentPrimary} name="close" size={24} />
             </Pressable>
           </View>
 
@@ -175,6 +185,7 @@ const LegalModal = ({
 export default function SignUpScreen() {
   const router = useRouter();
   const { saveProfile, sendEmailOtp, signUpWithEmail } = useAuthSession();
+  const { resolvedTheme, themeTokens } = useAppTheme();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phoneDigits, setPhoneDigits] = useState("");
@@ -186,6 +197,9 @@ export default function SignUpScreen() {
   const [errors, setErrors] = useState<SignUpErrors>({});
   const [legalModal, setLegalModal] = useState<LegalModalKey>(null);
   const [loading, setLoading] = useState(false);
+  const isDark = resolvedTheme === "dark";
+  const supportTextClassName = isDark ? "text-secondary" : "text-white";
+  const errorTextClassName = isDark ? "text-dangerText" : "text-white/95";
 
   const handleSignUp = async () => {
     const parsed = signUpFormSchema.safeParse({
@@ -262,7 +276,7 @@ export default function SignUpScreen() {
     <AuthScreen
       scrollable={false}
       topSlot={<BackButton onPress={() => goBackOrReplace(router, "/(onboarding)/welcome")} />}
-      hero={<Text className="text-center text-[32px] font-semibold tracking-[-0.03em] text-black">Create an Account</Text>}
+      hero={<Text className="text-center text-[32px] font-semibold tracking-[-0.03em] text-ink">Create an Account</Text>}
       sheetClassName="mt-4 flex-1 px-6 pt-5"
     >
       <View className="flex-1 justify-between">
@@ -326,7 +340,7 @@ export default function SignUpScreen() {
             rightSlot={(
               <Pressable hitSlop={10} onPress={() => setShowPassword((current) => !current)}>
                 <MaterialCommunityIcons
-                  color="#454040"
+                  color={themeTokens.textMuted}
                   name={showPassword ? "eye-outline" : "eye-off-outline"}
                   size={24}
                 />
@@ -346,7 +360,7 @@ export default function SignUpScreen() {
             rightSlot={(
               <Pressable hitSlop={10} onPress={() => setShowConfirmPassword((current) => !current)}>
                 <MaterialCommunityIcons
-                  color="#454040"
+                  color={themeTokens.textMuted}
                   name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
                   size={24}
                 />
@@ -357,17 +371,17 @@ export default function SignUpScreen() {
         </View>
 
         <View>
-          {errors.general ? <Text className="mb-3 text-center text-[12px] leading-5 text-white/95">{errors.general}</Text> : null}
+          {errors.general ? <Text className={`mb-3 text-center text-[12px] leading-5 ${errorTextClassName}`}>{errors.general}</Text> : null}
           <Button
             label="Continue"
             loading={loading}
             onPress={handleSignUp}
-            variant="secondary"
-            className="mx-auto min-h-[56px] w-[210px] rounded-full"
-            textClassName="text-[18px]"
+            variant={isDark ? "outline" : "secondary"}
+            className={`mx-auto min-h-[56px] w-[210px] rounded-full ${isDark ? "border-0 bg-page" : ""}`}
+            textClassName={`text-[18px] ${isDark ? "text-accent" : ""}`}
           />
 
-          <Text className="mt-5 text-center text-[12px] leading-5 text-white/95">
+          <Text className={`mt-5 text-center text-[12px] leading-5 ${errorTextClassName}`}>
             By continuing, you agree to our{" "}
             <Text className="underline" onPress={() => setLegalModal("terms")}>
               Terms of Service
@@ -378,12 +392,12 @@ export default function SignUpScreen() {
             </Text>
           </Text>
 
-          <View className="mt-5 h-px bg-white/75" />
+          <View className={`mt-5 h-px ${isDark ? "bg-line" : "bg-white/75"}`} />
 
           <View className="mt-4 flex-row items-center justify-center">
-            <Text className="text-[15px] leading-6 text-white">Have an account? </Text>
+            <Text className={`text-[15px] leading-6 ${supportTextClassName}`}>Have an account? </Text>
             <Pressable hitSlop={10} className="py-1" onPress={() => router.replace("/(onboarding)/signInEmail")}>
-              <Text className="text-[15px] font-medium underline text-white">Login Here</Text>
+              <Text className={`text-[15px] font-medium underline ${isDark ? "text-ink" : "text-white"}`}>Login Here</Text>
             </Pressable>
           </View>
         </View>

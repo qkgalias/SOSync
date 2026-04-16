@@ -1,12 +1,12 @@
 /** Purpose: Present the three-slide prototype welcome flow before account entry. */
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { Image, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/Button";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 
 const slides = [
   {
@@ -48,12 +48,14 @@ const WelcomeHero = ({
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { resolvedTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const previousWidthRef = useRef(width);
   const heroWidth = Math.min(width - 44, 344);
+  const isDark = resolvedTheme === "dark";
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -76,7 +78,6 @@ export default function WelcomeScreen() {
 
   return (
     <View className="flex-1 bg-page">
-      <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
       <SafeAreaView edges={["top"]} className="flex-1 bg-page">
         <View className="flex-1 bg-page">
           <View className="px-7 pt-4">
@@ -104,29 +105,29 @@ export default function WelcomeScreen() {
             {slides.map((slide, index) => (
               <View
                 key={slide.key}
-                className={index === activeIndex ? "h-2 w-2 rounded-full bg-[#8C8787]" : "h-2 w-2 rounded-full bg-[#C9C4C4]"}
+                className={index === activeIndex ? "h-2 w-2 rounded-full bg-primary" : "h-2 w-2 rounded-full bg-line"}
               />
             ))}
           </View>
           <View
-            className="rounded-t-[44px] border-t-2 border-[#E4A3A3] bg-primary px-7 pt-8"
+            className={`rounded-t-[44px] border-t px-7 pt-8 ${isDark ? "border-line bg-secondaryPage" : "border-soft bg-primary"}`}
             style={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
           >
             <Button
               label="Join the Safety"
               onPress={() => router.push("/(onboarding)/signUp")}
-              variant="secondary"
-              className="rounded-full py-4"
-              textClassName="text-[23px]"
+              variant={isDark ? "outline" : "secondary"}
+              className={`rounded-full py-4 ${isDark ? "border-0 bg-page" : ""}`}
+              textClassName={`text-[23px] ${isDark ? "text-accent" : ""}`}
             />
-            <View className="mt-8 h-px bg-white/70" />
-          <View className="mt-6 flex-row items-center justify-center">
-            <Text className="text-[12px] text-white">Already have an account? </Text>
-            <Pressable onPress={() => router.push("/(onboarding)/signInEmail")}>
-              <Text className="text-[12px] underline text-white">Sign in</Text>
-            </Pressable>
+            <View className={`mt-8 h-px ${isDark ? "bg-line" : "bg-white/70"}`} />
+            <View className="mt-6 flex-row items-center justify-center">
+              <Text className={`text-[12px] ${isDark ? "text-secondary" : "text-white"}`}>Already have an account? </Text>
+              <Pressable onPress={() => router.push("/(onboarding)/signInEmail")}>
+                <Text className={`text-[12px] underline ${isDark ? "text-ink" : "text-white"}`}>Sign in</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
         </View>
       </SafeAreaView>
     </View>

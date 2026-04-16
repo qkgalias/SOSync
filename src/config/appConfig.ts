@@ -1,4 +1,6 @@
 /** Purpose: Centralize product-level design, region, and map defaults for SOSync. */
+import { LIGHT_THEME_TOKENS } from "@/theme/appTheme";
+
 export const appConfig = {
   appName: "SOSync",
   launchRegion: "PH",
@@ -12,16 +14,18 @@ export const appConfig = {
   },
   theme: {
     colors: {
-      canvas: "#FFFFFF",
-      surface: "#F1F1F1",
-      ink: "#2E2C2C",
-      muted: "#6A6767",
-      line: "#E4D8D8",
-      primary: "#D06B6B",
-      accent: "#7B2C28",
-      caution: "#D78B4A",
-      danger: "#8A2D2B",
-      focus: "#B85757",
+      canvas: LIGHT_THEME_TOKENS.bgApp,
+      surface: LIGHT_THEME_TOKENS.surface,
+      ink: LIGHT_THEME_TOKENS.textPrimary,
+      muted: LIGHT_THEME_TOKENS.textMuted,
+      line: LIGHT_THEME_TOKENS.borderSubtle,
+      primary: LIGHT_THEME_TOKENS.accentPrimary,
+      accent: LIGHT_THEME_TOKENS.accentPrimary,
+      soft: LIGHT_THEME_TOKENS.accentSoft,
+      softText: LIGHT_THEME_TOKENS.textPrimary,
+      caution: LIGHT_THEME_TOKENS.warning,
+      danger: LIGHT_THEME_TOKENS.danger,
+      focus: LIGHT_THEME_TOKENS.accentPressed,
     },
   },
 };

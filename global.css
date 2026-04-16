@@ -4,6 +4,84 @@
 @tailwind utilities;
 
 :root {
-  color: #0e1a2b;
-  background-color: #ffffff;
+  --bg-app: 255 255 255;
+  --bg-secondary: 246 242 239;
+  --surface: 241 241 241;
+  --surface-elevated: 224 224 224;
+  --surface-input: 255 255 255;
+
+  --text-primary: 46 44 44;
+  --text-secondary: 89 85 86;
+  --text-muted: 106 103 103;
+
+  --accent-primary: 92 21 21;
+  --accent-pressed: 122 49 49;
+  --accent-soft: 243 236 233;
+  --accent-outline: 169 68 61;
+
+  --border-subtle: 228 216 216;
+  --border-strong: 210 194 190;
+
+  --success: 34 197 94;
+  --success-surface: 232 247 238;
+  --success-border: 183 231 201;
+  --success-text: 21 128 61;
+
+  --warning: 209 154 26;
+  --warning-surface: 255 247 226;
+  --warning-border: 232 207 139;
+  --warning-text: 139 101 13;
+
+  --danger: 217 58 58;
+  --danger-surface: 252 235 235;
+  --danger-border: 237 183 183;
+  --danger-text: 166 44 44;
+
+  --info: 77 163 255;
+  --info-surface: 234 244 255;
+  --info-border: 195 220 248;
+  --info-text: 43 107 170;
+
+  color: rgb(var(--text-primary));
+  background-color: rgb(var(--bg-app));
+}
+
+.dark:root {
+  --bg-app: 18 19 21;
+  --bg-secondary: 24 26 31;
+  --surface: 30 33 39;
+  --surface-elevated: 37 41 50;
+  --surface-input: 43 48 58;
+
+  --text-primary: 245 247 250;
+  --text-secondary: 183 189 200;
+  --text-muted: 139 147 161;
+
+  --accent-primary: 163 13 24;
+  --accent-pressed: 141 11 20;
+  --accent-soft: 59 20 24;
+  --accent-outline: 201 71 82;
+
+  --border-subtle: 52 57 68;
+  --border-strong: 69 75 87;
+
+  --success: 34 197 94;
+  --success-surface: 20 40 29;
+  --success-border: 47 110 70;
+  --success-text: 126 226 168;
+
+  --warning: 209 154 26;
+  --warning-surface: 46 36 16;
+  --warning-border: 111 87 23;
+  --warning-text: 243 201 105;
+
+  --danger: 217 58 58;
+  --danger-surface: 58 20 20;
+  --danger-border: 138 42 42;
+  --danger-text: 255 179 179;
+
+  --info: 77 163 255;
+  --info-surface: 20 33 49;
+  --info-border: 46 94 143;
+  --info-text: 169 209 255;
 }

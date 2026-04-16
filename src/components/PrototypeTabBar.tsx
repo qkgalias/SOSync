@@ -1,4 +1,4 @@
-/** Purpose: Render the coral-accented bottom navigation with a central SOS action. */
+/** Purpose: Render the dark-red-accented bottom navigation with a central SOS action. */
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Pressable, Text, View } from "react-native";
@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useBlockedUsers } from "@/hooks/useBlockedUsers";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { cn } from "@/utils/helpers";
 
 const iconByRoute: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -22,10 +23,11 @@ export const PrototypeTabBar = ({ descriptors, navigation, state }: BottomTabBar
   const { authUser, selectedGroupId } = useAuthSession();
   const { blockedUserIds } = useBlockedUsers(authUser?.uid);
   const { unreadCount } = useNotifications(selectedGroupId, authUser?.uid, blockedUserIds);
+  const { themeTokens } = useAppTheme();
 
   return (
     <View
-      className="border-t border-line bg-white px-3 pt-2"
+      className="border-t border-line bg-page px-3 pt-2"
       style={{ paddingBottom: Math.max(insets.bottom, 12) }}
     >
       <View className="flex-row items-end justify-between">
@@ -47,7 +49,7 @@ export const PrototypeTabBar = ({ descriptors, navigation, state }: BottomTabBar
                 className={isSos ? "mb-1 h-14 w-14 items-center justify-center rounded-full bg-accent" : "items-center justify-center"}
               >
                 <MaterialCommunityIcons
-                  color={isSos ? "#FFFFFF" : isFocused ? "#7B2C28" : "#8F8A8A"}
+                  color={isSos ? "#FFFFFF" : isFocused ? themeTokens.accentPrimary : themeTokens.textMuted}
                   name={iconByRoute[route.name] ?? "circle-outline"}
                   size={isSos ? 30 : 24}
                 />

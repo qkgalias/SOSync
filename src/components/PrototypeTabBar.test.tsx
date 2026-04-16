@@ -22,6 +22,18 @@ jest.mock("react-native-safe-area-context", () => ({
   }),
 }));
 
+jest.mock("@/providers/AppThemeProvider", () => ({
+  useAppTheme: () => {
+    const { LIGHT_THEME_TOKENS } = jest.requireActual("@/theme/appTheme");
+
+    return {
+      resolvedTheme: "light",
+      themePreference: "light",
+      themeTokens: LIGHT_THEME_TOKENS,
+    };
+  },
+}));
+
 jest.mock("@/hooks/useAuthSession", () => ({
   useAuthSession: () => ({
     authUser: { uid: "user-1" },

@@ -9,7 +9,7 @@ import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/Button";
 import { Screen } from "@/components/Screen";
 import { SettingsRow } from "@/components/SettingsRow";
-import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { goBackOrReplace } from "@/utils/helpers";
 
 type HelpModalKey = "usage" | "faq" | "about" | "privacy" | "terms" | null;
@@ -102,19 +102,20 @@ const HelpModal = ({
   onClose: () => void;
 }) => {
   const content = HELP_MODAL_CONTENT[modalKey];
+  const { themeTokens } = useAppTheme();
 
   return (
     <Modal animationType="fade" transparent visible onRequestClose={onClose}>
       <View className="flex-1 justify-center bg-black/35 px-6 py-10">
         <Pressable className="absolute inset-0" onPress={onClose} />
-        <View className="max-h-[78%] rounded-[28px] bg-white px-6 pb-5 pt-6">
+        <View className="max-h-[78%] rounded-[28px] bg-panel px-6 pb-5 pt-6">
           <View className="mb-4 flex-row items-start justify-between">
             <View className="mr-4 flex-1">
               <Text className="text-[24px] font-semibold text-ink">{content.title}</Text>
               <Text className="mt-2 text-sm leading-6 text-muted">In-app guidance for the current SOSync build.</Text>
             </View>
             <Pressable className="h-9 w-9 items-center justify-center" hitSlop={10} onPress={onClose}>
-              <MaterialCommunityIcons color={PROFILE_ACCENT} name="close" size={22} />
+              <MaterialCommunityIcons color={themeTokens.accentPrimary} name="close" size={22} />
             </Pressable>
           </View>
 
@@ -134,6 +135,7 @@ const HelpModal = ({
 
 export default function HelpScreen() {
   const router = useRouter();
+  const { themeTokens } = useAppTheme();
   const version = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "1.0.0";
   const [modalKey, setModalKey] = useState<HelpModalKey>(null);
 
@@ -148,28 +150,28 @@ export default function HelpScreen() {
       <View>
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="medical-bag" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="medical-bag" size={22} />}
           onPress={() => setModalKey("usage")}
           subtitle="Learn how to use SOS and stay safe"
           title="Emergency Usage Guide"
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="comment-question-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="comment-question-outline" size={22} />}
           onPress={() => setModalKey("faq")}
           subtitle="Find answers to common questions"
           title="FAQs"
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="help-circle-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="help-circle-outline" size={22} />}
           onPress={() => Linking.openURL("mailto:support@sosync.app?subject=SOSync%20Support")}
           subtitle="Get help from our team"
           title="Contact Support"
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="alert-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="alert-outline" size={22} />}
           onPress={() => Linking.openURL("mailto:support@sosync.app?subject=SOSync%20Problem%20Report")}
           subtitle="Submit feedback or report an issue"
           title="Report a Problem"
@@ -180,28 +182,28 @@ export default function HelpScreen() {
       <View>
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="account-group-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="account-group-outline" size={22} />}
           onPress={() => setModalKey("about")}
           subtitle="Learn about our mission and team"
           title="About the App"
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="file-document-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="file-document-outline" size={22} />}
           onPress={() => setModalKey("privacy")}
           subtitle="Understand how your data is collected and used"
           title="Privacy Policy"
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="alert-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="alert-outline" size={22} />}
           onPress={() => setModalKey("terms")}
           subtitle="Review the rules and responsibilities"
           title="Terms & Conditions"
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="cellphone-information" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="cellphone-information" size={22} />}
           showChevron={false}
           subtitle=""
           title="App Version"

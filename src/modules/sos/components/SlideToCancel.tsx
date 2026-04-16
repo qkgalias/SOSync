@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
+import { useAppTheme } from "@/providers/AppThemeProvider";
+
 const TRACK_PADDING = 6;
 const KNOB_SIZE = 52;
 
@@ -21,11 +23,13 @@ export const SlideToCancel = ({
   label = "Slide to cancel",
   onComplete,
 }: SlideToCancelProps) => {
+  const { resolvedTheme, themeTokens } = useAppTheme();
   const translateX = useRef(new Animated.Value(0)).current;
   const dragStart = useRef(0);
   const [trackWidth, setTrackWidth] = useState(0);
   const maxOffset = Math.max(trackWidth - KNOB_SIZE - TRACK_PADDING * 2, 0);
   const completionThreshold = maxOffset * 0.84;
+  const isDark = resolvedTheme === "dark";
 
   useEffect(() => {
     if (!active) {
@@ -88,14 +92,22 @@ export const SlideToCancel = ({
 
   return (
     <View
-      className="mt-8 h-[64px] justify-center rounded-full border border-[#5B231F] bg-white/95 px-[6px]"
+      className="mt-8 h-[64px] justify-center rounded-full px-[6px]"
       onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+      style={{
+        backgroundColor: isDark ? themeTokens.surfaceElevated : "rgba(255,255,255,0.95)",
+        borderColor: isDark ? themeTokens.borderStrong : "#5B231F",
+        borderWidth: 1,
+      }}
     >
-      <Text className="text-center text-[17px] font-semibold text-accent">{label}</Text>
+      <Text className="text-center text-[17px] font-semibold" style={{ color: isDark ? themeTokens.textPrimary : themeTokens.accentPrimary }}>
+        {label}
+      </Text>
       <Animated.View
         {...panResponder.panHandlers}
-        className="absolute left-[6px] top-[6px] h-[52px] w-[52px] items-center justify-center rounded-full bg-accent shadow-soft"
+        className="absolute left-[6px] top-[6px] h-[52px] w-[52px] items-center justify-center rounded-full shadow-soft"
         style={{
+          backgroundColor: themeTokens.accentPrimary,
           transform: [{ translateX }],
         }}
       >

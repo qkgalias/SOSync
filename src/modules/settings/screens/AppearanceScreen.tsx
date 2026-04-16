@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { USER_SEED } from "@/utils/constants";
 import { goBackOrReplace } from "@/utils/helpers";
 
@@ -16,6 +16,7 @@ type AppearanceIconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 export default function AppearanceScreen() {
   const router = useRouter();
   const { profile, saveProfile } = useAuthSession();
+  const { themeTokens } = useAppTheme();
   const selectedTheme = profile?.preferences?.theme ?? USER_SEED.preferences.theme;
 
   const handleSelectTheme = async (theme: "light" | "dark" | "system") => {
@@ -66,10 +67,10 @@ export default function AppearanceScreen() {
               }}
             >
               <View className="h-8 w-8 items-center justify-center">
-                <MaterialCommunityIcons color={PROFILE_ACCENT} name={option.icon} size={26} />
+                <MaterialCommunityIcons color={themeTokens.accentPrimary} name={option.icon} size={26} />
               </View>
               <Text className="ml-4 flex-1 text-[18px] text-ink">{option.title}</Text>
-              {selected ? <MaterialCommunityIcons color={PROFILE_ACCENT} name="check" size={22} /> : null}
+              {selected ? <MaterialCommunityIcons color={themeTokens.accentPrimary} name="check" size={22} /> : null}
             </Pressable>
           );
         })}
@@ -79,7 +80,7 @@ export default function AppearanceScreen() {
       <View className="rounded-[22px] bg-panel px-5 py-4">
         <View className="flex-row items-center">
           <View className="h-8 w-8 items-center justify-center">
-            <MaterialCommunityIcons color={PROFILE_ACCENT} name="earth" size={26} />
+            <MaterialCommunityIcons color={themeTokens.accentPrimary} name="earth" size={26} />
           </View>
           <Text className="ml-4 text-[18px] text-ink">English</Text>
         </View>
@@ -89,11 +90,11 @@ export default function AppearanceScreen() {
       <View className="rounded-[22px] bg-panel px-5 py-4">
         <View className="flex-row items-center">
           <View className="h-8 w-8 items-center justify-center">
-            <MaterialCommunityIcons color={PROFILE_ACCENT} name="format-font" size={26} />
+            <MaterialCommunityIcons color={themeTokens.accentPrimary} name="format-font" size={26} />
           </View>
           <Text className="ml-4 flex-1 text-[18px] text-ink">Font</Text>
           <Text className="mr-2 text-[18px] text-ink">System</Text>
-          <MaterialCommunityIcons color="#111111" name="chevron-right" size={24} />
+          <MaterialCommunityIcons color={themeTokens.textPrimary} name="chevron-right" size={24} />
         </View>
       </View>
     </Screen>

@@ -4,10 +4,12 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { Screen } from "@/components/Screen";
 import { useHotlines } from "@/hooks/useHotlines";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { toCallHref } from "@/utils/helpers";
 
 export default function HotlinesScreen() {
   const hotlines = useHotlines();
+  const { themeTokens } = useAppTheme();
 
   const handleHotlinePress = (hotlineName: string, hotlinePhone: string) => {
     Alert.alert(hotlineName, `${hotlinePhone}\n\nCall this hotline now?`, [
@@ -33,22 +35,22 @@ export default function HotlinesScreen() {
         </Text>
       </View>
 
-      <View className="mt-6 border-t border-[#A8A29E] pt-6">
+      <View className="mt-6 border-t border-line pt-6">
         {hotlines.map((hotline) => (
           <Pressable
             key={hotline.hotlineId}
             accessibilityRole="button"
-            className="mb-4 flex-row items-center rounded-[24px] bg-[#E7E5E4] px-5 py-4"
+            className="mb-4 flex-row items-center rounded-[24px] bg-panel px-5 py-4"
             onPress={() => handleHotlinePress(hotline.name, hotline.phone)}
           >
-            <View className="mr-4 h-12 w-12 items-center justify-center rounded-full bg-ink">
+            <View className="mr-4 h-12 w-12 items-center justify-center rounded-full bg-primary">
               <MaterialCommunityIcons color="#FFFFFF" name="information-outline" size={26} />
             </View>
             <View className="flex-1">
               <Text className="text-[17px] font-medium leading-6 text-ink">{hotline.name}</Text>
               <Text className="mt-1 text-[16px] leading-6 text-ink">{hotline.phone}</Text>
             </View>
-            <MaterialCommunityIcons color="#111111" name="chevron-right" size={30} />
+            <MaterialCommunityIcons color={themeTokens.textPrimary} name="chevron-right" size={30} />
           </Pressable>
         ))}
       </View>
