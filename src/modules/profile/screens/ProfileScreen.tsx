@@ -1,19 +1,18 @@
 /** Purpose: Present the polished signed-in profile hub with circle summary, settings entry points, and modal join flow. */
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Image, Modal, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { Button } from "@/components/Button";
-import { CodeInput } from "@/components/CodeInput";
+import { JoinCircleModal } from "@/components/JoinCircleModal";
 import { Screen } from "@/components/Screen";
 import { SettingsRow } from "@/components/SettingsRow";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { useGroupMembers } from "@/hooks/useGroupMembers";
 import { profileMediaService } from "@/services/profileMediaService";
 import { toInitials } from "@/utils/helpers";
-import { inviteCodeSchema } from "@/utils/validators";
 
 const AvatarPreview = ({
   displayName,
@@ -38,14 +37,12 @@ const AvatarPreview = ({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { authUser, groups, joinCircleWithInvite, profile, saveProfile, selectedGroupId, signOut } = useAuthSession();
-  const [inviteCode, setInviteCode] = useState("");
+  const { authUser, groups, profile, saveProfile, selectedGroupId, signOut } = useAuthSession();
+  const { themeTokens } = useAppTheme();
   const [joinVisible, setJoinVisible] = useState(false);
-  const [loadingAction, setLoadingAction] = useState<"join" | null>(null);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [statusTone, setStatusTone] = useState<"success" | "error">("success");
-  const [joinError, setJoinError] = useState("");
 
   const activeGroup = groups.find((group) => group.groupId === selectedGroupId) ?? groups[0];
   const activeMembers = useGroupMembers(activeGroup?.groupId ?? null);
@@ -58,35 +55,6 @@ export default function ProfileScreen() {
         : "Member";
 
   const contactLines = [profile?.email ?? authUser?.email, profile?.phoneNumber ?? authUser?.phoneNumber].filter(Boolean);
-
-  const closeJoinModal = () => {
-    setJoinVisible(false);
-    setInviteCode("");
-    setJoinError("");
-  };
-
-  const handleJoinCircle = async () => {
-    const parsed = inviteCodeSchema.safeParse({ inviteCode });
-    if (!parsed.success) {
-      setJoinError(parsed.error.issues[0]?.message ?? "Enter a valid 6-digit circle code.");
-      return;
-    }
-
-    setLoadingAction("join");
-    setJoinError("");
-    setStatusMessage("");
-    setStatusTone("success");
-
-    try {
-      await joinCircleWithInvite(parsed.data.inviteCode);
-      closeJoinModal();
-      setStatusMessage("Trusted circle joined.");
-    } catch (error) {
-      setJoinError(error instanceof Error ? error.message : "Unable to join the trusted circle right now.");
-    } finally {
-      setLoadingAction(null);
-    }
-  };
 
   const handleChooseAvatar = async () => {
     if (!authUser?.uid) {
@@ -134,9 +102,9 @@ export default function ProfileScreen() {
             onPress={() => void handleChooseAvatar()}
           >
             {avatarLoading ? (
-              <ActivityIndicator color={PROFILE_ACCENT} size="small" />
+              <ActivityIndicator color={themeTokens.accentPrimary} size="small" />
             ) : (
-              <MaterialCommunityIcons color={PROFILE_ACCENT} name="pencil-outline" size={20} />
+              <MaterialCommunityIcons color={themeTokens.accentPrimary} name="pencil-outline" size={20} />
             )}
           </Pressable>
         </View>
@@ -159,7 +127,7 @@ export default function ProfileScreen() {
                 Active circle · {activeGroup.membersCount} {activeGroup.membersCount === 1 ? "member" : "members"}
               </Text>
             </View>
-            <View className={`rounded-full px-3 py-2 ${groupRoleLabel === "Owner" ? "bg-white" : "bg-white/50"}`}>
+            <View className={`rounded-full px-3 py-2 ${groupRoleLabel === "Owner" ? "bg-page" : "bg-surface"}`}>
               <Text
                 className={`text-xs font-semibold uppercase tracking-[0.12em] ${
                   groupRoleLabel === "Owner" ? "text-muted" : "text-muted/70"
@@ -206,7 +174,7 @@ export default function ProfileScreen() {
                 label="Join circle"
                 onPress={() => {
                   setJoinVisible(true);
-                  setJoinError("");
+                  setStatusMessage("");
                 }}
                 textClassName="text-white"
               />
@@ -225,14 +193,14 @@ export default function ProfileScreen() {
       )}
 
       {statusMessage ? (
-        <Text className={`mt-4 text-sm ${statusTone === "error" ? "text-danger" : "text-profileAccent"}`}>
+        <Text className={`mt-4 text-sm ${statusTone === "error" ? "text-danger" : "text-accent"}`}>
           {statusMessage}
         </Text>
       ) : null}
 
       <SettingsRow
         className="mt-8 rounded-[22px] px-5 py-5"
-        icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="cog-outline" size={24} />}
+        icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="cog-outline" size={24} />}
         onPress={() => router.push("/general" as never)}
         titleClassName="text-[18px] font-semibold text-ink"
         title="General"
@@ -240,7 +208,7 @@ export default function ProfileScreen() {
 
       <SettingsRow
         className="rounded-[22px] px-5 py-5"
-        icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="palette-outline" size={24} />}
+        icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="palette-outline" size={24} />}
         onPress={() => router.push("/appearance" as never)}
         titleClassName="text-[18px] font-semibold text-ink"
         title="Appearance"
@@ -254,44 +222,14 @@ export default function ProfileScreen() {
         variant="outline"
       />
 
-      <Modal animationType="fade" transparent visible={joinVisible} onRequestClose={closeJoinModal}>
-        <View className="flex-1 justify-center bg-black/30 px-6 py-10">
-          <Pressable className="absolute inset-0" onPress={closeJoinModal} />
-          <View className="rounded-[28px] bg-white px-5 pt-6 pb-5 shadow-soft">
-            <View className="flex-row items-start justify-between">
-              <View className="mr-4 flex-1">
-                <Text className="text-[24px] font-semibold text-ink">Join a circle</Text>
-                <Text className="mt-2 text-sm leading-6 text-muted">
-                  Enter the 6-digit invite code shared with you by a trusted circle owner or admin.
-                </Text>
-              </View>
-              <Pressable className="h-9 w-9 items-center justify-center" hitSlop={10} onPress={closeJoinModal}>
-                <MaterialCommunityIcons color={PROFILE_ACCENT} name="close" size={22} />
-              </Pressable>
-            </View>
-
-            <View className="mt-5">
-              <CodeInput
-                cellClassName="h-14 w-12 rounded-[14px]"
-                emptyState="dot"
-                onChangeValue={setInviteCode}
-                rowClassName="justify-between"
-                value={inviteCode}
-              />
-            </View>
-
-            {joinError ? <Text className="mt-4 text-sm text-danger">{joinError}</Text> : null}
-
-            <Button
-              className="mt-6 min-h-11 rounded-[16px] bg-profileAccent"
-              label="Join circle"
-              loading={loadingAction === "join"}
-              onPress={handleJoinCircle}
-              textClassName="text-white"
-            />
-          </View>
-        </View>
-      </Modal>
+      <JoinCircleModal
+        onClose={() => setJoinVisible(false)}
+        onSuccess={() => {
+          setStatusTone("success");
+          setStatusMessage("Trusted circle joined.");
+        }}
+        visible={joinVisible}
+      />
     </Screen>
   );
 }
