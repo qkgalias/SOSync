@@ -34,6 +34,18 @@ jest.mock("@/hooks/useBlockedUsers", () => ({
   }),
 }));
 
+jest.mock("@/providers/AppThemeProvider", () => ({
+  useAppTheme: () => {
+    const { LIGHT_THEME_TOKENS } = jest.requireActual("@/theme/appTheme");
+
+    return {
+      resolvedTheme: "light",
+      themePreference: "light",
+      themeTokens: LIGHT_THEME_TOKENS,
+    };
+  },
+}));
+
 jest.mock("@/hooks/useGroupMembers", () => ({
   useGroupMembers: () => [
     {
@@ -42,17 +54,6 @@ jest.mock("@/hooks/useGroupMembers", () => ({
       displayName: "Ari Santos",
       role: "member",
       joinedAt: "2026-03-01T00:00:00.000Z",
-    },
-  ],
-}));
-
-jest.mock("@/hooks/useGroupStatuses", () => ({
-  useGroupStatuses: () => [
-    {
-      groupId: "group-1",
-      userId: "user-2",
-      status: "need_help",
-      updatedAt: "2026-03-28T11:00:00.000Z",
     },
   ],
 }));
@@ -170,7 +171,6 @@ describe("NotificationsScreen", () => {
       expect(mockMarkAsRead).toHaveBeenCalledWith("sos:event-1");
       expect(screen.getByText("SOS Details")).toBeTruthy();
       expect(screen.getByText("Ari Santos")).toBeTruthy();
-      expect(screen.getByText("Need Help")).toBeTruthy();
       expect(screen.getByText("Scout Chuatoco Ave, Quezon City")).toBeTruthy();
     });
 

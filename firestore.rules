@@ -82,12 +82,6 @@ service cloud.firestore {
       match /invites/{inviteId} {
         allow read, write: if false;
       }
-
-      match /statuses/{userId} {
-        allow read: if isGroupMember(groupId);
-        allow create, update: if (isSelf(userId) && isGroupMember(groupId)) || isGroupAdmin(groupId);
-        allow delete: if isSelf(userId) || isGroupAdmin(groupId);
-      }
     }
 
     match /locations/{locationId} {

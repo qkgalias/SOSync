@@ -1,5 +1,5 @@
-/** Purpose: Verify SOS popup detail fallbacks for status and location. */
-import type { GroupMember, GroupStatus, NotificationFeedItem, SosEvent } from "@/types";
+/** Purpose: Verify SOS popup detail fallbacks for member identity and location. */
+import type { GroupMember, NotificationFeedItem, SosEvent } from "@/types";
 
 import { buildSosNotificationDetail, formatSosCoordinateLabel, getSosEventIdFromFeedItemId } from "@/modules/notifications/notificationDetails";
 
@@ -32,18 +32,17 @@ describe("notificationDetails", () => {
     expect(getSosEventIdFromFeedItemId("alert:item-1")).toBeNull();
   });
 
-  it("falls back to unavailable status and coordinates when richer data is missing", () => {
+  it("falls back to coordinates when richer data is missing", () => {
     const detail = buildSosNotificationDetail({
       item: buildItem({ body: "Immediate assistance requested." }),
       event: buildEvent({ latitude: 14.60012, longitude: 120.98434 }),
     });
 
-    expect(detail.statusLabel).toBe("Unavailable");
     expect(detail.locationLabel).toBe("14.60012, 120.98434");
     expect(detail.message).toBe("Need help at the east entrance.");
   });
 
-  it("prefers resolved member, status, and readable location data", () => {
+  it("prefers resolved member and readable location data", () => {
     const member = {
       userId: "user-1",
       groupId: "group-1",
@@ -52,25 +51,17 @@ describe("notificationDetails", () => {
       joinedAt: "2026-03-20T00:00:00.000Z",
       photoURL: "https://example.com/avatar.jpg",
     } satisfies GroupMember;
-    const status = {
-      groupId: "group-1",
-      userId: "user-1",
-      status: "need_help",
-      updatedAt: "2026-03-28T12:00:00.000Z",
-    } satisfies GroupStatus;
 
     const detail = buildSosNotificationDetail({
       item: buildItem({ body: "Immediate assistance requested." }),
       event: buildEvent(),
       member,
-      status,
       locationLabel: "Scout Chuatoco Ave, Quezon City",
     });
 
     expect(detail.callerName).toBe("Ari Santos");
     expect(detail.callerInitials).toBe("AS");
     expect(detail.callerPhotoURL).toBe("https://example.com/avatar.jpg");
-    expect(detail.statusLabel).toBe("Need Help");
     expect(detail.locationLabel).toBe("Scout Chuatoco Ave, Quezon City");
   });
 

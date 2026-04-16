@@ -9,7 +9,7 @@ import { Button } from "@/components/Button";
 import { Screen } from "@/components/Screen";
 import { SettingsRow } from "@/components/SettingsRow";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { notificationService } from "@/services/notificationService";
 import { USER_SEED } from "@/utils/constants";
 import { goBackOrReplace } from "@/utils/helpers";
@@ -18,12 +18,12 @@ import { requestLocationPermission, requestNotificationPermission } from "@/util
 export default function PermissionsSettingsScreen() {
   const router = useRouter();
   const { authUser, profile, saveProfile } = useAuthSession();
+  const { themeTokens } = useAppTheme();
   const profilePreferences = profile?.preferences ?? USER_SEED.preferences;
   const profilePrivacy = profile?.privacy ?? USER_SEED.privacy;
   const profileSafety = profile?.safety ?? USER_SEED.safety;
   const [locationGranted, setLocationGranted] = useState(Boolean(profilePrivacy.locationSharingEnabled));
   const [notificationsGranted, setNotificationsGranted] = useState(Boolean(profilePreferences.disasterAlerts));
-  const [shareStatusEnabled, setShareStatusEnabled] = useState(Boolean(profileSafety.shareStatusEnabled));
   const [autoShareLocationOnSos, setAutoShareLocationOnSos] = useState(Boolean(profileSafety.autoShareLocationOnSos));
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -72,7 +72,6 @@ export default function PermissionsSettingsScreen() {
         safety: {
           autoCallHotlineOnSos: profileSafety.autoCallHotlineOnSos,
           autoShareLocationOnSos,
-          shareStatusEnabled,
         },
       });
       setMessage("Permissions and sharing preferences updated.");
@@ -94,16 +93,16 @@ export default function PermissionsSettingsScreen() {
       <View>
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="map-marker-radius-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="map-marker-radius-outline" size={22} />}
           onToggleChange={(value) => void handleLocationToggle(value)}
           subtitle="Needed for live map positioning and the coordinates attached to SOS."
           title="Location access"
-          toggleActiveColor={PROFILE_ACCENT}
+          toggleActiveColor={themeTokens.accentPrimary}
           toggleValue={locationGranted}
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="bell-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="bell-outline" size={22} />}
           onToggleChange={(value) => void handleNotificationsToggle(value)}
           subtitle={
             Platform.OS === "ios"
@@ -111,7 +110,7 @@ export default function PermissionsSettingsScreen() {
               : "Receive disaster alerts and SOS activity from your trusted circle."
           }
           title="Notifications"
-          toggleActiveColor={PROFILE_ACCENT}
+          toggleActiveColor={themeTokens.accentPrimary}
           toggleValue={notificationsGranted}
         />
       </View>
@@ -120,20 +119,11 @@ export default function PermissionsSettingsScreen() {
       <View>
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="account-heart-outline" size={22} />}
-          onToggleChange={setShareStatusEnabled}
-          subtitle="Let your circle see if you are safe, need help, or need evacuation."
-          title="Share preset status"
-          toggleActiveColor={PROFILE_ACCENT}
-          toggleValue={shareStatusEnabled}
-        />
-        <SettingsRow
-          className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="crosshairs-gps" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="crosshairs-gps" size={22} />}
           onToggleChange={setAutoShareLocationOnSos}
           subtitle="Attach your latest coordinates whenever you trigger an SOS."
           title="Auto-share location on SOS"
-          toggleActiveColor={PROFILE_ACCENT}
+          toggleActiveColor={themeTokens.accentPrimary}
           toggleValue={autoShareLocationOnSos}
         />
       </View>
@@ -145,7 +135,7 @@ export default function PermissionsSettingsScreen() {
         onPress={handleSave}
         textClassName="text-white"
       />
-      {message ? <Text className="mt-3 text-sm text-profileAccent">{message}</Text> : null}
+      {message ? <Text className="mt-3 text-sm text-accent">{message}</Text> : null}
     </Screen>
   );
 }

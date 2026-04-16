@@ -41,7 +41,6 @@ const assertAuthenticated = (uid?: string) => {
 
 const toGroupRef = (groupId: string) => adminDb.collection("groups").doc(groupId);
 const toMemberRef = (groupId: string, userId: string) => toGroupRef(groupId).collection("members").doc(userId);
-const toStatusRef = (groupId: string, userId: string) => toGroupRef(groupId).collection("statuses").doc(userId);
 const toLocationRef = (groupId: string, userId: string) => adminDb.collection("locations").doc(`${groupId}_${userId}`);
 
 const toGroupPayload = (
@@ -360,7 +359,6 @@ export const removeCircleMember = onCall<{ groupId?: string; targetUserId?: stri
 
     const batch = adminDb.batch();
     batch.delete(targetMemberRef);
-    batch.delete(toStatusRef(groupId, targetUserId));
     batch.delete(toLocationRef(groupId, targetUserId));
     batch.set(toGroupRef(groupId), { membersCount: FieldValue.increment(-1) }, { merge: true });
     await batch.commit();
@@ -388,7 +386,6 @@ export const leaveCircle = onCall<{ groupId?: string }, Promise<{ deletedGroup: 
 
     const batch = adminDb.batch();
     batch.delete(toMemberRef(groupId, userId));
-    batch.delete(toStatusRef(groupId, userId));
     batch.delete(toLocationRef(groupId, userId));
 
     if (membersCount <= 1) {

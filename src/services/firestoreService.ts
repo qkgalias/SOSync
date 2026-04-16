@@ -23,7 +23,6 @@ import type {
   Group,
   GroupMember,
   GroupPreferences,
-  GroupStatus,
   GroupLocation,
   NotificationReadReceipt,
   PushToken,
@@ -552,50 +551,6 @@ export const firestoreService = {
     return entry;
   },
 
-  listenToGroupStatuses(groupId: string, callback: (statuses: GroupStatus[]) => void) {
-    if (getClientMode() === "demo") {
-      return withFallback([], callback);
-    }
-
-    return onSnapshot(
-      query(collection(db(), "groups", groupId, "statuses"), orderBy("updatedAt", "desc")),
-      (snapshot) => {
-        callback(
-          snapshot
-            ? snapshot.docs.map((entry: any) => ({
-                ...(entry.data() as Omit<GroupStatus, "groupId" | "userId">),
-                userId: entry.id,
-                groupId,
-              }))
-            : [],
-        );
-      },
-      (error) => {
-        console.warn("listenToGroupStatuses failed.", error);
-        callback([]);
-      },
-    );
-  },
-
-  async saveGroupStatus(status: GroupStatus) {
-    if (getClientMode() === "demo") {
-      return status;
-    }
-
-    await withFirestoreTimeout(
-      setDoc(doc(db(), "groups", status.groupId, "statuses", status.userId), sanitizeForFirestore(status), { merge: true }),
-    );
-    return status;
-  },
-
-  async clearGroupStatus(groupId: string, userId: string) {
-    if (getClientMode() === "demo") {
-      return;
-    }
-
-    await withFirestoreTimeout(deleteDoc(doc(db(), "groups", groupId, "statuses", userId)));
-  },
-
   async deleteAccountData(userId: string, groupIds: string[]) {
     if (getClientMode() === "demo") {
       return;
@@ -614,7 +569,6 @@ export const firestoreService = {
 
     groupIds.forEach((groupId) => {
       batch.delete(doc(db(), "groups", groupId, "members", userId));
-      batch.delete(doc(db(), "groups", groupId, "statuses", userId));
       batch.delete(doc(db(), "locations", toLocationId(groupId, userId)));
     });
 

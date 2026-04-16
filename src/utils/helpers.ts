@@ -2,8 +2,6 @@
 import { formatDistanceToNowStrict } from "date-fns";
 import type { Href, Router } from "expo-router";
 
-import type { SafetyStatus } from "@/types";
-
 export const cn = (...classes: Array<string | false | null | undefined>) =>
   classes.filter(Boolean).join(" ");
 
@@ -50,16 +48,3 @@ export const toInitials = (value: string) =>
 
 export const formatPhoneForDisplay = (phoneNumber?: string | null) =>
   phoneNumber?.trim() ? phoneNumber : "No number saved";
-
-export const getSafetyStatusLabel = (status: SafetyStatus) => {
-  switch (status) {
-    case "need_help":
-      return "Need Help";
-    case "need_evacuation":
-      return "Need Evacuation";
-    case "unavailable":
-      return "Unavailable";
-    default:
-      return "Safe";
-  }
-};

@@ -8,13 +8,14 @@ import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { SettingsRow } from "@/components/SettingsRow";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { USER_SEED } from "@/utils/constants";
 import { goBackOrReplace } from "@/utils/helpers";
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { profile, saveProfile } = useAuthSession();
+  const { themeTokens } = useAppTheme();
   const [message, setMessage] = useState("");
 
   const profilePrivacy = profile?.privacy ?? USER_SEED.privacy;
@@ -31,7 +32,7 @@ export default function SettingsScreen() {
       <View>
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="map-marker-radius-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="map-marker-radius-outline" size={22} />}
           onToggleChange={(value) =>
             saveProfile({
               privacy: {
@@ -47,18 +48,17 @@ export default function SettingsScreen() {
           }
           subtitle="Control whether your live map updates are shared with your trusted circle."
           title="Live location sharing"
-          toggleActiveColor={PROFILE_ACCENT}
+          toggleActiveColor={themeTokens.accentPrimary}
           toggleValue={Boolean(profilePrivacy.locationSharingEnabled)}
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="crosshairs-gps" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="crosshairs-gps" size={22} />}
           onToggleChange={(value) =>
             saveProfile({
               safety: {
                 autoCallHotlineOnSos: profileSafety.autoCallHotlineOnSos,
                 autoShareLocationOnSos: value,
-                shareStatusEnabled: profileSafety.shareStatusEnabled,
               },
             })
               .then(() => setMessage("SOS location sharing updated."))
@@ -68,29 +68,8 @@ export default function SettingsScreen() {
           }
           subtitle="Attach your latest coordinates whenever SOS is triggered."
           title="Auto-share location on SOS"
-          toggleActiveColor={PROFILE_ACCENT}
+          toggleActiveColor={themeTokens.accentPrimary}
           toggleValue={Boolean(profileSafety.autoShareLocationOnSos)}
-        />
-        <SettingsRow
-          className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="account-heart-outline" size={22} />}
-          onToggleChange={(value) =>
-            saveProfile({
-              safety: {
-                autoCallHotlineOnSos: profileSafety.autoCallHotlineOnSos,
-                autoShareLocationOnSos: profileSafety.autoShareLocationOnSos,
-                shareStatusEnabled: value,
-              },
-            })
-              .then(() => setMessage("Status sharing preference updated."))
-              .catch((error) => {
-                setMessage(error instanceof Error ? error.message : "Unable to update status sharing.");
-              })
-          }
-          subtitle="Let your circle see whether you are safe, need help, or need evacuation."
-          title="Shared safety status"
-          toggleActiveColor={PROFILE_ACCENT}
-          toggleValue={Boolean(profileSafety.shareStatusEnabled)}
         />
       </View>
 
@@ -98,25 +77,25 @@ export default function SettingsScreen() {
       <View>
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="shield-check-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="shield-check-outline" size={22} />}
           subtitle="SOSync keeps profile, circle, alert, and location data scoped to authenticated sessions and trusted-circle access rules."
           title="Data security"
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="shield-lock-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="shield-lock-outline" size={22} />}
           subtitle="Your trusted circle is your support model. Separate trusted-contact and auto-call hotline flows are no longer surfaced."
           title="Privacy management"
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={PROFILE_ACCENT} name="file-document-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="file-document-outline" size={22} />}
           subtitle="This build stores the profile, circle, and emergency details required for SOSync to coordinate alerts and SOS activity."
           title="Privacy policy"
         />
       </View>
 
-      {message ? <Text className="mt-3 text-sm text-profileAccent">{message}</Text> : null}
+      {message ? <Text className="mt-3 text-sm text-accent">{message}</Text> : null}
     </Screen>
   );
 }

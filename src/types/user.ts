@@ -11,7 +11,6 @@ export type OnboardingStep =
   | "complete";
 
 export type ThemePreference = "light" | "dark" | "system";
-export type SafetyStatus = "safe" | "need_help" | "need_evacuation" | "unavailable";
 
 export type UserOnboarding = {
   currentStep: OnboardingStep;
@@ -41,7 +40,6 @@ export type UserSecurity = {
 export type UserSafety = {
   autoShareLocationOnSos: boolean;
   autoCallHotlineOnSos: boolean;
-  shareStatusEnabled: boolean;
 };
 
 export type UserProfile = {

@@ -1,5 +1,4 @@
 /** Purpose: Group, member, and circle-preference contracts for trusted circle collaboration. */
-import type { SafetyStatus } from "@/types/user";
 
 export type GroupRole = "admin" | "member";
 
@@ -30,13 +29,6 @@ export type GroupPreferences = {
   groupId: string;
   primaryContactIds: string[];
   preferredHotlineId?: string;
-};
-
-export type GroupStatus = {
-  groupId: string;
-  userId: string;
-  status: SafetyStatus;
-  updatedAt: string;
 };
 
 export type BlockedUser = {

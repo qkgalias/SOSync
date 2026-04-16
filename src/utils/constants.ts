@@ -121,6 +121,5 @@ export const USER_SEED: UserProfile = {
   safety: {
     autoShareLocationOnSos: true,
     autoCallHotlineOnSos: false,
-    shareStatusEnabled: true,
   },
 };

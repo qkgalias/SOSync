@@ -8,6 +8,7 @@ import { Button } from "@/components/Button";
 import { Screen } from "@/components/Screen";
 import { SettingsRow } from "@/components/SettingsRow";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import { notificationService } from "@/services/notificationService";
 import { USER_SEED } from "@/utils/constants";
 import { requestLocationPermission, requestNotificationPermission } from "@/utils/permissions";
@@ -15,12 +16,12 @@ import { requestLocationPermission, requestNotificationPermission } from "@/util
 export default function PermissionsScreen() {
   const router = useRouter();
   const { authUser, profile, saveProfile } = useAuthSession();
+  const { themeTokens } = useAppTheme();
   const profilePreferences = profile?.preferences ?? USER_SEED.preferences;
   const profilePrivacy = profile?.privacy ?? USER_SEED.privacy;
   const profileSafety = profile?.safety ?? USER_SEED.safety;
   const [locationGranted, setLocationGranted] = useState(Boolean(profilePrivacy.locationSharingEnabled));
   const [notificationsGranted, setNotificationsGranted] = useState(Boolean(profilePreferences.disasterAlerts));
-  const [shareStatusEnabled, setShareStatusEnabled] = useState(Boolean(profileSafety.shareStatusEnabled));
   const [autoShareLocationOnSos, setAutoShareLocationOnSos] = useState(Boolean(profileSafety.autoShareLocationOnSos));
   const [loading, setLoading] = useState(false);
 
@@ -47,7 +48,6 @@ export default function PermissionsScreen() {
           evacuationAlerts: notificationsGranted,
         },
         safety: {
-          shareStatusEnabled,
           autoShareLocationOnSos,
           autoCallHotlineOnSos: profileSafety.autoCallHotlineOnSos,
         },
@@ -67,7 +67,7 @@ export default function PermissionsScreen() {
         <SettingsRow
           title="Location Access"
           subtitle="Needed for live map positioning and SOS coordinates."
-          icon={<MaterialCommunityIcons color="#7B2C28" name="map-marker-radius-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="map-marker-radius-outline" size={22} />}
           trailingText={locationGranted ? "Allowed" : "Pending"}
           onPress={async () => {
             const status = await requestLocationPermission();
@@ -81,7 +81,7 @@ export default function PermissionsScreen() {
               ? "Prepare device alerts while iOS remote push remains APNs-dependent."
               : "Receive disaster alerts and SOS activity from your circle."
           }
-          icon={<MaterialCommunityIcons color="#7B2C28" name="bell-outline" size={22} />}
+          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="bell-outline" size={22} />}
           trailingText={notificationsGranted ? "Allowed" : "Pending"}
           onPress={async () => {
             const status = await requestNotificationPermission();
@@ -94,12 +94,6 @@ export default function PermissionsScreen() {
         />
       </View>
       <Text className="mb-3 mt-8 text-[12px] uppercase tracking-[0.18em] text-muted">Safety Defaults</Text>
-      <SettingsRow
-        title="Share preset status"
-        subtitle="Let your circle see if you are safe, need help, or need evacuation."
-        toggleValue={shareStatusEnabled}
-        onToggleChange={setShareStatusEnabled}
-      />
       <SettingsRow
         title="Auto-share location on SOS"
         subtitle="Attach your latest coordinates when you trigger an emergency."

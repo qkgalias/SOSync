@@ -18,10 +18,9 @@ import { Screen } from "@/components/Screen";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useBlockedUsers } from "@/hooks/useBlockedUsers";
 import { useGroupMembers } from "@/hooks/useGroupMembers";
-import { useGroupStatuses } from "@/hooks/useGroupStatuses";
 import { useNotifications } from "@/hooks/useNotifications";
 import { buildSosNotificationDetail, getSosEventIdFromFeedItemId } from "@/modules/notifications/notificationDetails";
-import { PROFILE_ACCENT } from "@/modules/settings/profileTheme";
+import { useAppTheme } from "@/providers/AppThemeProvider";
 import type { SosEvent } from "@/types";
 import { locationService } from "@/services/locationService";
 import { firestoreService } from "@/services/firestoreService";
@@ -36,11 +35,11 @@ const iconByKind = {
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { themeTokens } = useAppTheme();
   const detailRequestId = useRef(0);
   const { authUser, selectedGroupId } = useAuthSession();
   const { blockedUserIds } = useBlockedUsers(authUser?.uid);
   const members = useGroupMembers(selectedGroupId);
-  const statuses = useGroupStatuses(selectedGroupId);
   const { items, markAsRead, unreadItems } = useNotifications(selectedGroupId, authUser?.uid, blockedUserIds);
   const [activeTab, setActiveTab] = useState<"all" | "unread">("unread");
   const [refreshing, setRefreshing] = useState(false);
@@ -75,14 +74,6 @@ export default function NotificationsScreen() {
         return lookup;
       }, {}),
     [members],
-  );
-  const statusLookup = useMemo(
-    () =>
-      statuses.reduce<Record<string, (typeof statuses)[number]>>((lookup, status) => {
-        lookup[status.userId] = status;
-        return lookup;
-      }, {}),
-    [statuses],
   );
   const eventLookup = useMemo(
     () =>
@@ -119,9 +110,8 @@ export default function NotificationsScreen() {
     const eventId = getSosEventIdFromFeedItemId(item.id);
     const event = eventId ? eventLookup[eventId] ?? null : null;
     const member = item.actorUserId ? memberLookup[item.actorUserId] ?? null : null;
-    const status = item.actorUserId ? statusLookup[item.actorUserId] ?? null : null;
 
-    setSelectedDetail(buildSosNotificationDetail({ event, item, member, status }));
+    setSelectedDetail(buildSosNotificationDetail({ event, item, member }));
     setDetailVisible(true);
 
     if (!event) {
@@ -140,7 +130,7 @@ export default function NotificationsScreen() {
         return;
       }
 
-      setSelectedDetail(buildSosNotificationDetail({ event, item, member, status, locationLabel: readableLocation }));
+      setSelectedDetail(buildSosNotificationDetail({ event, item, member, locationLabel: readableLocation }));
     } catch (error) {
       console.warn("SOS location reverse geocode failed.", error);
     } finally {
@@ -173,7 +163,7 @@ export default function NotificationsScreen() {
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 20 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#7B2C28" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={themeTokens.accentPrimary} />}
           showsVerticalScrollIndicator={false}
         >
           <View className="mb-6 mt-6 flex-row gap-8 border-b border-line pb-3">
@@ -195,8 +185,8 @@ export default function NotificationsScreen() {
                 void handleItemPress(item);
               }}
             >
-              <View className="mr-3 h-14 w-14 items-center justify-center rounded-full bg-white">
-                <MaterialCommunityIcons color="#7B2C28" name={iconByKind[item.kind]} size={26} />
+              <View className="mr-3 h-14 w-14 items-center justify-center rounded-full bg-surface">
+                <MaterialCommunityIcons color={themeTokens.accentPrimary} name={iconByKind[item.kind]} size={26} />
               </View>
               <View className="flex-1">
                 <View className="flex-row items-start justify-between gap-3">
@@ -212,14 +202,14 @@ export default function NotificationsScreen() {
       </Screen>
       <Modal animationType="fade" transparent visible={detailVisible} onRequestClose={closeDetail}>
         <View className="flex-1 justify-center bg-black/35 px-5">
-          <View className="rounded-[28px] bg-white px-5 py-6">
+          <View className="rounded-[28px] bg-panel px-5 py-6">
             <View className="flex-row items-start justify-between gap-4">
               <View>
                 <Text className="text-[24px] font-semibold text-ink">SOS Details</Text>
                 {selectedDetail ? <Text className="mt-1 text-sm text-muted">{selectedDetail.createdAtLabel}</Text> : null}
               </View>
               <Pressable className="h-10 w-10 items-center justify-center" onPress={closeDetail}>
-                <MaterialCommunityIcons color={PROFILE_ACCENT} name="close" size={22} />
+                <MaterialCommunityIcons color={themeTokens.accentPrimary} name="close" size={22} />
               </Pressable>
             </View>
             {selectedDetail ? (
@@ -242,15 +232,11 @@ export default function NotificationsScreen() {
                   </View>
                 </View>
                 <View className="mt-5 rounded-[20px] bg-panel px-4 py-4">
-                  <Text className="text-xs uppercase tracking-[1px] text-muted">Status</Text>
-                  <Text className="mt-2 text-base font-semibold text-ink">{selectedDetail.statusLabel}</Text>
-                </View>
-                <View className="mt-3 rounded-[20px] bg-panel px-4 py-4">
                   <Text className="text-xs uppercase tracking-[1px] text-muted">Location</Text>
                   <Text className="mt-2 text-base leading-6 text-ink">{selectedDetail.locationLabel}</Text>
                   {detailLoading ? (
                     <View className="mt-3 flex-row items-center">
-                      <ActivityIndicator color={PROFILE_ACCENT} size="small" />
+                      <ActivityIndicator color={themeTokens.accentPrimary} size="small" />
                       <Text className="ml-2 text-sm text-muted">Looking up a readable place...</Text>
                     </View>
                   ) : null}
