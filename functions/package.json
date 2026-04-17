@@ -5,6 +5,7 @@
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test:flood": "tsx --test src/floodHelpers.test.ts",
     "serve": "firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions",
     "backfill:circle-data": "node scripts/backfillCircleInviteCodes.mjs",

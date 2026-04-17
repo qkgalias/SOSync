@@ -57,9 +57,10 @@ export const getEvacuationRoute = onRequest(
     if (!googleDirectionsApiKey.value()) {
       response.json({
         route: {
-          distanceMeters: 1850,
-          durationSeconds: 660,
+          distanceMeters: 0,
+          durationSeconds: 0,
           encodedPolyline: "",
+          hasGeometry: false,
           targetCenterId: centerId,
         },
       });
@@ -74,14 +75,18 @@ export const getEvacuationRoute = onRequest(
       },
     });
 
-    const leg = apiResponse.data.routes?.[0]?.legs?.[0];
-    const polyline = apiResponse.data.routes?.[0]?.overview_polyline?.points ?? "";
+    const googleStatus = String(apiResponse.data?.status ?? "").trim();
+    const route = googleStatus === "OK" ? apiResponse.data.routes?.[0] : null;
+    const leg = route?.legs?.[0];
+    const polyline = route?.overview_polyline?.points ?? "";
+    const hasGeometry = Boolean(route && leg && polyline);
 
     response.json({
       route: {
         distanceMeters: leg?.distance?.value ?? 0,
         durationSeconds: leg?.duration?.value ?? 0,
         encodedPolyline: polyline,
+        hasGeometry,
         targetCenterId: centerId,
       },
     });
