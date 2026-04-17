@@ -2,7 +2,9 @@
 import axios from "axios";
 
 import { requireFunctionsBaseUrl, resolveActiveFirebaseClientMode } from "@/config/backendRuntime";
-import type { DisasterAlert, RouteSummary } from "@/types";
+import { normalizeFloodRiskOverviewResponse } from "@/modules/map/floodOverviewAdapter";
+import { buildMockFloodRiskOverview } from "@/modules/map/mockFloodRiskScenarios";
+import type { DisasterAlert, FloodRiskOverview, RouteSummary } from "@/types";
 import { firebaseAuth, hasFirebaseApp } from "@/services/firebase";
 
 const getClientMode = () => resolveActiveFirebaseClientMode(hasFirebaseApp());
@@ -31,6 +33,7 @@ export const apiService = {
         distanceMeters,
         durationSeconds: 660,
         encodedPolyline: "",
+        hasGeometry: false,
         targetCenterId: input.destination.centerId,
       } satisfies RouteSummary;
     }
@@ -67,5 +70,31 @@ export const apiService = {
       },
     );
     return response.data.alerts;
+  },
+
+  async getFloodRiskOverview(input: { latitude: number; longitude: number }) {
+    if (getClientMode() === "demo") {
+      return buildMockFloodRiskOverview({
+        latitude: input.latitude,
+        longitude: input.longitude,
+      }) satisfies FloodRiskOverview;
+    }
+
+    const latitude = Number(input.latitude);
+    const longitude = Number(input.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      throw new Error("Valid coordinates are required to fetch flood risk.");
+    }
+
+    const headers = await getAuthenticatedHeaders();
+    const response = await axios.post<unknown>(
+      `${requireFunctionsBaseUrl()}/getFloodRiskOverview`,
+      { latitude, longitude },
+      {
+        headers,
+        timeout: API_TIMEOUT_MS,
+      },
+    );
+    return normalizeFloodRiskOverviewResponse(response.data);
   },
 };

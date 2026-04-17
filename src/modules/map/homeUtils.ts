@@ -1,5 +1,5 @@
-/** Purpose: Keep Home map marker, address, theme, and sheet snap points deterministic and testable. */
-import type { ColorSchemeName } from "react-native";
+/** Purpose: Keep Home map marker, Maps handoff, address, theme, and sheet snap points deterministic and testable. */
+import { Platform, type ColorSchemeName } from "react-native";
 
 import type { GroupLocation, GroupMember, HomeMapAppearance, HomeMapMarker, MapCoordinate } from "@/types";
 
@@ -114,4 +114,26 @@ export const buildHomeMapMarkers = ({
 
     return left.displayName.localeCompare(right.displayName);
   });
+};
+
+export const buildGoogleMapsDirectionsUrls = (input: {
+  destination: MapCoordinate;
+  origin?: MapCoordinate;
+}) => {
+  const destinationValue = `${input.destination.latitude},${input.destination.longitude}`;
+  const originValue = input.origin
+    ? `${input.origin.latitude},${input.origin.longitude}`
+    : null;
+  const webUrl =
+    `https://www.google.com/maps/dir/?api=1` +
+    `${originValue ? `&origin=${encodeURIComponent(originValue)}` : ""}` +
+    `&destination=${encodeURIComponent(destinationValue)}`;
+
+  return {
+    appUrl:
+      Platform.OS === "android"
+        ? `google.navigation:q=${destinationValue}`
+        : `comgooglemaps://?${originValue ? `saddr=${encodeURIComponent(originValue)}&` : ""}daddr=${encodeURIComponent(destinationValue)}`,
+    webUrl,
+  };
 };

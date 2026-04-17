@@ -2,6 +2,7 @@
 import {
   buildHomeMapMarkers,
   buildHomeMarkerRenderSignature,
+  buildGoogleMapsDirectionsUrls,
   HOME_SHEET_SNAP_POINTS,
   resolveHomeAddressLabel,
   resolveHomeMapAppearance,
@@ -151,6 +152,28 @@ describe("homeUtils", () => {
     expect(sanitizeHomeMarkerPhotoURL(" https://example.com/a.jpg ")).toBe("https://example.com/a.jpg");
     expect(sanitizeHomeMarkerPhotoURL(" ")).toBeUndefined();
     expect(sanitizeHomeMarkerPhotoURL(undefined)).toBeUndefined();
+  });
+
+  it("builds Google Maps directions URLs from origin and destination", () => {
+    const urls = buildGoogleMapsDirectionsUrls({
+      destination: { latitude: 10.4, longitude: 124 },
+      origin: { latitude: 10.3, longitude: 123.9 },
+    });
+
+    expect(urls.webUrl).toBe(
+      "https://www.google.com/maps/dir/?api=1&origin=10.3%2C123.9&destination=10.4%2C124",
+    );
+    expect(urls.appUrl).toContain("10.4");
+    expect(urls.appUrl).toContain("124");
+  });
+
+  it("builds Google Maps directions URLs with destination only", () => {
+    const urls = buildGoogleMapsDirectionsUrls({
+      destination: { latitude: 10.4, longitude: 124 },
+    });
+
+    expect(urls.webUrl).toBe("https://www.google.com/maps/dir/?api=1&destination=10.4%2C124");
+    expect(urls.appUrl).toContain("10.4%2C124");
   });
 
   it("prefers reverse geocoding, then center address, then group name", () => {

@@ -2,6 +2,7 @@
 import {
   forwardRef,
   memo,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -9,11 +10,12 @@ import {
   useState,
   type ForwardedRef,
 } from "react";
-import { Image, Platform, StyleSheet, Text, View } from "react-native";
+import { Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { appConfig } from "@/config/appConfig";
+import { getThemeTokens } from "@/theme/appTheme";
 import type {
   DisasterAlert,
   EvacuationCenter,
@@ -27,10 +29,17 @@ type MapOverviewProps = {
   alerts: DisasterAlert[];
   centers: EvacuationCenter[];
   focusTarget?: HomeMapFocusTarget | null;
+  highlightedCenterId?: string | null;
   mapTheme: HomeMapAppearance;
   markers: HomeMapMarker[];
+  onCenterOpenMaps?: (centerId: string) => void;
+  onCenterPress?: (centerId: string) => void;
+  onMapPress?: () => void;
   onMarkerPress?: (markerId: string) => void;
+  onMemberBubbleDismiss?: () => void;
   prefetchedMarkerPhotos?: Record<string, true>;
+  selectedCenterId?: string | null;
+  selectedMarkerBubbleId?: string | null;
 };
 
 export type MapOverviewHandle = {
@@ -39,6 +48,7 @@ export type MapOverviewHandle = {
 
 type AvatarMarkerProps = {
   marker: HomeMapMarker;
+  markerPalette: ReturnType<typeof getMarkerPalette>;
   onMarkerPress?: (markerId: string) => void;
   prefetchedMarkerPhotos: Record<string, true>;
 };
@@ -91,24 +101,80 @@ const darkMapStyle = [
   { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#8FB2C4" }] },
 ];
 
-const markerPalette = {
-  ring: "#FFFFFF",
-  markerShadow: "rgba(0, 0, 0, 0.16)",
-  bubbleFill: "#FFFFFF",
-  bubbleText: "#472523",
+const getMarkerPalette = (mapTheme: HomeMapAppearance) => {
+  const tokens = getThemeTokens(mapTheme);
+
+  return mapTheme === "dark"
+    ? {
+        bubbleFill: tokens.surfaceElevated,
+        bubbleText: tokens.textPrimary,
+        markerShadow: "rgba(0, 0, 0, 0.28)",
+        ring: tokens.surface,
+      }
+    : {
+        bubbleFill: "#FFFFFF",
+        bubbleText: "#472523",
+        markerShadow: "rgba(0, 0, 0, 0.16)",
+        ring: "#FFFFFF",
+      };
 };
 
-const centerMarkerPalette = {
-  fill: "#FFFFFF",
-  border: "#D8C9C4",
-  icon: "#7B2C28",
+const getCenterMarkerPalette = (mapTheme: HomeMapAppearance) => {
+  const tokens = getThemeTokens(mapTheme);
+
+  return mapTheme === "dark"
+    ? {
+        border: tokens.borderStrong,
+        fill: tokens.surfaceElevated,
+        highlightFill: tokens.accentSoft,
+        icon: tokens.accentPrimary,
+      }
+    : {
+        border: "#D8C9C4",
+        fill: "#FFFFFF",
+        highlightFill: "#FFF7F4",
+        icon: tokens.accentPrimary,
+      };
 };
 
-const currentUserTagPalette = {
-  background: "#FFFFFF",
-  border: "rgba(123, 44, 40, 0.12)",
-  shadow: "rgba(22, 24, 29, 0.18)",
-  text: "#2E2C2C",
+const getMemberBubblePalette = (mapTheme: HomeMapAppearance) => {
+  const tokens = getThemeTokens(mapTheme);
+
+  return mapTheme === "dark"
+    ? {
+        background: tokens.surfaceElevated,
+        shadow: "rgba(0, 0, 0, 0.28)",
+        text: tokens.textPrimary,
+      }
+    : {
+        background: "#FFFFFF",
+        shadow: "rgba(22, 24, 29, 0.18)",
+        text: "#2E2C2C",
+      };
+};
+
+const getCenterBubblePalette = (mapTheme: HomeMapAppearance) => {
+  const tokens = getThemeTokens(mapTheme);
+
+  return mapTheme === "dark"
+    ? {
+        actionBackground: tokens.accentSoft,
+        background: tokens.surfaceElevated,
+        border: tokens.borderSubtle,
+        icon: tokens.accentPrimary,
+        shadow: "rgba(0, 0, 0, 0.3)",
+        text: tokens.textPrimary,
+        textMuted: tokens.textSecondary,
+      }
+    : {
+        actionBackground: "#FFF4F1",
+        background: "#FFFFFF",
+        border: "rgba(123, 44, 40, 0.12)",
+        icon: tokens.accentPrimary,
+        shadow: "rgba(22, 24, 29, 0.18)",
+        text: "#2E2C2C",
+        textMuted: "#6A6767",
+      };
 };
 
 const markerTrackAfterMountMs = 260;
@@ -122,6 +188,7 @@ const toRegion = (latitude: number, longitude: number, latitudeDelta = 0.04, lon
 
 const AvatarMarker = ({
   marker,
+  markerPalette,
   onMarkerPress,
   prefetchedMarkerPhotos,
 }: AvatarMarkerProps) => {
@@ -175,56 +242,6 @@ const AvatarMarker = ({
           shadowRadius: 18,
         }}
       >
-        {marker.isCurrentUser ? (
-          <View
-            style={{
-              alignItems: "center",
-              marginBottom: 8,
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: currentUserTagPalette.background,
-                borderColor: currentUserTagPalette.border,
-                borderRadius: 12,
-                borderWidth: 1,
-                maxWidth: 148,
-                minWidth: 80,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                shadowColor: currentUserTagPalette.shadow,
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.16,
-                shadowRadius: 14,
-              }}
-            >
-              <Text
-                numberOfLines={1}
-                style={{
-                  color: currentUserTagPalette.text,
-                  fontSize: 15,
-                  fontWeight: "700",
-                  textAlign: "center",
-                }}
-              >
-                {marker.displayName}
-              </Text>
-            </View>
-            <View
-              style={{
-                borderLeftColor: "transparent",
-                borderLeftWidth: 8,
-                borderRightColor: "transparent",
-                borderRightWidth: 8,
-                borderTopColor: currentUserTagPalette.background,
-                borderTopWidth: 10,
-                height: 0,
-                marginTop: -1,
-                width: 0,
-              }}
-            />
-          </View>
-        ) : null}
         <View
           style={{
             alignItems: "center",
@@ -285,10 +302,17 @@ const MapOverviewComponent = (
     alerts,
     centers,
     focusTarget,
+    highlightedCenterId,
     mapTheme,
     markers,
+    onCenterOpenMaps,
+    onCenterPress,
+    onMapPress,
     onMarkerPress,
+    onMemberBubbleDismiss,
     prefetchedMarkerPhotos = {},
+    selectedCenterId = null,
+    selectedMarkerBubbleId = null,
   }: MapOverviewProps,
   ref: ForwardedRef<MapOverviewHandle>,
 ) => {
@@ -296,6 +320,11 @@ const MapOverviewComponent = (
   const hasCenteredCurrentUserRef = useRef(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [showDiagnosticHint, setShowDiagnosticHint] = useState(false);
+  const [mapViewport, setMapViewport] = useState({ height: 0, width: 0 });
+  const [selectedCenterPoint, setSelectedCenterPoint] = useState<{ x: number; y: number } | null>(null);
+  const [selectedCenterBubbleSize, setSelectedCenterBubbleSize] = useState({ height: 96, width: 220 });
+  const [selectedMemberBubblePoint, setSelectedMemberBubblePoint] = useState<{ x: number; y: number } | null>(null);
+  const [selectedMemberBubbleSize, setSelectedMemberBubbleSize] = useState({ height: 42, width: 120 });
   const currentUserMarker = useMemo(() => markers.find((marker) => marker.isCurrentUser) ?? null, [markers]);
   const markerLookup = useMemo(
     () =>
@@ -313,6 +342,73 @@ const MapOverviewComponent = (
       }, {}),
     [centers],
   );
+  const selectedCenter = useMemo(
+    () => (selectedCenterId ? centerLookup[selectedCenterId] ?? null : null),
+    [centerLookup, selectedCenterId],
+  );
+  const selectedMemberBubbleMarker = useMemo(
+    () => (selectedMarkerBubbleId ? markerLookup[selectedMarkerBubbleId] ?? null : null),
+    [markerLookup, selectedMarkerBubbleId],
+  );
+  const currentUserInitialRegion = useMemo(
+    () =>
+      currentUserMarker
+        ? toRegion(currentUserMarker.latitude, currentUserMarker.longitude, 0.1, 0.1)
+        : null,
+    [currentUserMarker],
+  );
+  const fallbackInitialRegion = useMemo(() => {
+    const firstMarker = markers[0] ?? null;
+    if (firstMarker) {
+      return toRegion(firstMarker.latitude, firstMarker.longitude, 0.1, 0.1);
+    }
+
+    const preferredCenter = selectedCenter ?? centers[0] ?? null;
+    if (preferredCenter) {
+      return toRegion(preferredCenter.latitude, preferredCenter.longitude, 0.1, 0.1);
+    }
+
+    return appConfig.map.initialRegion;
+  }, [centers, markers, selectedCenter]);
+  const initialRegion = currentUserInitialRegion ?? fallbackInitialRegion;
+  const markerPalette = useMemo(() => getMarkerPalette(mapTheme), [mapTheme]);
+  const centerMarkerPalette = useMemo(() => getCenterMarkerPalette(mapTheme), [mapTheme]);
+  const memberBubblePalette = useMemo(() => getMemberBubblePalette(mapTheme), [mapTheme]);
+  const centerBubblePalette = useMemo(() => getCenterBubblePalette(mapTheme), [mapTheme]);
+
+  const updateSelectedCenterBubblePosition = useCallback(async () => {
+    if (!mapRef.current || !selectedCenter) {
+      setSelectedCenterPoint(null);
+      return;
+    }
+
+    try {
+      const nextPoint = await mapRef.current.pointForCoordinate({
+        latitude: selectedCenter.latitude,
+        longitude: selectedCenter.longitude,
+      });
+      setSelectedCenterPoint(nextPoint);
+    } catch {
+      setSelectedCenterPoint(null);
+    }
+  }, [selectedCenter]);
+
+  const updateSelectedMemberBubblePosition = useCallback(async () => {
+    if (!mapRef.current || !selectedMemberBubbleMarker) {
+      setSelectedMemberBubblePoint(null);
+      return;
+    }
+
+    try {
+      const nextPoint = await mapRef.current.pointForCoordinate({
+        latitude: selectedMemberBubbleMarker.latitude,
+        longitude: selectedMemberBubbleMarker.longitude,
+      });
+      setSelectedMemberBubblePoint(nextPoint);
+    } catch {
+      setSelectedMemberBubblePoint(null);
+    }
+  }, [selectedMemberBubbleMarker]);
 
   useImperativeHandle(
     ref,
@@ -347,6 +443,24 @@ const MapOverviewComponent = (
     hasCenteredCurrentUserRef.current = true;
     animateToCoordinate(currentUserMarker.latitude, currentUserMarker.longitude, 0.08, 0.08);
   }, [currentUserMarker]);
+
+  useEffect(() => {
+    if (!selectedCenter || !mapLoaded) {
+      setSelectedCenterPoint(null);
+      return;
+    }
+
+    void updateSelectedCenterBubblePosition();
+  }, [mapLoaded, selectedCenter, updateSelectedCenterBubblePosition]);
+
+  useEffect(() => {
+    if (!selectedMemberBubbleMarker || !mapLoaded) {
+      setSelectedMemberBubblePoint(null);
+      return;
+    }
+
+    void updateSelectedMemberBubblePosition();
+  }, [mapLoaded, selectedMemberBubbleMarker, updateSelectedMemberBubblePosition]);
 
   useEffect(() => {
     if (!focusTarget) {
@@ -408,21 +522,88 @@ const MapOverviewComponent = (
           title: "#2E2C2C",
         };
 
+  const bubbleLeft =
+    selectedCenterPoint && mapViewport.width
+      ? Math.min(
+          Math.max(selectedCenterPoint.x - selectedCenterBubbleSize.width / 2, 12),
+          Math.max(mapViewport.width - selectedCenterBubbleSize.width - 12, 12),
+        )
+      : 0;
+  const bubbleTop =
+    selectedCenterPoint && mapViewport.height
+      ? Math.min(
+          Math.max(selectedCenterPoint.y - selectedCenterBubbleSize.height - 18, 12),
+          Math.max(mapViewport.height - selectedCenterBubbleSize.height - 12, 12),
+        )
+      : 0;
+  const bubblePointerLeft = selectedCenterPoint
+    ? Math.min(
+        Math.max(selectedCenterPoint.x - bubbleLeft - 8, 18),
+        Math.max(selectedCenterBubbleSize.width - 26, 18),
+      )
+    : 18;
+  const memberBubbleLeft =
+    selectedMemberBubblePoint && mapViewport.width
+      ? (() => {
+          const preferredRight = selectedMemberBubblePoint.x + 18;
+          const maxRightAligned = Math.max(mapViewport.width - selectedMemberBubbleSize.width - 12, 12);
+          if (preferredRight <= maxRightAligned) {
+            return preferredRight;
+          }
+
+          return Math.max(selectedMemberBubblePoint.x - selectedMemberBubbleSize.width - 18, 12);
+        })()
+      : 0;
+  const memberBubbleTop =
+    selectedMemberBubblePoint && mapViewport.height
+      ? Math.min(
+          Math.max(selectedMemberBubblePoint.y - selectedMemberBubbleSize.height / 2 - 6, 12),
+          Math.max(mapViewport.height - selectedMemberBubbleSize.height - 12, 12),
+        )
+      : 0;
+
   return (
-    <View style={styles.container}>
+    <View
+      onLayout={(event) => {
+        const { height, width } = event.nativeEvent.layout;
+        setMapViewport((currentValue) =>
+          currentValue.height === height && currentValue.width === width
+            ? currentValue
+            : { height, width },
+        );
+      }}
+      style={styles.container}
+    >
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
         style={styles.map}
         customMapStyle={mapTheme === "dark" ? darkMapStyle : lightMapStyle}
-        initialRegion={
-          currentUserMarker
-            ? toRegion(currentUserMarker.latitude, currentUserMarker.longitude, 0.1, 0.1)
-            : appConfig.map.initialRegion
-        }
+        initialRegion={initialRegion}
         mapType="standard"
         moveOnMarkerPress={false}
         onMapLoaded={() => setMapLoaded(true)}
+        onPress={(event) => {
+          if (event.nativeEvent.action === "marker-press") {
+            return;
+          }
+
+          onMapPress?.();
+        }}
+        onRegionChangeStart={(_, details) => {
+          if (details.isGesture && selectedMemberBubbleMarker) {
+            onMemberBubbleDismiss?.();
+          }
+        }}
+        onRegionChangeComplete={(_, details) => {
+          if (selectedCenter) {
+            void updateSelectedCenterBubblePosition();
+          }
+
+          if (selectedMemberBubbleMarker && !details.isGesture) {
+            void updateSelectedMemberBubblePosition();
+          }
+        }}
         rotateEnabled={false}
         showsBuildings={false}
         showsCompass={false}
@@ -442,15 +623,18 @@ const MapOverviewComponent = (
           <Marker
             key={center.centerId}
             coordinate={{ latitude: center.latitude, longitude: center.longitude }}
-            description={center.address}
             identifier={center.centerId}
-            title={center.name}
+            onPress={() => onCenterPress?.(center.centerId)}
           >
             <View
               style={{
                 alignItems: "center",
-                backgroundColor: centerMarkerPalette.fill,
-                borderColor: centerMarkerPalette.border,
+                backgroundColor:
+                  highlightedCenterId === center.centerId
+                    ? centerMarkerPalette.highlightFill
+                    : centerMarkerPalette.fill,
+                borderColor:
+                  highlightedCenterId === center.centerId ? centerMarkerPalette.icon : centerMarkerPalette.border,
                 borderRadius: 18,
                 borderWidth: 1,
                 elevation: 2,
@@ -468,19 +652,164 @@ const MapOverviewComponent = (
           </Marker>
         ))}
         {markers.map((marker) => {
-          const photoStateKey =
-            marker.photoURL && prefetchedMarkerPhotos[marker.photoURL] ? "photo-ready" : "initials-only";
+            const photoStateKey =
+              marker.photoURL && prefetchedMarkerPhotos[marker.photoURL] ? "photo-ready" : "initials-only";
 
-          return (
-            <AvatarMarker
-              key={`${marker.markerId}:${photoStateKey}`}
-              marker={marker}
-              onMarkerPress={onMarkerPress}
-              prefetchedMarkerPhotos={prefetchedMarkerPhotos}
-            />
-          );
+            return (
+              <AvatarMarker
+                key={`${marker.markerId}:${photoStateKey}`}
+                marker={marker}
+                markerPalette={markerPalette}
+                onMarkerPress={onMarkerPress}
+                prefetchedMarkerPhotos={prefetchedMarkerPhotos}
+              />
+            );
         })}
       </MapView>
+      {selectedCenter && selectedCenterPoint ? (
+        <View pointerEvents="box-none" style={styles.centerBubbleLayer}>
+          <View
+            style={{
+              left: bubbleLeft,
+              position: "absolute",
+              top: bubbleTop,
+            }}
+          >
+            <View
+              onLayout={(event) => {
+                const { height, width } = event.nativeEvent.layout;
+                setSelectedCenterBubbleSize((currentValue) =>
+                  currentValue.height === height && currentValue.width === width
+                    ? currentValue
+                    : { height, width },
+                );
+              }}
+              style={{
+                backgroundColor: centerBubblePalette.background,
+                borderColor: centerBubblePalette.border,
+                borderRadius: 16,
+                borderWidth: 1,
+                maxWidth: 220,
+                minWidth: 180,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                shadowColor: centerBubblePalette.shadow,
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.16,
+                shadowRadius: 18,
+              }}
+            >
+              <View
+                style={{
+                  alignItems: "center",
+                  flexDirection: "row",
+                }}
+              >
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      color: centerBubblePalette.text,
+                      fontSize: 16,
+                      fontWeight: "700",
+                    }}
+                  >
+                    {selectedCenter.name}
+                  </Text>
+                  <Text
+                    numberOfLines={2}
+                    style={{
+                      color: centerBubblePalette.textMuted,
+                      fontSize: 13,
+                      lineHeight: 18,
+                      marginTop: 4,
+                    }}
+                  >
+                    {selectedCenter.address}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityHint="Open Maps directions to this safety hub"
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open Maps directions to ${selectedCenter.name}`}
+                  hitSlop={8}
+                  onPress={() => onCenterOpenMaps?.(selectedCenter.centerId)}
+                  style={({ pressed }) => ({
+                    alignItems: "center",
+                    backgroundColor: centerBubblePalette.actionBackground,
+                    borderRadius: 999,
+                    height: 40,
+                    justifyContent: "center",
+                    opacity: pressed ? 0.78 : 1,
+                    width: 40,
+                  })}
+                >
+                  <MaterialCommunityIcons color={centerBubblePalette.icon} name="navigation-variant" size={18} />
+                </Pressable>
+              </View>
+            </View>
+            <View
+              style={{
+                borderLeftColor: "transparent",
+                borderLeftWidth: 8,
+                borderRightColor: "transparent",
+                borderRightWidth: 8,
+                borderTopColor: centerBubblePalette.background,
+                borderTopWidth: 10,
+                height: 0,
+                marginLeft: bubblePointerLeft,
+                marginTop: -1,
+                width: 0,
+              }}
+            />
+          </View>
+        </View>
+      ) : null}
+      {selectedMemberBubbleMarker && selectedMemberBubblePoint ? (
+        <View pointerEvents="box-none" style={styles.centerBubbleLayer}>
+          <View
+            style={{
+              left: memberBubbleLeft,
+              position: "absolute",
+              top: memberBubbleTop,
+            }}
+          >
+            <View
+              onLayout={(event) => {
+                const { height, width } = event.nativeEvent.layout;
+                setSelectedMemberBubbleSize((currentValue) =>
+                  currentValue.height === height && currentValue.width === width
+                    ? currentValue
+                    : { height, width },
+                );
+              }}
+              style={{
+                backgroundColor: memberBubblePalette.background,
+                borderRadius: 999,
+                maxWidth: 168,
+                minWidth: 84,
+                paddingHorizontal: 14,
+                paddingVertical: 9,
+                shadowColor: memberBubblePalette.shadow,
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.14,
+                shadowRadius: 14,
+              }}
+            >
+              <Text
+                numberOfLines={1}
+                style={{
+                  color: memberBubblePalette.text,
+                  fontSize: 15,
+                  fontWeight: "700",
+                }}
+              >
+                {selectedMemberBubbleMarker.displayName}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
       {showDiagnosticHint ? (
         <View pointerEvents="none" style={styles.hintWrapper}>
           <View
@@ -515,10 +844,17 @@ const areMapOverviewPropsEqual = (prev: MapOverviewProps, next: MapOverviewProps
   prev.alerts === next.alerts &&
   prev.centers === next.centers &&
   prev.focusTarget === next.focusTarget &&
+  prev.highlightedCenterId === next.highlightedCenterId &&
   prev.mapTheme === next.mapTheme &&
   prev.markers === next.markers &&
+  prev.onCenterOpenMaps === next.onCenterOpenMaps &&
+  prev.onCenterPress === next.onCenterPress &&
+  prev.onMapPress === next.onMapPress &&
   prev.onMarkerPress === next.onMarkerPress &&
-  prev.prefetchedMarkerPhotos === next.prefetchedMarkerPhotos;
+  prev.onMemberBubbleDismiss === next.onMemberBubbleDismiss &&
+  prev.prefetchedMarkerPhotos === next.prefetchedMarkerPhotos &&
+  prev.selectedCenterId === next.selectedCenterId &&
+  prev.selectedMarkerBubbleId === next.selectedMarkerBubbleId;
 
 const ForwardedMapOverview = forwardRef<MapOverviewHandle, MapOverviewProps>(MapOverviewComponent);
 
@@ -527,6 +863,9 @@ ForwardedMapOverview.displayName = "MapOverview";
 export const MapOverview = memo(ForwardedMapOverview, areMapOverviewPropsEqual);
 const styles = StyleSheet.create({
   container: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  centerBubbleLayer: {
     ...StyleSheet.absoluteFillObject,
   },
   hintBody: {

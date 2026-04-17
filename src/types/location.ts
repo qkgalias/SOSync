@@ -29,6 +29,7 @@ export type RouteSummary = {
   distanceMeters: number;
   durationSeconds: number;
   encodedPolyline: string;
+  hasGeometry: boolean;
   targetCenterId: string;
 };
 
