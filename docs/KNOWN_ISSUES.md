@@ -21,6 +21,8 @@
   - Web still shows a placeholder fallback instead of the draggable native map scene.
 - Android Home map tiles will stay blank if the Google Maps Android API key is not authorized for package `com.sosync.mobile` and the current debug SHA1 from `android/app/debug.keystore`.
   - `npm run doctor:android-live` now prints the fingerprint that must be added to the key restriction in Google Cloud Console.
+- Home cold-start and quick-tab-return smoothness still need broader physical-device validation after the narrowed Android snapshot workaround.
+  - The app now avoids extra cold-start snapshot work, but weaker Android devices should still be smoke-tested before treating map performance as fully settled.
 - Avatar upload depends on Firebase Storage being provisioned for the live project.
   - If the default bucket does not exist yet, profile photo upload will fail until Firebase Console -> Storage -> Get started is completed.
 - Email OTP verification depends on Cloud Functions and Resend being configured correctly in the live Firebase project.
@@ -41,6 +43,10 @@
 
 - Notification payload helpers understand a `message` type, but there is no complete messaging feature in the app.
 - Disaster sync and route proxying exist, but full end-to-end Android validation is still pending.
+- The Home `Flood risk` sheet is personal and on-demand in v1.
+  - It does not create Firestore `alerts`, does not notify the circle, depends on nearby Google modeled gauge coverage for richer flood output, and still needs live validation of the simplified alert-first sheet, nearby-point popup modal, and Google polygon availability across real Philippines locations.
+- The backend route proxy still exists, but Home no longer surfaces in-app route preview.
+  - Safety hubs currently use direct Google Maps handoff only, so the dormant route proxy should not be treated as an active user-facing feature.
 - Circle management is now function-backed, but it still needs live smoke validation for owner transfer, admin role changes, removals, and multi-circle switching.
 - Legal/privacy/terms content is currently local in-app copy only.
   - There is no hosted policy or CMS-backed help content yet.
@@ -49,6 +55,6 @@
 
 ## Security And Rules
 
-- Firestore rules were tightened for group membership, statuses, blocked users, read receipts, and group preferences, but they still need live deployment validation against the new onboarding and leave-group flows.
+- Firestore rules were tightened for group membership, blocked users, read receipts, and group preferences, but they still need live deployment validation against the new onboarding and leave-group flows.
 - Storage rules are now required for avatar upload and the public email-brand asset path, and must be deployed alongside the rest of the backend config.
 - Block filtering is enforced for user-generated SOS push fanout and personal UI visibility, but disaster alerts remain intentionally group-wide.

@@ -324,7 +324,6 @@ Main files:
 - `src/hooks/useLocation.ts`
 - `src/hooks/useAlerts.ts`
 - `src/hooks/useGroupMembers.ts`
-- `src/hooks/useGroupStatuses.ts`
 - `src/hooks/useGroupPreferences.ts`
 - `src/services/firestoreService.ts`
 - `src/services/apiService.ts`
@@ -336,7 +335,6 @@ What the Home screen uses:
 - current location
 - group members
 - shared member locations
-- safety statuses
 - alerts
 - evacuation centers
 - route summary from the backend
@@ -527,7 +525,6 @@ flowchart LR
 | `users/{userId}/notificationReads` | Stores which feed items the user has already read. |
 | `groups` | Stores trusted circle records. |
 | `groups/{groupId}/members` | Stores group membership and member role data. |
-| `groups/{groupId}/statuses` | Stores manual shared safety statuses. |
 | `locations` | Stores live or paused group location records. |
 | `alerts` | Stores disaster alert records for a group. |
 | `sos_events` | Stores SOS events created by users. |
@@ -546,7 +543,6 @@ These live in `src/types/` and are the main contracts used throughout the app.
 | `GroupMember` | Member data inside a circle. |
 | `GroupLocation` | Shared location record for one user inside one group. |
 | `GroupPreferences` | User preferences that are specific to one group. |
-| `GroupStatus` | Shared safety status such as safe or need help. |
 | `DisasterAlert` | Alert record shown in Home and Alerts. |
 | `SosEvent` | Emergency event created from the SOS screen. |
 | `NotificationFeedItem` | Unified notification item shown in the app feed. |

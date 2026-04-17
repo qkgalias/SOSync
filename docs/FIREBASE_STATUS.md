@@ -67,7 +67,6 @@ Live Firestore seed scripts require one of:
 - `users/{userId}/pushTokens`
 - `groups`
 - `groups/{groupId}/members`
-- `groups/{groupId}/statuses`
 - `email_verifications`
 - `locations`
 - `alerts`

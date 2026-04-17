@@ -102,21 +102,57 @@ What to verify:
 - join path: circle hub -> enter permanent 6-digit code -> permissions
 - invite-step and circle-name-step resume behavior after closing and reopening the app before permissions are complete
 - permissions and privacy defaults flow
-- full-screen Home map rendering with avatar markers, a custom current-user name tag, dynamic light/dark pastel scene styling, and the draggable bottom sheet
+- full-screen Home map rendering with avatar markers, compact tap-to-show member name pills anchored beside the tapped marker, dynamic light/dark pastel scene styling, and the draggable bottom sheet
 - Android emulator GPS defaults to Google HQ (`1600 Amphitheatre Parkway`) unless you set a mock device location, so reset emulator location before judging whether Home is centering on the expected real-world area
+- on cold launch, Home should mount the map immediately, prefer the best already-known user location when available, and then recenter quietly when a fresher live fix arrives instead of blocking the first render
+- if Expo Dev Launcher opens instead of the SOSync app, prefer the emulator-safe `http://10.0.2.2:8081` server entry instead of stale `RECENTLY OPENED` LAN IPs before judging location or map behavior
 - expanded Home sheet scrolls through long contact lists and still reaches the safety-hub footer on smaller Android screens
+- Home sheet header shows a compact, non-tappable current-weather preview beside `Share Live` / `Pause Live`, and the row stays stable through loading, permission-denied, unavailable, and ready states on smaller Android screens
 - Home `Share live` toggle updates the UI and map visibility state immediately
 - Home action icons stay semantically distinct: contact focus is not reused for share-live or safety-hub routing
+- Home top pill, floating `Flood risk` / `Weather` buttons, `Pause Live`, circle chips, and the bottom sheet should use soft shadow/elevation instead of visible outline-heavy borders
+- the Home top address pill should keep its full-height feel, be narrower in width than before, and fade away only when the sheet reaches the top snap point
+- the Home top address pill should fade out and back in quickly near the top snap point, without a slow lingering shadow trail
+- trusted-circle chips should use a subtle centered pill shadow rather than the heavier button shadow with a visible downward offset
+- trusted-circle chips should sit in a cleaner dedicated lane with enough top/bottom breathing room and a clearer gap before the divider below
+- the Home bottom sheet should end cleanly at the safety-hub section without a loose helper note or extra white tail under the final divider
 - Home `Report/SOS` CTA opens the SOS flow from the sheet
-- Home keeps the shared bottom tab bar visible while the draggable bottom sheet stays above it, and returning from other tabs should not visibly remount or flash the map
+- Home keeps the shared bottom tab bar visible during normal sheet use, and returning from other tabs should not visibly remount or flash the map
 - returning to Home from other tabs should not trigger the native map loading overlay or a noticeable wrapper repaint
 - quick Home <-> Hotlines/Profile/Alerts tab swaps should not feel like the native map scene is recreated; the scene should stay warm and preserve camera/sheet state
-- on Android, quick tab returns should show the cached Home map frame immediately instead of flashing a blank/beige tile surface before the live map texture catches up
+- on Android, quick tab returns should still show the cached Home map frame immediately instead of flashing a blank/beige tile surface before the live map texture catches up, but cold start should not feel delayed by snapshot work
 - Home marker avatars stay visible when switching tabs, backgrounding/foregrounding the app, and returning to Home without forcing an app restart
 - if a map avatar photo fails or stalls, the marker falls back to initials instead of showing a blank white bubble
-- fully expanding the Home bottom sheet fades the right-side quick-member avatar stack out smoothly, and lowering the sheet fades it back in
-- onboarding/auth coral sheets reach the bottom edge without a white strip in the bottom safe area
-- evacuation route preview
+- fully expanding the Home bottom sheet fades the top address pill and the right-side quick-member avatar stack out together, and lowering the sheet fades both back in together without a lingering shadow
+- Home floating `Flood risk` and `Weather` CTAs sit side by side just above the collapsed sheet with only a very small gap, hide before they visually overlap the rising main sheet, and open dedicated near-fullscreen sheets instead of routing away
+- the floating `Weather` CTA remains the only entry point into the full Weather sheet; the new Home header weather preview is informational only
+- weather sheet relies on swipe-down/backdrop dismissal, shows a current-weather hero plus a simple 7-day forecast list, and contains no flood-risk content
+- weather sheet keeps a clean weather-unavailable state when Open-Meteo data is missing from the shared overview response
+- flood sheet shows a clear permission-required state when location is denied, a no-coverage state when Google has no nearby modeled gauges, and no embedded weather content
+- flood and weather should only show the `Turn on location` state when Android permission is actually denied; when permission is granted but a fresh fix is still warming up, they should show a loading state and reuse the last successful app-known location when available
+- repeated flood refresh taps should eventually return a clear rate-limit message instead of silently failing; the backend now throttles `getFloodRiskOverview` per user inside a 5-minute window
+- on Android emulator cold starts, flood and weather should still recover using the device's last known location when a brand-new fix is not immediately available
+- flood sheet relies on swipe-down/backdrop dismissal instead of a top-right close button
+- flood sheet hero should show the locked severity ladder (`SAFE`, `CAUTION`, `WARNING`, `DANGER`, `EXTREME DANGER`, or `LIMITED DATA`) with flat inline trend/update metadata and forecast-window copy when available
+- the primary monitoring-point card should clearly say it is the nearest modeled reference for the user, not an exact street-level flood reading
+- nearby monitoring points should show distinct labels, distance, severity, trend, and updated time, and tapping one should open a centered popup modal instead of a nested bottom sheet
+- the `How to read this alert` section should stay short, plain-language, and easy to scan, without raw threshold numbers or raw unit strings in the main sheet
+- the in-sheet flood mini map should render the user location, nearby gauges, and polygons only when Google returns usable geometry; otherwise it should hide cleanly without empty placeholders
+- when validating Philippines coverage, Talisay City, Cebu is the primary QA target for smoke testing, but the shipped feature should still reflect the device user's real current location
+- onboarding/auth dark-red sheets reach the bottom edge without a white strip in the bottom safe area
+- onboarding screens now match the same dark-red family as Profile/Settings, with no leftover coral/pink surfaces on welcome, sign-in, sign-up, verification, create/join circle, invite, or permissions
+- shared token consumers outside onboarding still look intentional after the universal token swap, especially the bottom tab active tint, notifications accents, and secondary buttons
+- safety-hub Maps handoff
+- tapping `Nearest Safety Hub` now selects and focuses the nearest hub without drawing an in-app route line
+- tapping an evacuation-center marker no longer shows the raw native Google callout; it shows a custom bubble with the center name, address, and a navigation icon
+- tapping the custom center-bubble navigation icon opens Google Maps directions to that tapped center
+- tapping a member marker, including the current user marker, should show the same compact member-name pill, and no member name should be visible by default on first Home load
+- panning or zooming the map should dismiss the member-name pill immediately instead of letting it follow the screen
+- the member-name pill should be a clean oblong with no pointer arrow
+- tapping a Home contact name with a saved phone number should show the same `Cancel / Call` confirmation pattern used by Hotlines
+- the Home contact trailing focus icon should stay tappable without the extra inner white circular background
+- `Open in Maps` from the nearest-hub card launches Google Maps directions for the currently active hub: the selected center when one is tapped, otherwise the nearest center
+- no in-app route polyline or route-preview error/loading copy should appear on Home anymore
 - hotline row rendering, including `911`, `Philippine Red Cross`, `NDRRMC`, `PNP`, `BFP`, `Talisay City DRRMO Rescue`, and `Barangay Tabunok Hall`
 - hotline tap -> confirm -> system dialer handoff
 - SOS countdown, send, and trusted-circle alerting without automatic hotline dialing
@@ -128,7 +164,8 @@ What to verify:
 - main Profile page keeps separate gray-card `General` and `Appearance` rows instead of one shared grouped panel
 - `General` route opens from Profile as a `Settings`-style screen and lists `Permissions`, `Account`, `Privacy & Safety`, and `Help & About` in separate rounded rows with subtitles
 - account route shows only profile information plus a `View Joined Circles` entry
-- joined-circles route lists every circle the user belongs to, including the active-circle indicator and create-circle entry point
+- joined-circles route lists every circle the user belongs to, including the active-circle indicator and a `+` entry that offers both `Create circle` and `Join via code`
+- the signed-in join-by-code modal should behave the same from Profile and Joined Circles: 6-digit validation, inline error state, successful join, and reset-on-dismiss
 - circle-detail route shows the invite code, share/copy actions, owner-first membership ordering, tap-on-row member action modal, and leave-circle behavior
 - Home quick-member avatars on the right hide when the bottom sheet is fully expanded and reappear when the sheet comes back down
 - signed-in profile/account/settings surfaces use separate Figma-aligned gray rows/cards, `#5C1515` accents, and reduced nested white-card usage
@@ -136,6 +173,9 @@ What to verify:
 - contact-details route edits username and phone only while leaving email read-only
 - password route validates current password, new password, and confirmation with specific feedback
 - appearance route shows `Dark`, `Light`, and `System` theme choices plus read-only `Language` and `Font` rows
+- Appearance should switch the whole app immediately between `Light`, `Dark`, and `System` without requiring an app restart, including the root background, status bar, onboarding/auth sheets, Home map chrome, Hotlines, SOS, Notifications, and signed-in settings/profile surfaces
+- while signed in, `Dark` should stay dark even if the Android device theme is light, `Light` should stay light even if the Android device theme is dark, and `System` should follow the device theme again
+- on cold launch, the previously saved theme choice should already be reflected on the first rendered screen instead of flashing the wrong theme first
 - permissions route uses toggles for location access and notifications in the same style as the emergency-default rows
 - privacy & safety no longer shows visibility filters
 - help and about follows separate Figma-style support/legal rows instead of grouped utility panels
@@ -179,14 +219,14 @@ npm run firebase:deploy:backend
 ```
 
 This is important because the current app build depends on:
-- updated Firestore rules for `groupPreferences`, `blockedUsers`, `notificationReads`, and `groups/{groupId}/statuses`
+- updated Firestore rules for `groupPreferences`, `blockedUsers`, and `notificationReads`
 - updated Firestore rules that block direct client access to `email_verifications/{uid}`
 - new Firebase Storage rules for owner-scoped avatar uploads plus public branding asset reads
 - updated Cloud Functions behavior for permanent circle creation, join, role management, ownership transfer, leave-circle safety, and block-aware SOS push fanout
 - new Cloud Functions behavior for Resend-backed email OTP send/verify
 - authenticated HTTP Cloud Functions behavior for route proxying and disaster-alert sync, including bearer-token checks and route-level rate limits
 
-If the app starts logging repeated Firestore `permission-denied` warnings for `members`, `statuses`, `locations`, `alerts`, or `sos_events`, check these first:
+If the app starts logging repeated Firestore `permission-denied` warnings for `members`, `locations`, `alerts`, or `sos_events`, check these first:
 - the signed-in user is still a member of the currently selected group
 - the live Firestore rules and indexes were actually deployed with `npm run firebase:deploy:backend`
 - the local profile `defaultGroupId` is not pointing at a group the user already left

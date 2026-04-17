@@ -188,6 +188,7 @@
   - Use an `Edit Profile` hub that branches into focused `Change contact details` and `Change password` routes, while keeping delete-account access on the hub.
   - Keep the main `Account` screen focused on profile information and one `View Joined Circles` entry.
   - Move invite-code sharing, membership management, and leave-circle behavior into dedicated `Joined Circles` and per-circle detail screens.
+  - Let the `Joined Circles` plus action branch into `Create circle` or `Join via code` instead of hard-routing only to create-circle, and reuse the same signed-in join-by-code modal from Profile.
   - Keep active-circle switching on the Home bottom sheet instead of surfacing it again inside circle detail.
   - Follow the Figma mobile prototype as the visual source of truth for the signed-in profile/settings stack, while keeping current app-only features that the Figma has not caught up with yet.
   - Use separate rounded gray rows/cards instead of one grouped settings slab, and reduce nested white subcards only where they create bulky card-within-card layouts.
@@ -202,34 +203,98 @@
   - It gives circle/membership management room to live on `Account` without mixing every credential and destructive action into a single dense screen.
   - The edit hub is easier to scan than a forced step flow, and the member action modal scales better as owner/admin permissions grow.
 
-## 2026-03 Shared Safety Status Uses Preset States Only
+## 2026-04 Home And SOS Remove Manual Shared Status
 
 - Decision:
-  - Limit manual shared status to `safe`, `need_help`, `need_evacuation`, and `unavailable`.
+  - Remove manual shared status from Home, settings, onboarding, notifications, and Firestore client usage.
+  - Keep `Report/SOS` as a direct one-step emergency action without a separate status update step.
 - Why:
-  - The prototype shows a lightweight safety-state model, and preset values are easier to render, filter, and secure than free-text status messages.
+  - The previous flow encouraged a two-step emergency action: update status, then trigger the alert.
+  - Emergency reporting is clearer and faster when the user only needs to tap `Report/SOS`.
+
+## 2026-04 Flood Outlook Prioritizes Alert Clarity Over Diagnostics
+
+- Decision:
+  - Keep the Google flood payload and ranking logic, but simplify the Home flood sheet into an alert-first UI with flatter sections, a short plain-language risk guide, and a centered popup modal for nearby-point details.
+  - Keep the compact flood mini map only as a secondary section when renderable geometry exists.
+- Why:
+  - The earlier redesign surfaced too much diagnostic detail for an average user and felt overly layered.
+  - Flood outlook needs to answer severity, trend, update time, and nearest reference quickly before it shows extra context.
 
 ## 2026-03 Home Keeps The Shared Tab Bar Over The Map Scene
 
 - Decision:
-  - Keep the shared bottom tab bar visible on `Home` while the map scene and draggable bottom sheet render above it.
+  - Keep the shared bottom tab bar visible on `Home` as the default navigation baseline while the map scene and draggable bottom sheet render above it.
+  - Fade the top address pill out as the Home sheet reaches its top snap point instead of hiding the shared bottom tab bar.
+  - Keep that top-pill fade fast and narrow so the Home chrome disappears quickly near the top without a slow lingering shadow, and keep the right-side quick-member stack on the same fade timing.
+  - Use chip-specific centered shadows for trusted-circle pills instead of reusing the stronger generic button shadow.
+  - Show member names only as compact anchored oblong pills on tap, and dismiss them as soon as the user starts moving the map.
+  - Let Home contact names reuse the hotline-style `Cancel / Call` confirmation flow when a saved phone number exists, while keeping the trailing focus icon as a separate map-focus action.
   - Keep `SOS` accessible as the large Home sheet CTA in addition to the real `SOS` tab.
 - Why:
   - Hiding the shared tab bar removed persistent navigation at the exact moment the map scene still needed stable escape hatches.
-  - The shared tab bar is the more reliable product baseline while the Home sheet continues to evolve.
+  - The shared tab bar is still the more reliable product baseline while the Home sheet continues to evolve.
+  - The top pill is transient Home chrome, so fading it at the top snap point reclaims space without removing the user’s persistent navigation.
+  - Compact anchored member pills feel more map-native than a wide centered label card, and dismissing them on map movement avoids the broken feeling that the label is chasing the screen instead of staying attached to a place.
+
+## 2026-04 Nearest Safety Hub Uses Direct Google Maps Handoff
+
+- Decision:
+  - Keep nearest-hub routing lightweight in v1 by selecting a hub inside SOSync and handing off directly to Google Maps for navigation.
+  - Replace raw native evacuation-center callouts with a custom tapped-center bubble that shows the center name, address, and a navigation action.
+  - Keep the existing authenticated backend route proxy dormant for now instead of deleting it, so the app can reuse it later without another backend rebuild.
+- Why:
+  - Direct Maps handoff is clearer and lighter than mixing a partial in-app preview with an external navigation action.
+  - The raw Google marker callout does not match the rest of the Home map UI or the custom user bubble language.
+  - Keeping the backend route proxy dormant lowers risk now while preserving an easy path back to in-app routing if the product needs it later.
 
 ## 2026-04 Home Prioritizes Visual Stability Over Eager Redraws
 
 - Decision:
   - Keep the mounted Home map visually stable on tab return instead of forcing a native-map remount or blanket marker redraw.
   - Mount tab scenes eagerly and only hand the Home map new marker/alert arrays when the underlying content actually changes.
-  - On Android, keep a cached Home map snapshot ready and fade it over the live map on tab return to hide the native tile-texture gap.
+  - On Android, keep the cached Home map snapshot workaround narrow: capture it after Home has already rendered and only reuse it on tab return to hide the native tile-texture gap.
   - Retry missing avatar photos quietly in the background, and fade the quick-member stack out only as the bottom sheet reaches the top snap point.
 - Why:
   - The native Android map feels heavier when it is rebuilt or broadly re-tracked on tab switches.
   - Passing fresh-but-equivalent arrays back into the map wrapper makes Android feel like it is repainting even when the scene did not meaningfully change.
-  - The emulator still showed a sub-100ms blank tile surface on fast tab returns even after mount-stability work, so a cached-frame mask is the pragmatic UX fix.
+  - The emulator still showed a sub-100ms blank tile surface on fast tab returns even after mount-stability work, so a cached-frame mask is the pragmatic UX fix, but running that same workaround during cold start added too much perceived weight on weaker devices.
   - Background retries preserve avatar recovery without making Home look like it is refreshing every time the user comes back.
+
+## 2026-04 Personal Flood Risk Lives On Home As A Modal Forecast Sheet
+
+- Decision:
+  - Add a floating `Flood risk` CTA on the Home map as a lower-left overlay, separate from the main Home sheet header.
+  - Open the feature as a near-fullscreen modal bottom sheet layered over Home instead of a new tab or route.
+  - Keep the first version user-location-based and on-demand rather than writing to Firestore `alerts` or notifying the circle.
+  - Apply a tighter per-user backend rate limit to `getFloodRiskOverview` than the generic route defaults.
+- Why:
+  - The prototype direction reads as a map tool, not as another action inside the existing Home sheet.
+  - A dedicated modal sheet gives the flood and weather forecast enough room to feel like a real feature without disturbing the current Home map/navigation stack.
+  - Personal flood checks and circle-wide disaster alerts are different product concepts, so keeping them separate avoids muddying the existing alert feed and push model.
+  - The flood overview fans out to external forecast providers, so refresh abuse should be bounded more aggressively than lightweight metadata endpoints.
+
+## 2026-04 Home Flood Risk Uses A Gauge-Explained Severity Ladder
+
+- Decision:
+  - Keep the flood experience inside the existing Home modal sheet, but rebuild it around one primary nearby gauge, alternative nearby gauges, explicit trend messaging, plain-language threshold explanation, and an optional mini map preview when Google provides polygons.
+  - Use the user-facing ladder `SAFE`, `CAUTION`, `WARNING`, `DANGER`, `EXTREME DANGER`, and `LIMITED DATA`.
+  - Choose the primary gauge by nearest distance first, then quality verification, then model availability, then higher severity only when gauges are similarly near, then newest update time.
+- Why:
+  - The earlier sheet exposed useful data, but it did not explain clearly why a specific monitoring point was chosen or how the status should be interpreted.
+  - A stable severity ladder and trend copy are easier for non-technical users to scan quickly during rain events than raw gauge language or a flat `Safe` summary.
+  - Google polygon coverage is valuable when present, but it should remain a best-effort enhancement inside the sheet rather than a requirement to understand the main flood result.
+
+## 2026-04 Home Uses A Compact Weather Preview Instead Of Another Header Action
+
+- Decision:
+  - Fill the freed left side of the Home sheet header with a compact, non-tappable current-weather preview beside `Share Live` / `Pause Live`.
+  - Keep the floating `Weather` CTA as the only entry point to the full Weather sheet.
+  - Reuse the same weather-code labels, icons, and temperature formatting in both the Home preview and the dedicated Weather sheet.
+- Why:
+  - The top Home header row had enough space after removing shared-status controls, and a local weather glance is more useful there than another action.
+  - Keeping the preview informational avoids creating two competing ways to open weather details from the same screen.
+  - Shared weather presentation helpers reduce drift between the compact Home card and the full Weather sheet over time.
 
 ## 2026-03 Icon Reuse Should Stay Within The Same Semantic Family
 
@@ -239,6 +304,25 @@
 - Why:
   - Repeated icons with different meanings make the prototype-aligned UI feel ambiguous even when the underlying behavior is correct.
   - The Figma direction relies on clean, readable semantics more than decorative icon variety.
+
+## 2026-04 Universal Dark-Red Theme Tokens
+
+- Decision:
+  - Use the profile/settings dark-red family as the shared app theme instead of keeping onboarding on the older coral/pink palette.
+  - Keep onboarding layouts and flows intact while updating shared tokens, auth building blocks, and touched shared consumers to the same color system.
+- Why:
+  - The split onboarding-vs-signed-in palette made the product feel visually inconsistent.
+  - A single dark-red accent family is easier to maintain across buttons, icons, chips, dividers, and supporting surfaces.
+
+## 2026-04 Appearance Controls The Real App-Wide Theme
+
+- Decision:
+  - Treat `Light`, `Dark`, and `System` in Appearance as the real runtime theme controller for the app instead of a mostly decorative saved preference.
+  - Resolve signed-in theme from `profile.preferences.theme`, fall back to system when the preference is `system`, and let signed-out/onboarding routes follow the device scheme by default.
+  - Use one shared semantic token set for light and dark so root shell surfaces, status bar, onboarding/auth, Home map chrome, Hotlines, SOS, Notifications, and the signed-in settings stack all inherit the same runtime theme source.
+- Why:
+  - A saved appearance preference that only affects a few screens creates a broken-feeling product and makes the settings screen untrustworthy.
+  - One semantic theme layer is easier to maintain than one-off dark patches and keeps the rounded emergency-first UI consistent across all major flows.
 
 ## 2026-03 Home Map Uses A Soft Pastel Palette And Stays Mounted Across Tabs
 

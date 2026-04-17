@@ -29,7 +29,6 @@
 - `users/{userId}/pushTokens`
 - `groups`
 - `groups/{groupId}/members`
-- `groups/{groupId}/statuses`
 - `locations`
 - `alerts`
 - `sos_events`
