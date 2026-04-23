@@ -50,6 +50,8 @@
 - Circle management is now function-backed, but it still needs live smoke validation for owner transfer, admin role changes, removals, and multi-circle switching.
 - Legal/privacy/terms content is currently local in-app copy only.
   - There is no hosted policy or CMS-backed content yet; the signed-in legal screens now live under `Privacy & Safety` and onboarding still keeps its own local modal copy.
+- Signed-in support and problem-report flows now use structured email-draft handoff instead of a true in-app submission backend.
+  - The refreshed report screen can preview locally selected media, but it does not auto-attach that media to the outgoing email yet.
 - Appearance now surfaces `Dark`, `Light`, and `System` selections in the signed-in settings flow.
   - Broader screen-by-screen dark rendering beyond the current saved preference still needs deeper validation before it should be treated as a finished app-wide theme rollout.
 

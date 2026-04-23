@@ -42,6 +42,7 @@ export const SettingsRow = ({
   const { themeTokens } = useAppTheme();
   const resolvedChevronColor = chevronColor ?? themeTokens.textPrimary;
   const resolvedToggleActiveColor = toggleActiveColor ?? themeTokens.accentPrimary;
+  const resolvedToggleThumbColor = "#F5F7FA";
 
   return (
     <Pressable
@@ -59,7 +60,7 @@ export const SettingsRow = ({
       {typeof toggleValue === "boolean" && onToggleChange ? (
         <Switch
           onValueChange={onToggleChange}
-          thumbColor={themeTokens.textPrimary}
+          thumbColor={resolvedToggleThumbColor}
           trackColor={{ false: themeTokens.borderStrong, true: resolvedToggleActiveColor }}
           value={toggleValue}
         />
