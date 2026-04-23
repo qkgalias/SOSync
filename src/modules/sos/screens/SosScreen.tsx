@@ -1,8 +1,18 @@
-/** Purpose: Render the production-styled SOS flow with a deliberate countdown and trusted-circle alerting. */
+/** Purpose: Render the production-styled SOS flow with a livelier ring hero and deliberate countdown. */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import Animated, {
+  Easing,
+  cancelAnimation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 
 import { Button } from "@/components/Button";
 import { useAuthSession } from "@/hooks/useAuthSession";
@@ -19,7 +29,33 @@ const COUNTDOWN_SECONDS = 10;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const IDLE_STATUS = "Tap or hold to send an SOS to everyone.";
 
+const withAlpha = (hex: string, alpha: number) => {
+  const sanitized = hex.replace("#", "");
+  const normalized =
+    sanitized.length === 3
+      ? sanitized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : sanitized;
+
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+};
+
+const buildShadow = (color: string, elevation: number, opacity: number, radius: number, height: number) => ({
+  elevation,
+  shadowColor: color,
+  shadowOffset: { width: 0, height },
+  shadowOpacity: opacity,
+  shadowRadius: radius,
+});
+
 const AvatarOrbit = ({
+  active,
   avatarSize,
   backgroundColor,
   borderColor,
@@ -29,6 +65,7 @@ const AvatarOrbit = ({
   radius,
   total,
 }: {
+  active: boolean;
   avatarSize: number;
   backgroundColor: string;
   borderColor: string;
@@ -42,11 +79,40 @@ const AvatarOrbit = ({
   const center = radius + avatarSize / 2;
   const left = center + Math.cos(angle) * radius - avatarSize / 2;
   const top = center + Math.sin(angle) * radius - avatarSize / 2;
+  const drift = useSharedValue(0);
+
+  useEffect(() => {
+    const duration = active ? 1650 : 2200;
+    drift.value = withDelay(
+      index * 140,
+      withRepeat(
+        withTiming(1, {
+          duration,
+          easing: Easing.inOut(Easing.quad),
+        }),
+        -1,
+        true,
+      ),
+    );
+
+    return () => cancelAnimation(drift);
+  }, [active, drift, index]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: interpolate(drift.value, [0, 1], [0, active ? -2 : -8]) },
+      { scale: interpolate(drift.value, [0, 1], [1, active ? 1.015 : 1.02]) },
+    ],
+  }));
 
   return (
-    <View
+    <Animated.View
       className="absolute items-center justify-center rounded-full border-2"
-      style={{ backgroundColor, borderColor, height: avatarSize, left, top, width: avatarSize }}
+      style={[
+        { backgroundColor, borderColor, height: avatarSize, left, top, width: avatarSize },
+        buildShadow(withAlpha(borderColor, 0.28), 10, 0.22, 12, 6),
+        animatedStyle,
+      ]}
     >
       {member.photoURL ? (
         <Image
@@ -60,7 +126,7 @@ const AvatarOrbit = ({
           {toInitials(member.displayName)}
         </Text>
       )}
-    </View>
+    </Animated.View>
   );
 };
 
@@ -81,12 +147,15 @@ export default function SosScreen() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [statusMessage, setStatusMessage] = useState(IDLE_STATUS);
   const sendingRef = useRef(false);
+  const pulseProgress = useSharedValue(0);
+  const countdownProgress = useSharedValue(0);
 
   const recipientCount = Math.max(members.length - 1, 0);
   const orbitMembers = useMemo(
     () => members.filter((member) => member.userId !== authUser?.uid).slice(0, 4),
     [authUser?.uid, members],
   );
+  const isCountdownActive = countdown !== null;
 
   const ringOuterSize = clamp(Math.min(width * 0.76, height * 0.42), 250, 336);
   const ringMiddleSize = ringOuterSize * 0.82;
@@ -99,6 +168,49 @@ export default function SosScreen() {
   const ringBorderColor = isDark ? themeTokens.accentOutline : "#C11212";
   const buttonFillColor = isDark ? themeTokens.accentPrimary : "#CD5751";
   const orbitSurfaceColor = isDark ? themeTokens.surfaceElevated : "#FFFFFF";
+  const ringGlowColor = isDark ? withAlpha(themeTokens.accentPrimary, 0.34) : withAlpha("#FFE7E5", 0.26);
+  const innerGlowColor = isDark ? withAlpha(themeTokens.accentPrimary, 0.28) : withAlpha("#9B0B1F", 0.16);
+
+  useEffect(() => {
+    const duration = isCountdownActive ? 1600 : 2300;
+    pulseProgress.value = 0;
+    pulseProgress.value = withRepeat(
+      withTiming(1, {
+        duration,
+        easing: Easing.inOut(Easing.quad),
+      }),
+      -1,
+      true,
+    );
+
+    return () => cancelAnimation(pulseProgress);
+  }, [isCountdownActive, pulseProgress]);
+
+  useEffect(() => {
+    countdownProgress.value = withTiming(isCountdownActive ? 1 : 0, {
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [countdownProgress, isCountdownActive]);
+
+  const outerRingAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(pulseProgress.value, [0, 1], [0.72, isCountdownActive ? 0.34 : 0.34]),
+    transform: [{ scale: interpolate(pulseProgress.value, [0, 1], [0.99, isCountdownActive ? 1.045 : 1.04]) }],
+  }));
+
+  const middleRingAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(pulseProgress.value, [0, 1], [0.9, isCountdownActive ? 0.58 : 0.58]),
+    transform: [{ scale: interpolate(pulseProgress.value, [0, 1], [0.992, isCountdownActive ? 1.03 : 1.025]) }],
+  }));
+
+  const innerButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(pulseProgress.value, [0, 1], [1, isCountdownActive ? 1.012 : 1.012]) }],
+  }));
+
+  const backgroundPulseAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(pulseProgress.value, [0, 1], [0.18, isCountdownActive ? 0.24 : 0.24]),
+    transform: [{ scale: interpolate(pulseProgress.value, [0, 1], [0.92, isCountdownActive ? 1.04 : 1.02]) }],
+  }));
 
   const startCountdown = () => {
     if (countdown !== null || sendingRef.current) {
@@ -201,44 +313,67 @@ export default function SosScreen() {
               width: orbitContainerSize,
             }}
           >
-            <View
+            <Animated.View
+              className="absolute rounded-full"
+              style={[
+                {
+                  backgroundColor: ringGlowColor,
+                  height: ringOuterSize * 0.86,
+                  width: ringOuterSize * 0.86,
+                },
+                { borderRadius: (ringOuterSize * 0.86) / 2 },
+                backgroundPulseAnimatedStyle,
+              ]}
+            />
+            <Animated.View
               className="absolute items-center justify-center rounded-full border-2"
-              style={{
-                borderColor: ringBorderColor,
-                height: ringOuterSize,
-                width: ringOuterSize,
-              }}
-            >
-              <View
-                className="items-center justify-center rounded-full border-2"
-                style={{
+              style={[
+                {
                   borderColor: ringBorderColor,
-                  height: ringMiddleSize,
-                  width: ringMiddleSize,
-                }}
+                  height: ringOuterSize,
+                  width: ringOuterSize,
+                },
+                buildShadow(ringGlowColor, 10, isDark ? 0.18 : 0.1, 18, 8),
+                outerRingAnimatedStyle,
+              ]}
+            >
+              <Animated.View
+                className="items-center justify-center rounded-full border-2"
+                style={[
+                  {
+                    borderColor: ringBorderColor,
+                    height: ringMiddleSize,
+                    width: ringMiddleSize,
+                  },
+                  middleRingAnimatedStyle,
+                ]}
               >
-                <Pressable
-                  className="items-center justify-center rounded-full"
-                  delayLongPress={450}
-                  onLongPress={startCountdown}
-                  onPress={startCountdown}
-                  style={{
-                    backgroundColor: buttonFillColor,
-                    height: ringInnerSize,
-                    width: ringInnerSize,
-                  }}
-                >
-                  <MaterialCommunityIcons color="#FFFFFF" name="alarm-light" size={clamp(ringInnerSize * 0.22, 42, 60)} />
-                  <Text className="mt-4 px-8 text-center text-[15px] leading-6 text-white">
-                    {countdown !== null ? `Sending in ${countdown}s` : IDLE_STATUS}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
+                <Animated.View style={innerButtonAnimatedStyle}>
+                  <Pressable
+                    className="items-center justify-center rounded-full"
+                    delayLongPress={450}
+                    onLongPress={startCountdown}
+                    onPress={startCountdown}
+                    style={{
+                      backgroundColor: buttonFillColor,
+                      height: ringInnerSize,
+                      width: ringInnerSize,
+                      ...buildShadow(innerGlowColor, isDark ? 18 : 12, isDark ? 0.36 : 0.18, isDark ? 20 : 12, 8),
+                    }}
+                  >
+                    <MaterialCommunityIcons color="#FFFFFF" name="alarm-light" size={clamp(ringInnerSize * 0.22, 42, 60)} />
+                    <Text className="mt-4 px-8 text-center text-[15px] leading-6 text-white">
+                      {countdown !== null ? `Sending in ${countdown}s` : IDLE_STATUS}
+                    </Text>
+                  </Pressable>
+                </Animated.View>
+              </Animated.View>
+            </Animated.View>
 
             {orbitMembers.map((member, index) => (
               <AvatarOrbit
                 key={member.userId}
+                active={countdown !== null}
                 avatarSize={avatarSize}
                 backgroundColor={orbitSurfaceColor}
                 borderColor={orbitSurfaceColor}

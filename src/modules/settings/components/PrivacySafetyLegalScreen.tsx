@@ -28,7 +28,7 @@ export const PrivacySafetyLegalScreen = ({ activeTab }: { activeTab: LegalTab })
       subtitle={content.subtitle}
       title={content.title}
     >
-      <View className="mt-3 self-start rounded-full bg-panel p-1">
+      <View className="mt-3 self-end rounded-full bg-panel p-1">
         <View className="flex-row items-center">
           {LEGAL_TABS.map((tab) => {
             const isActive = tab.key === activeTab;
