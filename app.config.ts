@@ -20,7 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: "sosync",
   version: "1.0.0",
   orientation: "portrait",
-  userInterfaceStyle: "light",
+  userInterfaceStyle: "automatic",
   icon: "./assets/icon.png",
   splash: {
     image: "./assets/splash-icon.png",
