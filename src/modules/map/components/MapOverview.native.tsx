@@ -413,20 +413,7 @@ const MapOverviewComponent = (
   useImperativeHandle(
     ref,
     () => ({
-      takeSnapshot: async () => {
-        if (!mapRef.current) {
-          return null;
-        }
-
-        try {
-          return await mapRef.current.takeSnapshot({
-            format: "png",
-            result: "file",
-          });
-        } catch {
-          return null;
-        }
-      },
+      takeSnapshot: async () => null,
     }),
     [],
   );

@@ -1,6 +1,6 @@
 /** Purpose: Compose the Home map scene from a controller hook and focused presentational pieces. */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Image, Linking, Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Linking, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import BottomSheet, { BottomSheetFlatList, BottomSheetModal } from "@gorhom/bottom-sheet";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -64,9 +64,6 @@ export default function HomeMapScreen() {
     hubSummaryLabel,
     isSheetFullyExpanded,
     isSharingLive,
-    mapOverviewRef,
-    mapSnapshotAnimatedStyle,
-    mapSnapshotUri,
     nearestCenter,
     palette,
     permissionStatus,
@@ -303,7 +300,6 @@ export default function HomeMapScreen() {
           }}
         >
           <MapOverview
-            ref={mapOverviewRef}
             alerts={stableAlerts}
             centers={centers}
             focusTarget={focusTarget}
@@ -319,33 +315,6 @@ export default function HomeMapScreen() {
             selectedCenterId={selectedCenterId}
             selectedMarkerBubbleId={selectedMarkerBubbleId}
           />
-          {Platform.OS === "android" && mapSnapshotUri ? (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                {
-                  bottom: 0,
-                  left: 0,
-                  position: "absolute",
-                  right: 0,
-                  top: 0,
-                },
-                mapSnapshotAnimatedStyle,
-              ]}
-            >
-              <Image
-                resizeMode="cover"
-                source={{ uri: mapSnapshotUri }}
-                style={{
-                  bottom: 0,
-                  left: 0,
-                  position: "absolute",
-                  right: 0,
-                  top: 0,
-                }}
-              />
-            </Animated.View>
-          ) : null}
         </View>
 
         <Animated.View

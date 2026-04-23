@@ -1,13 +1,12 @@
 /** Purpose: Keep Home map orchestration in one hook so the screen file stays focused on composition only. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Image, Linking, Platform } from "react-native";
+import { AppState, Image, Linking } from "react-native";
 import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomSheetTimingConfigs } from "@gorhom/bottom-sheet";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import Animated, { Easing, useSharedValue } from "react-native-reanimated";
 
-import type { MapOverviewHandle } from "@/modules/map/components/MapOverview";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useBlockedUsers } from "@/hooks/useBlockedUsers";
@@ -106,13 +105,9 @@ export const useHomeMapController = () => {
   const [photoPrefetchAttempt, setPhotoPrefetchAttempt] = useState(0);
   const [sheetIndex, setSheetIndex] = useState(0);
   const [selectedCenterId, setSelectedCenterId] = useState<string | null>(null);
-  const [mapSnapshotUri, setMapSnapshotUri] = useState<string | null>(null);
   const sheetAnimatedIndex = useSharedValue(0);
-  const snapshotOpacity = useSharedValue(0);
   const focusTokenRef = useRef(0);
-  const mapOverviewRef = useRef<MapOverviewHandle | null>(null);
   const hasFocusedCurrentUserRef = useRef(false);
-  const hasSeenFocusedHomeRef = useRef(false);
   const lastGeocodeRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const isSharingLive = sharingOverride ?? privacy.locationSharingEnabled;
 
@@ -285,9 +280,6 @@ export const useHomeMapController = () => {
         .filter((photoURL) => !prefetchedMarkerPhotos[photoURL]),
     [stableHomeMarkers, prefetchedMarkerPhotos],
   );
-  const mapSnapshotAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: snapshotOpacity.value,
-  }));
 
   useEffect(() => {
     if (!selectedMarkerId && currentUser.userId) {
@@ -379,50 +371,6 @@ export const useHomeMapController = () => {
       subscription.remove();
     };
   }, [missingMarkerPhotoUrls.length]);
-
-  useEffect(() => {
-    if (Platform.OS !== "android" || isFocused || !hasSeenFocusedHomeRef.current) {
-      return;
-    }
-
-    let active = true;
-
-    const timer = setTimeout(() => {
-      void mapOverviewRef.current?.takeSnapshot().then((snapshotUri: string | null) => {
-        if (active && snapshotUri) {
-          setMapSnapshotUri((currentValue) => (currentValue === snapshotUri ? currentValue : snapshotUri));
-        }
-      });
-    }, 120);
-
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [isFocused]);
-
-  useEffect(() => {
-    if (Platform.OS !== "android" || !isFocused) {
-      return;
-    }
-
-    if (!hasSeenFocusedHomeRef.current) {
-      hasSeenFocusedHomeRef.current = true;
-      return;
-    }
-
-    if (!mapSnapshotUri) {
-      return;
-    }
-
-    snapshotOpacity.value = 1;
-    snapshotOpacity.value = withDelay(
-      90,
-      withTiming(0, {
-        duration: 150,
-      }),
-    );
-  }, [isFocused, mapSnapshotUri, snapshotOpacity]);
 
   const issueFocus = useCallback((target: HomeMapFocusRequest) => {
     focusTokenRef.current += 1;
@@ -553,9 +501,6 @@ export const useHomeMapController = () => {
     hubSummaryLabel,
     isSheetFullyExpanded,
     isSharingLive,
-    mapOverviewRef,
-    mapSnapshotAnimatedStyle,
-    mapSnapshotUri,
     nearestCenter,
     palette,
     permissionStatus,
