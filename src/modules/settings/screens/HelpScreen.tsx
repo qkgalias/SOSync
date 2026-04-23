@@ -1,4 +1,4 @@
-/** Purpose: Provide support, legal, and app information in a Figma-aligned help and about layout. */
+/** Purpose: Provide signed-in support and app information in a Figma-aligned help and about layout. */
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { Linking, Modal, Pressable, ScrollView, Text, View } from "react-native";
@@ -6,13 +6,12 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState } from "react";
 
 import { BackButton } from "@/components/BackButton";
-import { Button } from "@/components/Button";
 import { Screen } from "@/components/Screen";
 import { SettingsRow } from "@/components/SettingsRow";
 import { useAppTheme } from "@/providers/AppThemeProvider";
 import { goBackOrReplace } from "@/utils/helpers";
 
-type HelpModalKey = "usage" | "faq" | "about" | "privacy" | "terms" | null;
+type HelpModalKey = "usage" | "faq" | "about" | null;
 
 const HELP_MODAL_CONTENT = {
   usage: {
@@ -59,36 +58,6 @@ const HELP_MODAL_CONTENT = {
       {
         title: "Current rollout",
         body: "This build is designed to feel deployment-ready while the team continues refining the product for Android-first release quality.",
-      },
-    ],
-  },
-  privacy: {
-    title: "Privacy Policy",
-    sections: [
-      {
-        title: "What we collect",
-        body: "SOSync stores the profile, circle membership, location-sharing choices, and emergency activity needed to make the app function.",
-      },
-      {
-        title: "Why we use it",
-        body: "This information supports account access, trusted-circle coordination, live map updates, alerts, and SOS communication.",
-      },
-      {
-        title: "Your control",
-        body: "You can manage sharing preferences in Permissions and Privacy & Safety, and delete your account from Edit Profile.",
-      },
-    ],
-  },
-  terms: {
-    title: "Terms & Conditions",
-    sections: [
-      {
-        title: "Intended use",
-        body: "SOSync is designed for safety coordination and trusted-circle communication. It should not be used to harass others or trigger false emergency activity.",
-      },
-      {
-        title: "Availability",
-        body: "The app is still evolving, and some behaviors may continue to improve as the team validates production-ready flows.",
       },
     ],
   },
@@ -178,7 +147,7 @@ export default function HelpScreen() {
         />
       </View>
 
-      <Text className="mb-5 mt-8 text-[16px] font-semibold text-ink">Legal & Privacy</Text>
+      <Text className="mb-5 mt-8 text-[16px] font-semibold text-ink">About SOSync</Text>
       <View>
         <SettingsRow
           className="rounded-[22px]"
@@ -186,20 +155,6 @@ export default function HelpScreen() {
           onPress={() => setModalKey("about")}
           subtitle="Learn about our mission and team"
           title="About the App"
-        />
-        <SettingsRow
-          className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="file-document-outline" size={22} />}
-          onPress={() => setModalKey("privacy")}
-          subtitle="Understand how your data is collected and used"
-          title="Privacy Policy"
-        />
-        <SettingsRow
-          className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="alert-outline" size={22} />}
-          onPress={() => setModalKey("terms")}
-          subtitle="Review the rules and responsibilities"
-          title="Terms & Conditions"
         />
         <SettingsRow
           className="rounded-[22px]"

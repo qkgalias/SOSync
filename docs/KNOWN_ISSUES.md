@@ -49,7 +49,7 @@
   - Safety hubs currently use direct Google Maps handoff only, so the dormant route proxy should not be treated as an active user-facing feature.
 - Circle management is now function-backed, but it still needs live smoke validation for owner transfer, admin role changes, removals, and multi-circle switching.
 - Legal/privacy/terms content is currently local in-app copy only.
-  - There is no hosted policy or CMS-backed help content yet.
+  - There is no hosted policy or CMS-backed content yet; the signed-in legal screens now live under `Privacy & Safety` and onboarding still keeps its own local modal copy.
 - Appearance now surfaces `Dark`, `Light`, and `System` selections in the signed-in settings flow.
   - Broader screen-by-screen dark rendering beyond the current saved preference still needs deeper validation before it should be treated as a finished app-wide theme rollout.
 

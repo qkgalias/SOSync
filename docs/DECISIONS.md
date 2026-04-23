@@ -197,6 +197,7 @@
   - Keep circle management under the Account flow, rename surfaced `group` terminology to `circle`, and render owner-first member management through a row-tap action modal instead of inline action-button clusters or visible menu buttons.
   - Style `General` and `Appearance` on the main Profile page as separate rounded gray rows, and style the dedicated `General` screen as a `Settings`-style list of separate rounded gray rows with subtitle text.
   - Add a manual `Dark` theme choice alongside `Light` and `System` in Appearance, plus read-only `Language` and `Font` rows to match the current mockup direction.
+  - Make signed-in `Privacy & Safety` the only home for signed-in legal/privacy content, with dedicated detail screens for data security, circle access, privacy policy, and terms instead of keeping policy/terms under `Help & About`.
 - Why:
   - It matches the current product direction in Figma more closely than the previous flatter settings stack.
   - It keeps the Profile dashboard lighter and easier to scan.

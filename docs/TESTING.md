@@ -178,8 +178,12 @@ What to verify:
 - on cold launch, the previously saved theme choice should already be reflected on the first rendered screen instead of flashing the wrong theme first
 - permissions route uses toggles for location access and notifications in the same style as the emergency-default rows
 - privacy & safety no longer shows visibility filters
+- privacy & safety now uses the refreshed overview layout with `Sharing controls`, `Privacy & security`, and `Legal` sections
+- `Your data is secured` opens the dedicated `Data Security Overview` screen with four static security cards
+- `Manage circle access` opens the dedicated `Managed Circle Access` screen with four static access-control cards
+- `Privacy Policies and Terms` opens the standalone legal flow on the `Privacy Policy` tab, and the top segmented pill switches between `Privacy Policy` and `Terms of Use`
 - help and about follows separate Figma-style support/legal rows instead of grouped utility panels
-- `Help & About` keeps `Contact Support`, `Report a Problem`, and `Terms & Conditions` visually distinct instead of sharing the same help or warning icon meaning
+- `Help & About` keeps `Contact Support`, `Report a Problem`, and `About the App` as the signed-in support/about surface and no longer duplicates `Privacy Policy` / `Terms & Conditions`
 - informational and settings modals dismiss from the top `X` control without a redundant bottom `Close` button
 - privacy & safety, help and about, permissions, and appearance routes
 - leave-group and delete-account flows

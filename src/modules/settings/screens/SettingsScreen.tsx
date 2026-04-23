@@ -9,6 +9,7 @@ import { Screen } from "@/components/Screen";
 import { SettingsRow } from "@/components/SettingsRow";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useAppTheme } from "@/providers/AppThemeProvider";
+import { PRIVACY_SAFETY_OVERVIEW_COPY } from "@/modules/settings/privacySafetyContent";
 import { USER_SEED } from "@/utils/constants";
 import { goBackOrReplace } from "@/utils/helpers";
 
@@ -77,21 +78,46 @@ export default function SettingsScreen() {
       <View>
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="shield-check-outline" size={22} />}
-          subtitle="SOSync keeps profile, circle, alert, and location data scoped to authenticated sessions and trusted-circle access rules."
-          title="Data security"
+          icon={
+            <MaterialCommunityIcons
+              color={themeTokens.accentPrimary}
+              name={PRIVACY_SAFETY_OVERVIEW_COPY.dataSecurity.iconName}
+              size={22}
+            />
+          }
+          onPress={() => router.push("/settings/data-security" as never)}
+          subtitle={PRIVACY_SAFETY_OVERVIEW_COPY.dataSecurity.subtitle}
+          title={PRIVACY_SAFETY_OVERVIEW_COPY.dataSecurity.title}
         />
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="shield-lock-outline" size={22} />}
-          subtitle="Your trusted circle is your support model. Separate trusted-contact and auto-call hotline flows are no longer surfaced."
-          title="Privacy management"
+          icon={
+            <MaterialCommunityIcons
+              color={themeTokens.accentPrimary}
+              name={PRIVACY_SAFETY_OVERVIEW_COPY.circleAccess.iconName}
+              size={22}
+            />
+          }
+          onPress={() => router.push("/settings/managed-circle-access" as never)}
+          subtitle={PRIVACY_SAFETY_OVERVIEW_COPY.circleAccess.subtitle}
+          title={PRIVACY_SAFETY_OVERVIEW_COPY.circleAccess.title}
         />
+      </View>
+
+      <Text className="mb-3 mt-8 text-[12px] uppercase tracking-[0.18em] text-muted">Legal</Text>
+      <View>
         <SettingsRow
           className="rounded-[22px]"
-          icon={<MaterialCommunityIcons color={themeTokens.accentPrimary} name="file-document-outline" size={22} />}
-          subtitle="This build stores the profile, circle, and emergency details required for SOSync to coordinate alerts and SOS activity."
-          title="Privacy policy"
+          icon={
+            <MaterialCommunityIcons
+              color={themeTokens.accentPrimary}
+              name={PRIVACY_SAFETY_OVERVIEW_COPY.legal.iconName}
+              size={22}
+            />
+          }
+          onPress={() => router.push("/settings/privacy-policy" as never)}
+          subtitle={PRIVACY_SAFETY_OVERVIEW_COPY.legal.subtitle}
+          title={PRIVACY_SAFETY_OVERVIEW_COPY.legal.title}
         />
       </View>
 
