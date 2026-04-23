@@ -184,6 +184,11 @@ What to verify:
 - `Privacy Policies and Terms` opens the standalone legal flow on the `Privacy Policy` tab, and the top segmented pill switches between `Privacy Policy` and `Terms of Use`
 - help and about follows separate Figma-style support/legal rows instead of grouped utility panels
 - `Help & About` keeps `Contact Support`, `Report a Problem`, and `About the App` as the signed-in support/about surface and no longer duplicates `Privacy Policy` / `Terms & Conditions`
+- `Help & About` overview routes into dedicated screens for `Emergency Usage Guide`, `FAQs`, `Contact SOSync Support`, `Report a Problem`, and `About the App` instead of opening modal content
+- `Emergency Usage Guide` uses the three-card instructional layout from the refreshed Figma
+- `FAQs` uses an accordion layout with the first question expanded by default
+- `Contact SOSync Support` validates message input and opens a populated `mailto:` draft to `support@sosync.app`
+- `Report a Problem` validates category selection, shows the extra required field for `Other`, previews locally selected media, and opens a populated `mailto:` draft with category/device/version details
 - informational and settings modals dismiss from the top `X` control without a redundant bottom `Close` button
 - privacy & safety, help and about, permissions, and appearance routes
 - leave-group and delete-account flows

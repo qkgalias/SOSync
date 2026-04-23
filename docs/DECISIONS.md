@@ -198,6 +198,8 @@
   - Style `General` and `Appearance` on the main Profile page as separate rounded gray rows, and style the dedicated `General` screen as a `Settings`-style list of separate rounded gray rows with subtitle text.
   - Add a manual `Dark` theme choice alongside `Light` and `System` in Appearance, plus read-only `Language` and `Font` rows to match the current mockup direction.
   - Make signed-in `Privacy & Safety` the only home for signed-in legal/privacy content, with dedicated detail screens for data security, circle access, privacy policy, and terms instead of keeping policy/terms under `Help & About`.
+  - Rebuild signed-in `Help & About` as a route-based support flow with dedicated usage-guide, FAQ, support, report, and about screens instead of keeping usage/about content inside modal overlays.
+  - Keep support and bug-report submission as structured email-draft handoff for now, even though the new Figma adds full-form screens, rather than introducing a new backend submission surface in the same pass.
 - Why:
   - It matches the current product direction in Figma more closely than the previous flatter settings stack.
   - It keeps the Profile dashboard lighter and easier to scan.
