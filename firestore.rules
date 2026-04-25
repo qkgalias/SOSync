@@ -60,6 +60,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /password_reset_requests/{emailHash} {
+      allow read, write: if false;
+    }
+
     match /{path=**}/members/{userId} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
     }

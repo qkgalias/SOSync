@@ -33,8 +33,8 @@ const normalizedNameSchema = z.preprocess(
   (value) => normalizeDisplayName(String(value ?? "")),
   z
     .string()
-    .min(2, "Name must be at least 2 characters.")
-    .max(NAME_MAX_LENGTH, `Name must be ${NAME_MAX_LENGTH} characters or fewer.`),
+    .min(2, "Display name must be at least 2 characters.")
+    .max(NAME_MAX_LENGTH, `Display name must be ${NAME_MAX_LENGTH} characters or fewer.`),
 );
 
 const normalizedGroupNameSchema = z.preprocess(
@@ -51,6 +51,10 @@ export const emailSignInSchema = z.object({
     .string()
     .min(1, "Enter your password.")
     .min(8, "Password must be at least 8 characters."),
+});
+
+export const passwordResetSchema = z.object({
+  email: normalizedEmailSchema,
 });
 
 export const phoneSignInSchema = z.object({
@@ -93,6 +97,7 @@ export const signUpFormSchema = z
   });
 
 export const profileSchema = z.object({
+  name: normalizedNameSchema,
   email: normalizedEmailSchema,
   phoneNumber: normalizedPhoneSchema,
 });

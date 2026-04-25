@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Alert, Modal, Pressable, Text, View } from "react-native";
 
 import { AuthScreen } from "@/components/AuthScreen";
 import { BackButton } from "@/components/BackButton";
@@ -11,7 +11,7 @@ import { TextField } from "@/components/TextField";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useAppTheme } from "@/providers/AppThemeProvider";
 import { goBackOrReplace } from "@/utils/helpers";
-import { emailSignInSchema } from "@/utils/validators";
+import { emailSignInSchema, passwordResetSchema } from "@/utils/validators";
 
 type SignInErrors = {
   email?: string;
@@ -19,15 +19,19 @@ type SignInErrors = {
   general?: string;
 };
 
+const RESET_CONFIRMATION_ACCENT = "#650B11";
+
 export default function SignInEmailScreen() {
   const router = useRouter();
-  const { sendEmailOtp, signInWithEmail } = useAuthSession();
+  const { sendEmailOtp, sendPasswordReset, signInWithEmail } = useAuthSession();
   const { resolvedTheme, themeTokens } = useAppTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<SignInErrors>({});
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetConfirmationVisible, setResetConfirmationVisible] = useState(false);
   const isDark = resolvedTheme === "dark";
   const sheetTitleClassName = isDark ? "text-ink" : "text-white";
   const supportTextClassName = isDark ? "text-secondary" : "text-white";
@@ -81,6 +85,42 @@ export default function SignInEmailScreen() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    const parsed = passwordResetSchema.safeParse({ email });
+    if (!parsed.success) {
+      const { fieldErrors } = parsed.error.flatten();
+      setErrors((current) => ({
+        ...current,
+        email: fieldErrors.email?.[0],
+        password: undefined,
+        general: undefined,
+      }));
+      return;
+    }
+
+    setResetLoading(true);
+    setErrors((current) => ({
+      ...current,
+      email: undefined,
+      password: undefined,
+      general: undefined,
+    }));
+
+    try {
+      await sendPasswordReset(parsed.data.email);
+      setResetConfirmationVisible(true);
+    } catch (resetError) {
+      setErrors((current) => ({
+        ...current,
+        general: resetError instanceof Error
+          ? resetError.message
+          : "We couldn't send a reset email right now. Try again in a moment.",
+      }));
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <AuthScreen
       scrollable={false}
@@ -130,11 +170,27 @@ export default function SignInEmailScreen() {
             error={errors.password}
             errorClassName={`text-[12px] leading-5 ${errorTextClassName}`}
           />
+          <Pressable
+            accessibilityRole="button"
+            className="mt-3 self-end py-1"
+            disabled={loading || resetLoading}
+            hitSlop={10}
+            onPress={handleForgotPassword}
+          >
+            <Text
+              className={`text-[14px] font-medium underline ${
+                isDark ? "text-ink" : "text-white"
+              } ${loading || resetLoading ? "opacity-70" : ""}`}
+            >
+              {resetLoading ? "Sending reset link..." : "Forgot Password?"}
+            </Text>
+          </Pressable>
         </View>
         <View>
           {errors.general ? <Text className={`mb-3 text-center text-[12px] leading-5 ${errorTextClassName}`}>{errors.general}</Text> : null}
           <Button
             label="Continue"
+            disabled={resetLoading}
             loading={loading}
             onPress={handleSignIn}
             variant={isDark ? "outline" : "secondary"}
@@ -150,6 +206,34 @@ export default function SignInEmailScreen() {
           </View>
         </View>
       </View>
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setResetConfirmationVisible(false)}
+        transparent
+        visible={resetConfirmationVisible}
+      >
+        <View className="flex-1 justify-center bg-black/35 px-6 py-10">
+          <Pressable className="absolute inset-0" onPress={() => setResetConfirmationVisible(false)} />
+          <View className="rounded-[28px] bg-white px-6 py-6 shadow-lg">
+            <View className="mb-5 h-1.5 w-16 rounded-full" style={{ backgroundColor: RESET_CONFIRMATION_ACCENT }} />
+            <View className="mb-4 h-12 w-12 items-center justify-center rounded-full bg-[#F5E7E8]">
+              <MaterialCommunityIcons color={RESET_CONFIRMATION_ACCENT} name="email-check-outline" size={25} />
+            </View>
+            <Text className="text-[24px] font-semibold tracking-[-0.02em] text-ink">Check your inbox</Text>
+            <Text className="mt-3 text-[15px] leading-6 text-secondary">
+              If this email is linked to a SOSync account, a password reset link has been sent. Please check your inbox or spam folder.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              className="mt-6 min-h-12 items-center justify-center rounded-full px-5"
+              onPress={() => setResetConfirmationVisible(false)}
+              style={{ backgroundColor: RESET_CONFIRMATION_ACCENT }}
+            >
+              <Text className="text-[16px] font-semibold text-white">Got it</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </AuthScreen>
   );
 }

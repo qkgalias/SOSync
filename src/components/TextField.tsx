@@ -9,6 +9,7 @@ type TextFieldProps = {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
+  editable?: boolean;
   placeholder?: string;
   autoCapitalize?: "none" | "sentences" | "words";
   keyboardType?: "default" | "email-address" | "phone-pad" | "numeric";
@@ -27,6 +28,7 @@ type TextFieldProps = {
 export const TextField = ({
   autoCapitalize = "none",
   containerClassName,
+  editable = true,
   error,
   errorClassName,
   helperText,
@@ -51,11 +53,13 @@ export const TextField = ({
         <TextInput
           autoCapitalize={autoCapitalize}
           className="flex-1 p-0 text-base text-ink"
+          editable={editable}
           keyboardType={keyboardType}
           onChangeText={onChangeText}
           placeholder={placeholder ?? label}
           placeholderTextColor={themeTokens.textMuted}
           secureTextEntry={secureTextEntry}
+          showSoftInputOnFocus={editable}
           value={value}
         />
         {rightSlot ? <View className="ml-3">{rightSlot}</View> : null}

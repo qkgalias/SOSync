@@ -22,6 +22,7 @@ type SessionContextValue = {
   setSelectedGroupId: (groupId: string | null) => void;
   signInWithEmail: (email: string, password: string) => Promise<AuthIdentity>;
   signUpWithEmail: (name: string, email: string, password: string) => Promise<AuthIdentity>;
+  sendPasswordReset: (email: string) => Promise<void>;
   sendEmailOtp: () => Promise<{ resendAvailableAt: string; sentAt: string }>;
   resendEmailOtp: () => Promise<{ resendAvailableAt: string; sentAt: string }>;
   verifyEmailOtp: (code: string) => Promise<AuthIdentity>;
@@ -473,6 +474,9 @@ export const SessionProvider = ({ children }: PropsWithChildren) => {
           setAuthUser(nextUser);
         });
         return nextUser;
+      },
+      sendPasswordReset: async (email) => {
+        await authService.sendPasswordReset(email);
       },
       sendEmailOtp: async () => {
         return authService.sendEmailOtp();

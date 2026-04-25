@@ -27,6 +27,10 @@ type VerifyOtpResponse = {
   verifiedAt: string;
 };
 
+type PasswordResetResponse = {
+  sentAt: string;
+};
+
 export type AuthIdentity = {
   uid: string;
   email?: string | null;
@@ -126,7 +130,7 @@ const ensureFirebaseSession = async (user: FirebaseAuthTypes.User) => {
 };
 
 const callVerificationFunction = async <RequestData extends object, ResponseData>(
-  name: "sendEmailOtp" | "verifyEmailOtp",
+  name: "sendEmailOtp" | "sendPasswordReset" | "verifyEmailOtp",
   payload: RequestData,
 ) => {
   const callable = httpsCallable<RequestData, ResponseData>(firebaseFunctions(), name, { timeout: 12_000 });
@@ -251,6 +255,27 @@ export const authService = {
     await emitMockUser(user);
     pendingVerificationEmail = normalizedEmail;
     return user;
+  },
+
+  async sendPasswordReset(email: string) {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (getClientMode() !== "firebase") {
+      return;
+    }
+
+    try {
+      await callVerificationFunction<{ email: string }, PasswordResetResponse>("sendPasswordReset", {
+        email: normalizedEmail,
+      });
+    } catch (error) {
+      const code = extractAuthCode(error);
+      if (code === "functions/invalid-argument") {
+        throw new Error(extractAuthMessage(error) || "Enter a valid email address.");
+      }
+
+      throw new Error("We couldn't send a reset email right now. Try again in a moment.");
+    }
   },
 
   async sendEmailOtp() {

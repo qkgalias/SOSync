@@ -1,6 +1,6 @@
 /** Purpose: Export the SOSync Cloud Functions surface from one backend entrypoint. */
 export { syncDisasterAlerts, scheduledAlertSync } from "./alerts.js";
-export { sendEmailOtp, verifyEmailOtp } from "./emailVerification.js";
+export { sendEmailOtp, sendPasswordReset, verifyEmailOtp } from "./emailVerification.js";
 export { getFloodRiskOverview } from "./flood.js";
 export {
   createCircle,

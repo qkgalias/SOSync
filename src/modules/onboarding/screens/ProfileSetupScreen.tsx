@@ -16,6 +16,7 @@ import { profileSchema } from "@/utils/validators";
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const { authUser, profile, saveProfile } = useAuthSession();
+  const [displayName, setDisplayName] = useState(profile?.name ?? authUser?.displayName ?? "");
   const [email, setEmail] = useState(profile?.email ?? authUser?.email ?? "");
   const [phoneNumber, setPhoneNumber] = useState(profile?.phoneNumber ?? authUser?.phoneNumber ?? "");
   const [photoURL, setPhotoURL] = useState(profile?.photoURL ?? authUser?.photoURL ?? "");
@@ -23,13 +24,13 @@ export default function ProfileSetupScreen() {
   const [loading, setLoading] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
-  const displayName = profile?.name ?? authUser?.displayName ?? "SOSync";
 
   useEffect(() => {
+    setDisplayName(profile?.name ?? authUser?.displayName ?? "");
     setEmail(profile?.email ?? authUser?.email ?? "");
     setPhoneNumber(profile?.phoneNumber ?? authUser?.phoneNumber ?? "");
     setPhotoURL(profile?.photoURL ?? authUser?.photoURL ?? "");
-  }, [authUser?.email, authUser?.phoneNumber, authUser?.photoURL, profile]);
+  }, [authUser?.displayName, authUser?.email, authUser?.phoneNumber, authUser?.photoURL, profile]);
 
   const handleChooseAvatar = async () => {
     setAvatarLoading(true);
@@ -51,7 +52,7 @@ export default function ProfileSetupScreen() {
   };
 
   const handleContinue = async () => {
-    const parsed = profileSchema.safeParse({ email, phoneNumber });
+    const parsed = profileSchema.safeParse({ name: displayName, email, phoneNumber });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Complete your profile before continuing.");
       return;
@@ -67,7 +68,7 @@ export default function ProfileSetupScreen() {
           : photoURL;
 
       await saveProfile({
-        name: displayName,
+        name: parsed.data.name,
         email: parsed.data.email,
         phoneNumber: parsed.data.phoneNumber,
         photoURL: uploadedPhotoUrl,
@@ -97,7 +98,7 @@ export default function ProfileSetupScreen() {
         <AvatarPicker
           className="mb-8"
           loading={avatarLoading}
-          name={displayName}
+          name={displayName || "SOSync"}
           onPress={handleChooseAvatar}
           photoURL={photoURL}
         />
@@ -105,14 +106,23 @@ export default function ProfileSetupScreen() {
           Add the profile photo your trusted circle will recognize, then confirm the contact details tied to this account.
         </Text>
       </View>
-      <View className="mb-4 rounded-[18px] bg-panel px-4 py-4">
-        <Text className="text-sm text-muted">Name</Text>
-        <Text className="mt-2 text-[18px] font-semibold text-ink">{displayName}</Text>
-      </View>
+      <TextField
+        label="Display Name"
+        value={displayName}
+        onChangeText={(value) => {
+          setDisplayName(value);
+          if (error) {
+            setError("");
+          }
+        }}
+        autoCapitalize="words"
+        inputClassName="rounded-[14px] bg-panel"
+      />
       <TextField
         label="Email"
         value={email}
         onChangeText={setEmail}
+        editable={false}
         keyboardType="email-address"
         inputClassName="rounded-[14px] bg-panel"
       />

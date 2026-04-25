@@ -4,6 +4,7 @@ import {
   groupSchema,
   inviteCodeSchema,
   passwordChangeSchema,
+  passwordResetSchema,
   phoneSignInSchema,
   signUpFormSchema,
   verificationCodeSchema,
@@ -16,6 +17,18 @@ describe("validators", () => {
     if (parsed.success) {
       expect(parsed.data.email).toBe("responder@sosync.app");
     }
+  });
+
+  it("accepts and normalizes a password-reset email", () => {
+    const parsed = passwordResetSchema.safeParse({ email: "  Responder@SOSync.App " });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.email).toBe("responder@sosync.app");
+    }
+  });
+
+  it("rejects an invalid password-reset email", () => {
+    expect(passwordResetSchema.safeParse({ email: "not-an-email" }).success).toBe(false);
   });
 
   it("rejects an invalid phone number", () => {
