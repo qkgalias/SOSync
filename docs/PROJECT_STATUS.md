@@ -6,8 +6,8 @@
 - Figma-driven redesign that replaces the earlier blue/teal UI with the current white, dark-red, calm-neutral, and light-gray visual system.
 - Prototype-style onboarding flow: neutral Android native launch handoff, in-app combined-logo splash, auto-playing 3-slide welcome carousel, email sign-in, redesigned sign-up with first/last name plus required phone capture, email OTP verification, lighter profile setup, combined create/join circle hub, dedicated circle-naming step, permanent 6-digit invite-code sharing, and permissions.
 - Session, auth, profile, and group orchestration through `SessionProvider`.
-- Auth service support for Firebase email/password auth, Resend-backed email OTP verification, plus password update and account deletion helpers.
-- Shared input normalization for email, phone, invite code, OTP code, circle names, and password-change validation across the current onboarding and account-management flows.
+- Auth service support for Firebase email/password auth, Resend-backed password reset and email OTP messages, plus password update and account deletion helpers.
+- Shared input normalization for email, phone, invite code, OTP code, circle names, password-reset requests, and password-change validation across the current onboarding and account-management flows.
 - Firestore service layer for users, groups, permanent circle codes, locations, alerts, SOS events, hotlines, push tokens, blocked users, and notification read receipts.
 - Live and fallback hotline seeds now include the expanded Philippines/Talisay set: `911`, `Philippine Red Cross`, `NDRRMC`, `PNP`, `BFP`, `Talisay City DRRMO Rescue`, and `Barangay Tabunok Hall`.
 - Firebase Storage-backed avatar upload for real profile photos.

@@ -141,6 +141,9 @@ What to verify:
 - when validating Philippines coverage, Talisay City, Cebu is the primary QA target for smoke testing, but the shipped feature should still reflect the device user's real current location
 - onboarding/auth dark-red sheets reach the bottom edge without a white strip in the bottom safe area
 - onboarding screens now match the same dark-red family as Profile/Settings, with no leftover coral/pink surfaces on welcome, sign-in, sign-up, verification, create/join circle, invite, or permissions
+- email OTP verification renders the Resend email with the flat white layout, SOSync `#650B11` dark-red theme, readable OTP code, expiration message, and security notice
+- sign-in `Forgot Password?` validates the email field inline, sends a branded password reset email with generic success copy, and does not sign the user in or change routes
+- password reset email is delivered through the matching flat SOSync Resend template with one `Reset password` button, no visible raw reset URL, the `#650B11` theme, and the updated ignore-if-unrequested security notice
 - shared token consumers outside onboarding still look intentional after the universal token swap, especially the bottom tab active tint, notifications accents, and secondary buttons
 - safety-hub Maps handoff
 - tapping `Nearest Safety Hub` now selects and focuses the nearest hub without drawing an in-app route line

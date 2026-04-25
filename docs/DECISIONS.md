@@ -161,10 +161,12 @@
   - Remove phone sign-in and SMS MFA from the current product flow.
   - Keep first name, last name, email, phone number, password, and confirm password on sign-up.
   - Create the Firebase email/password account immediately, then verify the account with a 6-digit OTP sent to email through Resend.
+  - Send branded password reset emails through Resend while using Firebase Admin to generate the official hosted reset link.
   - Keep the phone number for profile/contact use only.
 - Why:
   - Email verification is the required trust step for this product, while SMS adds cost without being necessary to ship the onboarding flow.
   - This keeps verification aligned with the email/password account that actually signs into the app.
+  - Firebase's hosted reset page avoids exposing current passwords and custom token-handling risk, while Resend gives SOSync full control over the email design.
   - It removes Firebase SMS/MFA project prerequisites from the critical path for account creation.
 
 ## 2026-03 Full-Page SOS Uses Slide-To-Cancel And No Embedded Hotline UI
