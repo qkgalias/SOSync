@@ -20,6 +20,7 @@ type TextFieldProps = {
   inputClassName?: string;
   labelClassName?: string;
   hideLabel?: boolean;
+  leftSlot?: ReactNode;
   rightSlot?: ReactNode;
   errorClassName?: string;
   helperClassName?: string;
@@ -38,6 +39,7 @@ export const TextField = ({
   keyboardType = "default",
   label,
   labelClassName,
+  leftSlot,
   onChangeText,
   placeholder,
   rightSlot,
@@ -50,6 +52,7 @@ export const TextField = ({
     <View className={cn("mb-4", containerClassName)}>
       {!hideLabel ? <Text className={cn("mb-2 text-sm text-muted", labelClassName)}>{label}</Text> : null}
       <View className={cn("flex-row items-center rounded-[12px] border border-line bg-input px-4 py-4", inputClassName)}>
+        {leftSlot ? <View className="mr-3">{leftSlot}</View> : null}
         <TextInput
           autoCapitalize={autoCapitalize}
           className="flex-1 p-0 text-base text-ink"

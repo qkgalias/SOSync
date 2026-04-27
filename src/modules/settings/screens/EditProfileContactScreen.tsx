@@ -9,15 +9,16 @@ import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { goBackOrReplace } from "@/utils/helpers";
+import { formatPhoneDigits, normalizePhoneDigits } from "@/utils/input";
 import { contactDetailsSchema } from "@/utils/validators";
 
 export default function EditProfileContactScreen() {
   const router = useRouter();
   const { authUser, profile, saveProfile } = useAuthSession();
   const initialName = profile?.name ?? authUser?.displayName ?? "Responder";
-  const initialPhone = profile?.phoneNumber ?? authUser?.phoneNumber ?? "";
+  const initialPhoneDigits = normalizePhoneDigits(profile?.phoneNumber ?? authUser?.phoneNumber ?? "");
   const [name, setName] = useState(initialName);
-  const [phoneNumber, setPhoneNumber] = useState(initialPhone);
+  const [phoneDigits, setPhoneDigits] = useState(initialPhoneDigits);
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; phoneNumber?: string }>({});
   const [message, setMessage] = useState("");
   const [loadingAction, setLoadingAction] = useState(false);
@@ -26,7 +27,7 @@ export default function EditProfileContactScreen() {
   const helperMessage = useMemo(() => "Email stays read-only because SOSync still uses it as the current verification method.", []);
 
   const handleSave = async () => {
-    const parsed = contactDetailsSchema.safeParse({ name, phoneNumber });
+    const parsed = contactDetailsSchema.safeParse({ name, phoneNumber: phoneDigits });
     if (!parsed.success) {
       const nextErrors: { name?: string; phoneNumber?: string } = {};
       parsed.error.issues.forEach((issue) => {
@@ -41,7 +42,11 @@ export default function EditProfileContactScreen() {
     }
 
     setFieldErrors({});
-    if (parsed.data.name === initialName && parsed.data.phoneNumber === initialPhone) {
+    const initialPhoneNumber = contactDetailsSchema.shape.phoneNumber.safeParse(initialPhoneDigits);
+    const hasSamePhoneNumber =
+      initialPhoneNumber.success && parsed.data.phoneNumber === initialPhoneNumber.data;
+
+    if (parsed.data.name === initialName && hasSamePhoneNumber) {
       setMessage("Nothing changed yet.");
       return;
     }
@@ -56,7 +61,7 @@ export default function EditProfileContactScreen() {
       });
 
       const nameChanged = parsed.data.name !== initialName;
-      const phoneChanged = parsed.data.phoneNumber !== initialPhone;
+      const phoneChanged = !hasSamePhoneNumber;
       if (nameChanged && phoneChanged) {
         setMessage("Username and phone number updated.");
       } else if (nameChanged) {
@@ -98,11 +103,19 @@ export default function EditProfileContactScreen() {
 
         <TextField
           error={fieldErrors.phoneNumber}
+          helperText="Enter the 10-digit mobile number after +63."
           inputClassName="rounded-[18px] border border-line bg-page"
           keyboardType="phone-pad"
           label="Phone number"
-          onChangeText={setPhoneNumber}
-          value={phoneNumber}
+          leftSlot={<Text className="text-base text-ink">+63</Text>}
+          onChangeText={(value) => {
+            setPhoneDigits(normalizePhoneDigits(value));
+            if (fieldErrors.phoneNumber) {
+              setFieldErrors((current) => ({ ...current, phoneNumber: undefined }));
+            }
+          }}
+          placeholder="912 345 6789"
+          value={formatPhoneDigits(phoneDigits)}
         />
 
         <Button

@@ -29,8 +29,8 @@ export default function CreateCircleFromProfileScreen() {
     setError("");
 
     try {
-      await createCircle(parsed.data.name);
-      router.replace("/account");
+      const group = await createCircle(parsed.data.name);
+      router.replace(`/account/circle/${group.groupId}` as never);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to create the trusted circle.");
     } finally {

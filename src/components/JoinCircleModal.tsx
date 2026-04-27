@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { CodeInput } from "@/components/CodeInput";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useAppTheme } from "@/providers/AppThemeProvider";
+import { toFriendlyJoinCircleError } from "@/utils/circleErrors";
 import { inviteCodeSchema } from "@/utils/validators";
 
 type JoinCircleModalProps = {
@@ -48,7 +49,7 @@ export const JoinCircleModal = ({ onClose, onSuccess, visible }: JoinCircleModal
       handleClose();
       onSuccess?.();
     } catch (error) {
-      setJoinError(error instanceof Error ? error.message : "Unable to join the trusted circle right now.");
+      setJoinError(toFriendlyJoinCircleError(error));
     } finally {
       setLoading(false);
     }

@@ -230,20 +230,25 @@ export default function SignUpScreen() {
     try {
       const fullName = `${parsed.data.firstName} ${parsed.data.lastName}`.trim();
       await signUpWithEmail(fullName, parsed.data.email, parsed.data.password);
-      await saveProfile({
-        name: fullName,
-        email: parsed.data.email,
-        phoneNumber: parsed.data.phoneNumber,
-        onboarding: {
-          currentStep: "verify",
-          profileComplete: false,
-          circleComplete: false,
-          permissionsComplete: false,
-        },
-        security: {
-          emailVerified: false,
-        },
-      });
+
+      try {
+        await saveProfile({
+          name: fullName,
+          email: parsed.data.email,
+          phoneNumber: parsed.data.phoneNumber,
+          onboarding: {
+            currentStep: "verify",
+            profileComplete: false,
+            circleComplete: false,
+            permissionsComplete: false,
+          },
+          security: {
+            emailVerified: false,
+          },
+        });
+      } catch (profileError) {
+        console.warn("Initial profile setup will resume after verification.", profileError);
+      }
 
       try {
         await sendEmailOtp();

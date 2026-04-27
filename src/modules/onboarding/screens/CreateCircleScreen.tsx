@@ -10,6 +10,7 @@ import { CodeInput } from "@/components/CodeInput";
 import { Screen } from "@/components/Screen";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useAppTheme } from "@/providers/AppThemeProvider";
+import { toFriendlyJoinCircleError } from "@/utils/circleErrors";
 import { goBackOrReplace } from "@/utils/helpers";
 import { inviteCodeSchema } from "@/utils/validators";
 
@@ -41,7 +42,7 @@ export default function CreateCircleScreen() {
       await joinCircleWithInvite(parsed.data.inviteCode);
       router.replace("/(onboarding)/permissions");
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to join the trusted circle right now.");
+      setError(toFriendlyJoinCircleError(nextError));
     } finally {
       setLoadingAction(null);
     }
