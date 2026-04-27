@@ -22,6 +22,7 @@ type WeatherBottomSheetProps = {
   error: string | null;
   floodRisk: FloodRiskOverview | null;
   isRefreshing: boolean;
+  isLocationSharingEnabled: boolean;
   onChange?: (index: number) => void;
   onDismiss: () => void;
   onOpenSettings: () => void;
@@ -57,6 +58,7 @@ export const WeatherBottomSheet = forwardRef(function WeatherBottomSheet(
     error,
     floodRisk,
     isRefreshing,
+    isLocationSharingEnabled,
     onChange,
     onDismiss,
     onOpenSettings,
@@ -71,11 +73,14 @@ export const WeatherBottomSheet = forwardRef(function WeatherBottomSheet(
   const hasCurrentWeather = Boolean(floodRisk?.currentWeather);
   const hasDailyWeather = Boolean(floodRisk?.weatherDaily.length);
   const hasWeather = hasCurrentWeather || hasDailyWeather;
-  const showPermissionState = permissionStatus === "denied" && !floodRisk;
+  const showLocationOffState = !isLocationSharingEnabled;
+  const showPermissionState = !showLocationOffState && permissionStatus === "denied" && !floodRisk;
   const showInitialLoading =
-    (status === "loading" || (status === "idle" && permissionStatus === "granted")) && !floodRisk;
-  const showErrorState = status === "error" && !floodRisk;
-  const showContent = !showPermissionState && !showInitialLoading && !showErrorState;
+    !showLocationOffState &&
+    (status === "loading" || (status === "idle" && permissionStatus === "granted")) &&
+    !floodRisk;
+  const showErrorState = !showLocationOffState && status === "error" && !floodRisk;
+  const showContent = !showLocationOffState && !showPermissionState && !showInitialLoading && !showErrorState;
   const isDark = resolvedTheme === "dark";
   const cardClassName = "mt-5 rounded-[24px] border border-line bg-surface px-5 py-5";
   const refreshButtonSurface = isDark ? themeTokens.surfaceElevated : themeTokens.surfaceInput;
@@ -138,6 +143,15 @@ export const WeatherBottomSheet = forwardRef(function WeatherBottomSheet(
               </BottomSheetTouchableOpacity>
             ) : null}
           </View>
+
+          {showLocationOffState ? (
+            <View className={cardClassName}>
+              <Text className="text-[20px] font-semibold text-ink">Location is off</Text>
+              <Text className="mt-2 text-[14px] leading-7 text-secondary">
+                Turn on location to see local weather.
+              </Text>
+            </View>
+          ) : null}
 
           {showPermissionState ? (
             <View className={cardClassName}>

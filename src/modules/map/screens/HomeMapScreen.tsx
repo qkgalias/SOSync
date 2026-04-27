@@ -32,8 +32,7 @@ import {
 import type { HomeContactItem } from "@/modules/map/homeMapTheme";
 import { useHomeMapController } from "@/modules/map/screens/useHomeMapController";
 import {
-  formatHomeWeatherHeadline,
-  resolveHomeWeatherLocationLabel,
+  resolveHomeWeatherPreview,
 } from "@/modules/map/weatherPresentation";
 import { toCallHref } from "@/utils/helpers";
 
@@ -90,13 +89,14 @@ export default function HomeMapScreen() {
   const [isFloodRiskOpen, setIsFloodRiskOpen] = useState(false);
   const [isWeatherOpening, setIsWeatherOpening] = useState(false);
   const [isWeatherOpen, setIsWeatherOpen] = useState(false);
+  const outlookLocation = isSharingLive ? currentLocation : null;
   const {
     data: floodRisk,
     error: floodRiskError,
     isRefreshing: isFloodRiskRefreshing,
     refresh: refreshFloodRisk,
     status: floodRiskStatus,
-  } = useFloodRisk(currentLocation, isFocused);
+  } = useFloodRisk(outlookLocation, isFocused);
   const collapsedSheetHeight = useMemo(() => {
     const firstSnapPoint = sheetSnapPoints[0];
     if (typeof firstSnapPoint === "string" && firstSnapPoint.endsWith("%")) {
@@ -106,60 +106,14 @@ export default function HomeMapScreen() {
     return Number(firstSnapPoint ?? 0);
   }, [sheetSnapPoints, windowHeight]);
   const weatherPreview = useMemo<HomeSheetWeatherPreview>(() => {
-    const currentWeather = floodRisk?.currentWeather;
-    const apiLocationLabel = floodRisk?.location.label;
-
-    if (
-      currentWeather &&
-      (Number.isFinite(currentWeather.temperatureC) || currentWeather.weatherCode !== undefined)
-    ) {
-      return {
-        headlineText: formatHomeWeatherHeadline({
-          temperatureC: currentWeather.temperatureC,
-          weatherCode: currentWeather.weatherCode,
-        }),
-        locationText: resolveHomeWeatherLocationLabel({
-          apiLocationLabel,
-          fallback: "Your area",
-          reverseGeocodedLocality,
-        }),
-        variant: "ready",
-      };
-    }
-
-    if (permissionStatus === "denied" && !floodRisk) {
-      return {
-        headlineText: "Turn on location",
-        locationText: "Allow location access for local weather",
-        variant: "permission",
-      };
-    }
-
-    if (
-      (floodRiskStatus === "loading" || (floodRiskStatus === "idle" && permissionStatus === "granted")) &&
-      !floodRisk
-    ) {
-      return {
-        headlineText: "Checking weather",
-        locationText: resolveHomeWeatherLocationLabel({
-          apiLocationLabel,
-          fallback: "Getting current conditions",
-          reverseGeocodedLocality,
-        }),
-        variant: "loading",
-      };
-    }
-
-    return {
-      headlineText: "Weather unavailable",
-      locationText: resolveHomeWeatherLocationLabel({
-        apiLocationLabel,
-        fallback: "Try again from Weather",
-        reverseGeocodedLocality,
-      }),
-      variant: "unavailable",
-    };
-  }, [floodRisk, floodRiskStatus, permissionStatus, reverseGeocodedLocality]);
+    return resolveHomeWeatherPreview({
+      floodRisk,
+      floodRiskStatus,
+      isLocationSharingEnabled: isSharingLive,
+      permissionStatus,
+      reverseGeocodedLocality,
+    });
+  }, [floodRisk, floodRiskStatus, isSharingLive, permissionStatus, reverseGeocodedLocality]);
   const topBarStyle = useMemo(
     () => ({
       ...getHomeShadowStyle(appearance, "floatingSurface"),
@@ -489,6 +443,7 @@ export default function HomeMapScreen() {
           error={floodRiskError}
           floodRisk={floodRisk}
           isRefreshing={isFloodRiskRefreshing}
+          isLocationSharingEnabled={isSharingLive}
           onChange={handleFloodRiskSheetChange}
           onDismiss={handleDismissFloodRisk}
           onOpenSettings={() => {
@@ -508,6 +463,7 @@ export default function HomeMapScreen() {
           error={floodRiskError}
           floodRisk={floodRisk}
           isRefreshing={isFloodRiskRefreshing}
+          isLocationSharingEnabled={isSharingLive}
           onChange={handleWeatherSheetChange}
           onDismiss={handleDismissWeather}
           onOpenSettings={() => {

@@ -26,6 +26,7 @@ type FloodRiskBottomSheetProps = {
   error: string | null;
   floodRisk: FloodRiskOverview | null;
   isRefreshing: boolean;
+  isLocationSharingEnabled: boolean;
   onChange?: (index: number) => void;
   onDismiss: () => void;
   onOpenSettings: () => void;
@@ -291,6 +292,7 @@ export const FloodRiskBottomSheet = forwardRef(function FloodRiskBottomSheet(
     error,
     floodRisk,
     isRefreshing,
+    isLocationSharingEnabled,
     onChange,
     onDismiss,
     onOpenSettings,
@@ -313,13 +315,22 @@ export const FloodRiskBottomSheet = forwardRef(function FloodRiskBottomSheet(
     floodRisk?.location.localityLabel?.trim() ||
     floodRisk?.location.label?.trim() ||
     null;
-  const showPermissionState = permissionStatus === "denied" && !floodRisk;
+  const showLocationOffState = !isLocationSharingEnabled;
+  const showPermissionState = !showLocationOffState && permissionStatus === "denied" && !floodRisk;
   const showInitialLoading =
-    (status === "loading" || (status === "idle" && permissionStatus === "granted")) && !floodRisk;
-  const showErrorState = status === "error" && !floodRisk;
+    !showLocationOffState &&
+    (status === "loading" || (status === "idle" && permissionStatus === "granted")) &&
+    !floodRisk;
+  const showErrorState = !showLocationOffState && status === "error" && !floodRisk;
   const showMalformedState =
-    !showPermissionState && !showInitialLoading && !showErrorState && Boolean(floodRisk) && !flood;
-  const showContent = !showPermissionState && !showInitialLoading && !showErrorState && Boolean(flood);
+    !showLocationOffState &&
+    !showPermissionState &&
+    !showInitialLoading &&
+    !showErrorState &&
+    Boolean(floodRisk) &&
+    !flood;
+  const showContent =
+    !showLocationOffState && !showPermissionState && !showInitialLoading && !showErrorState && Boolean(flood);
   const levelColors = getFloodLevelColors(flood?.level ?? "LIMITED_DATA");
 
   const displayPrimaryLabel = useMemo(() => {
@@ -415,6 +426,17 @@ export const FloodRiskBottomSheet = forwardRef(function FloodRiskBottomSheet(
                 />
               ) : null}
             </View>
+
+            {showLocationOffState ? (
+              <StateCard
+                body={
+                  <Text className="text-[14px] leading-7 text-secondary">
+                    Turn on location to see nearby flood outlook.
+                  </Text>
+                }
+                title="Location is off"
+              />
+            ) : null}
 
             {showPermissionState ? (
               <StateCard

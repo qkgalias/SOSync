@@ -5,6 +5,7 @@ import {
   getWeatherCodeLabel,
   getWeatherIconName,
   resolveHomeWeatherLocationLabel,
+  resolveHomeWeatherPreview,
 } from "@/modules/map/weatherPresentation";
 
 describe("weatherPresentation", () => {
@@ -66,5 +67,53 @@ describe("weatherPresentation", () => {
         reverseGeocodedLocality: null,
       }),
     ).toBe("Getting current conditions");
+  });
+
+  it("hides cached weather data when location sharing is off", () => {
+    const preview = resolveHomeWeatherPreview({
+      floodRisk: {
+        currentWeather: {
+          feelsLikeC: 31,
+          temperatureC: 29,
+          time: "2026-04-27T08:00:00.000Z",
+          weatherCode: 3,
+        },
+        flood: {
+          hero: {
+            badgeLabel: "LOW",
+            safetyMessage: "No elevated flood signal right now.",
+            summary: "No elevated flood signal right now.",
+            title: "No elevated flood signal right now",
+            trend: "stable",
+            trendLabel: "Steady",
+          },
+          level: "SAFE",
+          map: null,
+          measurement: null,
+          nearbyPoints: [],
+          primaryPoint: null,
+          state: "ready",
+          updatedAt: "2026-04-27T08:00:00.000Z",
+        },
+        location: {
+          label: "Talisay",
+          latitude: 10.25,
+          localityLabel: "Talisay",
+          longitude: 123.84,
+        },
+        weatherDaily: [],
+        weatherHourly: [],
+      },
+      floodRiskStatus: "success",
+      isLocationSharingEnabled: false,
+      permissionStatus: "granted",
+      reverseGeocodedLocality: "Talisay",
+    });
+
+    expect(preview).toEqual({
+      headlineText: "Location is off",
+      locationText: "Turn on location to see weather",
+      variant: "permission",
+    });
   });
 });
