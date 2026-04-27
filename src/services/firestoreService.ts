@@ -43,7 +43,9 @@ const isoNow = () => new Date().toISOString();
 const FIRESTORE_OPERATION_TIMEOUT_MS = 12_000;
 const FIRESTORE_TIMEOUT_MESSAGE =
   "Firestore did not respond in time. Confirm this Firebase project has a default Cloud Firestore database and that the app has network access.";
-const FIRESTORE_AUTH_RETRY_DELAY_MS = 300;
+const FIRESTORE_AUTH_RETRY_DELAYS_MS = [300, 700, 1_200];
+const PROFILE_SETUP_PERMISSION_MESSAGE =
+  "Account created, but profile setup could not finish. Please try Continue again or sign in to resume setup.";
 
 const withFallback = <T>(value: T, callback: (payload: T) => void) => {
   callback(value);
@@ -83,14 +85,21 @@ const extractFirestoreCode = (error: unknown) => {
   return typeof candidate === "string" ? candidate : "";
 };
 
-const waitForFirestoreAuthRetry = async () => {
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const canRetrySelfProfileWrite = (userId: string) => {
   const currentUser = firebaseAuth().currentUser;
-  if (!currentUser) {
+  return Boolean(currentUser?.uid && currentUser.uid === userId);
+};
+
+const waitForFirestoreAuthRetry = async (userId: string, delayMs: number) => {
+  const currentUser = firebaseAuth().currentUser;
+  if (!currentUser || currentUser.uid !== userId) {
     return false;
   }
 
   await currentUser.getIdToken(true);
-  await new Promise((resolve) => setTimeout(resolve, FIRESTORE_AUTH_RETRY_DELAY_MS));
+  await wait(delayMs);
   return true;
 };
 
@@ -125,14 +134,26 @@ export const firestoreService = {
     const profileWrite = () =>
       withFirestoreTimeout(setDoc(doc(db(), "users", profile.userId), sanitizeForFirestore(profile), { merge: true }));
 
-    try {
-      await profileWrite();
-    } catch (error) {
-      if (extractFirestoreCode(error) !== "firestore/permission-denied" || !(await waitForFirestoreAuthRetry())) {
-        throw error;
-      }
+    for (let attempt = 0; attempt <= FIRESTORE_AUTH_RETRY_DELAYS_MS.length; attempt += 1) {
+      try {
+        await profileWrite();
+        return profile;
+      } catch (error) {
+        const isPermissionDenied = extractFirestoreCode(error) === "firestore/permission-denied";
+        const retryDelay = FIRESTORE_AUTH_RETRY_DELAYS_MS[attempt];
 
-      await profileWrite();
+        if (!isPermissionDenied) {
+          throw error;
+        }
+
+        if (retryDelay === undefined) {
+          throw new Error(PROFILE_SETUP_PERMISSION_MESSAGE);
+        }
+
+        if (!canRetrySelfProfileWrite(profile.userId) || !(await waitForFirestoreAuthRetry(profile.userId, retryDelay))) {
+          throw new Error(PROFILE_SETUP_PERMISSION_MESSAGE);
+        }
+      }
     }
 
     return profile;

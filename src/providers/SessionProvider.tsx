@@ -278,6 +278,7 @@ export const SessionProvider = ({ children }: PropsWithChildren) => {
     const mergedProfile: UserProfile = {
       ...buildMergedProfile(nextProfile, currentUser.uid),
     };
+    const shouldPreserveOptimisticProfile = !previousProfile && mergedProfile.userId === currentUser.uid;
 
     startTransition(() => {
       setProfile(mergedProfile);
@@ -289,9 +290,11 @@ export const SessionProvider = ({ children }: PropsWithChildren) => {
       setProfile(savedProfile);
       return savedProfile;
     } catch (error) {
-      startTransition(() => {
-        setProfile(previousProfile);
-      });
+      if (!shouldPreserveOptimisticProfile) {
+        startTransition(() => {
+          setProfile(previousProfile);
+        });
+      }
       throw error;
     }
   };

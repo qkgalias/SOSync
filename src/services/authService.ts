@@ -47,6 +47,7 @@ let pendingVerificationEmail = "";
 const listeners = new Set<AuthListener>();
 const authInstance = () => getAuth();
 const AUTH_SESSION_SETTLE_MS = 250;
+const AUTH_SESSION_READY_ATTEMPTS = 10;
 
 const toAuthIdentity = (user: FirebaseAuthTypes.User): AuthIdentity => ({
   uid: user.uid,
@@ -124,9 +125,20 @@ const toFriendlyAuthError = (error: unknown) => {
 
 const getClientMode = () => resolveActiveFirebaseClientMode(hasFirebaseApp());
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const ensureFirebaseSession = async (user: FirebaseAuthTypes.User) => {
   await user.getIdToken(true);
-  await new Promise((resolve) => setTimeout(resolve, AUTH_SESSION_SETTLE_MS));
+
+  for (let attempt = 0; attempt < AUTH_SESSION_READY_ATTEMPTS; attempt += 1) {
+    if (authInstance().currentUser?.uid === user.uid) {
+      break;
+    }
+
+    await wait(AUTH_SESSION_SETTLE_MS);
+  }
+
+  await wait(AUTH_SESSION_SETTLE_MS);
 };
 
 const callVerificationFunction = async <RequestData extends object, ResponseData>(
