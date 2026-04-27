@@ -150,6 +150,7 @@ describe("NotificationsScreen", () => {
     expect(screen.getByText("Unread")).toBeTruthy();
     expect(screen.getByText("All")).toBeTruthy();
     expect(screen.getByText("Trusted circle SOS")).toBeTruthy();
+    expect(screen.queryByText("Your SOS was sent to your trusted circle.")).toBeNull();
     expect(screen.queryByText("Earlier trusted circle SOS")).toBeNull();
   });
 
@@ -165,7 +166,7 @@ describe("NotificationsScreen", () => {
   it("opens an SOS detail popup instead of routing away", async () => {
     render(<NotificationsScreen />);
 
-    fireEvent.press(screen.getByText("Trusted circle SOS"));
+    fireEvent.press(screen.getByText("Immediate assistance requested."));
 
     await waitFor(() => {
       expect(mockMarkAsRead).toHaveBeenCalledWith("sos:event-1");
