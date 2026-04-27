@@ -94,6 +94,7 @@ What to verify:
 
 - neutral Android launch splash handoff, in-app combined-logo splash, and auto-playing 3-slide welcome carousel using repo-owned PNG assets
 - email sign-up with redesigned first/last name UI, required phone capture, verification-email dispatch, and first-load full-page layout without vertical scrolling
+- new account setup should continue to verification without showing raw Firestore `permission-denied` text; if profile setup cannot finish on the first try, the app should show recovery copy and resume profile setup after sign-in/verification
 - email OTP verification, resend cooldown behavior, and verified-email resume routing
 - email sign-in for both verified and still-unverified accounts, with the footer account-switch link visible on first render
 - profile setup, including avatar upload
@@ -109,6 +110,7 @@ What to verify:
 - expanded Home sheet scrolls through long contact lists and still reaches the safety-hub footer on smaller Android screens
 - Home sheet header shows a compact, non-tappable current-weather preview beside `Share Live` / `Pause Live`, and the row stays stable through loading, permission-denied, unavailable, and ready states on smaller Android screens
 - Home `Share live` toggle updates the UI and map visibility state immediately
+- when Home `Share live` is paused, the weather preview should show `Location is off`, the Flood risk and Weather sheets should show location-off messaging, and no cached temperature, locality, or flood outlook data should remain visible
 - Home action icons stay semantically distinct: contact focus is not reused for share-live or safety-hub routing
 - Home top pill, floating `Flood risk` / `Weather` buttons, `Pause Live`, circle chips, and the bottom sheet should use soft shadow/elevation instead of visible outline-heavy borders
 - the Home top address pill should keep its full-height feel, be narrower in width than before, and fade away only when the sheet reaches the top snap point
@@ -129,7 +131,7 @@ What to verify:
 - weather sheet relies on swipe-down/backdrop dismissal, shows a current-weather hero plus a simple 7-day forecast list, and contains no flood-risk content
 - weather sheet keeps a clean weather-unavailable state when Open-Meteo data is missing from the shared overview response
 - flood sheet shows a clear permission-required state when location is denied, a no-coverage state when Google has no nearby modeled gauges, and no embedded weather content
-- flood and weather should only show the `Turn on location` state when Android permission is actually denied; when permission is granted but a fresh fix is still warming up, they should show a loading state and reuse the last successful app-known location when available
+- flood and weather should show the location-off state when in-app sharing is paused, show the permission-required state when Android permission is actually denied, and otherwise show loading while a fresh fix is warming up
 - repeated flood refresh taps should eventually return a clear rate-limit message instead of silently failing; the backend now throttles `getFloodRiskOverview` per user inside a 5-minute window
 - on Android emulator cold starts, flood and weather should still recover using the device's last known location when a brand-new fix is not immediately available
 - flood sheet relies on swipe-down/backdrop dismissal instead of a top-right close button
@@ -161,7 +163,7 @@ What to verify:
 - SOS countdown, send, and trusted-circle alerting without automatic hotline dialing
 - full-page SOS layout stays stable across different Android screen ratios and does not clip the ring cluster or bottom copy
 - SOS cancel now uses the left-to-right slide control during countdown, and partial drags snap back safely
-- notification `Unread`-first default, `All` history tab, read movement from `Unread` to `All`, 30-day visible-feed retention, unread-count badge on the Alerts nav item capped at `9+`, SOS detail popup on tap, self-SOS suppression for the caller, and swipe-down refresh updating relative timestamps
+- notification `Unread`-first default, `All` history tab, read movement from `Unread` to `All`, 30-day visible-feed retention, unread-count badge on the Alerts nav item capped at `9+`, SOS detail popup on tap, SOS push and in-app Alerts suppression for the caller, and swipe-down refresh updating relative timestamps
 - redesigned profile hub with active-circle member previews or a compact no-circle card with modal join/create actions
 - profile avatar pencil opens the image picker and updates the saved profile photo without routing away from the Profile page
 - main Profile page keeps separate gray-card `General` and `Appearance` rows instead of one shared grouped panel
