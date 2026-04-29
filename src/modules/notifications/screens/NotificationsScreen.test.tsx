@@ -149,9 +149,35 @@ describe("NotificationsScreen", () => {
 
     expect(screen.getByText("Unread")).toBeTruthy();
     expect(screen.getByText("All")).toBeTruthy();
+    expect(screen.queryByText("Clear All")).toBeNull();
     expect(screen.getByText("Trusted circle SOS")).toBeTruthy();
     expect(screen.queryByText("Your SOS was sent to your trusted circle.")).toBeNull();
     expect(screen.queryByText("Earlier trusted circle SOS")).toBeNull();
+  });
+
+  it("shows Clear All after switching to All", () => {
+    render(<NotificationsScreen />);
+
+    fireEvent.press(screen.getByText("All"));
+
+    expect(screen.getByText("Clear All")).toBeTruthy();
+  });
+
+  it("clears the all tab list and shows the centered empty state", () => {
+    render(<NotificationsScreen />);
+
+    fireEvent.press(screen.getByText("All"));
+
+    expect(screen.getByText("Flood watch")).toBeTruthy();
+    expect(screen.getByText("Earlier trusted circle SOS")).toBeTruthy();
+    expect(screen.getByText("Trusted circle SOS")).toBeTruthy();
+
+    fireEvent.press(screen.getByText("Clear All"));
+
+    expect(screen.queryByText("Flood watch")).toBeNull();
+    expect(screen.queryByText("Earlier trusted circle SOS")).toBeNull();
+    expect(screen.queryByText("Trusted circle SOS")).toBeNull();
+    expect(screen.getByText("No Notification yet!")).toBeTruthy();
   });
 
   it("shows read items after switching to All", () => {

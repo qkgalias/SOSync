@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-import { ListEmptyState } from "@/components/ListEmptyState";
 import { Screen } from "@/components/Screen";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useBlockedUsers } from "@/hooks/useBlockedUsers";
@@ -47,6 +46,10 @@ export default function NotificationsScreen() {
   const [detailVisible, setDetailVisible] = useState(false);
   const [sosEvents, setSosEvents] = useState<SosEvent[]>([]);
   const [selectedDetail, setSelectedDetail] = useState<ReturnType<typeof buildSosNotificationDetail> | null>(null);
+  const [clearedItemIdsByTab, setClearedItemIdsByTab] = useState<Record<"all" | "unread", string[]>>({
+    all: [],
+    unread: [],
+  });
 
   useEffect(() => {
     if (!selectedGroupId) {
@@ -59,14 +62,14 @@ export default function NotificationsScreen() {
     });
   }, [selectedGroupId]);
 
-  const visibleItems = useMemo(
+  const tabItems = useMemo(
     () => (activeTab === "unread" ? unreadItems : items),
     [activeTab, items, unreadItems],
   );
-  const emptyMessage =
-    activeTab === "unread"
-      ? "No unread notifications in the last 30 days."
-      : "No alerts have arrived for the active circle in the last 30 days.";
+  const visibleItems = useMemo(() => {
+    const clearedLookup = new Set(clearedItemIdsByTab[activeTab]);
+    return tabItems.filter((item) => !clearedLookup.has(item.id));
+  }, [activeTab, clearedItemIdsByTab, tabItems]);
   const memberLookup = useMemo(
     () =>
       members.reduce<Record<string, (typeof members)[number]>>((lookup, member) => {
@@ -88,6 +91,13 @@ export default function NotificationsScreen() {
     setRefreshing(true);
     await new Promise((resolve) => setTimeout(resolve, 250));
     setRefreshing(false);
+  };
+
+  const handleClearAll = () => {
+    setClearedItemIdsByTab((currentValue) => ({
+      ...currentValue,
+      [activeTab]: tabItems.map((item) => item.id),
+    }));
   };
 
   const closeDetail = () => {
@@ -162,21 +172,43 @@ export default function NotificationsScreen() {
       <Screen title="Notification" centerTitle scroll={false} contentClassName="flex-1 px-0 pb-0">
         <ScrollView
           className="flex-1"
-          contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 20 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingBottom: 112,
+            paddingHorizontal: 20,
+          }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={themeTokens.accentPrimary} />}
           showsVerticalScrollIndicator={false}
         >
-          <View className="mb-6 mt-6 flex-row gap-8 border-b border-line pb-3">
-            {(["unread", "all"] as const).map((tab) => (
-              <Pressable key={tab} className="pb-1" onPress={() => setActiveTab(tab)}>
-                <Text className={tab === activeTab ? "text-[20px] text-ink" : "text-[20px] text-muted"}>
-                  {tab === "unread" ? "Unread" : "All"}
-                </Text>
-                <View className={tab === activeTab ? "mt-2 h-0.5 w-full bg-primary" : "mt-2 h-0.5 w-full bg-transparent"} />
+          <View className="mt-6">
+            <View className="flex-row gap-8">
+              {(["unread", "all"] as const).map((tab) => (
+                <Pressable key={tab} className="pb-1" onPress={() => setActiveTab(tab)}>
+                  <Text className={tab === activeTab ? "text-[20px] text-ink" : "text-[20px] text-muted"}>
+                    {tab === "unread" ? "Unread" : "All"}
+                  </Text>
+                  <View className={tab === activeTab ? "mt-2 h-0.5 w-full bg-primary" : "mt-2 h-0.5 w-full bg-transparent"} />
+                </Pressable>
+              ))}
+            </View>
+            <View className="mt-4 h-px bg-line" />
+            {activeTab === "all" ? (
+              <Pressable
+                accessibilityRole="button"
+                className="mt-4 mr-2 self-end"
+                hitSlop={10}
+                onPress={handleClearAll}
+              >
+                <Text className="text-[13px] text-ink">Clear All</Text>
               </Pressable>
-            ))}
+            ) : null}
           </View>
-          {!visibleItems.length ? <ListEmptyState message={emptyMessage} /> : null}
+          {!visibleItems.length ? (
+            <View className="flex-1 items-center justify-center pb-16">
+              <MaterialCommunityIcons color={themeTokens.accentPrimary} name="bell-sleep" size={180} />
+              <Text className="mt-5 text-center text-[16px] font-medium text-ink">No Notification yet!</Text>
+            </View>
+          ) : null}
           {visibleItems.map((item) => (
             <Pressable
               key={item.id}
