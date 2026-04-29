@@ -123,6 +123,8 @@ What to verify:
 - returning to Home from other tabs should not trigger the native map loading overlay or a noticeable wrapper repaint
 - quick Home <-> Hotlines/Profile/Alerts tab swaps should not feel like the native map scene is recreated; the scene should stay warm and preserve camera/sheet state
 - on Android, quick tab returns should still show the cached Home map frame immediately instead of flashing a blank/beige tile surface before the live map texture catches up, but cold start should not feel delayed by snapshot work
+- on Android fresh launch, the current-user map marker should show either initials immediately or the profile photo once loaded; it should not show as a blank white circle
+- on Android, switching away from Home and returning repeatedly should preserve marker avatars and should not re-center or repaint the map when the cached last GPS location is unchanged
 - Home marker avatars stay visible when switching tabs, backgrounding/foregrounding the app, and returning to Home without forcing an app restart
 - if a map avatar photo fails or stalls, the marker falls back to initials instead of showing a blank white bubble
 - fully expanding the Home bottom sheet fades the top address pill and the right-side quick-member avatar stack out together, and lowering the sheet fades both back in together without a lingering shadow

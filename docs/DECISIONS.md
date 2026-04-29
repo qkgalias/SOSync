@@ -259,12 +259,14 @@
   - Keep the mounted Home map visually stable on tab return instead of forcing a native-map remount or blanket marker redraw.
   - Mount tab scenes eagerly and only hand the Home map new marker/alert arrays when the underlying content actually changes.
   - On Android, keep the cached Home map snapshot workaround narrow: capture it after Home has already rendered and only reuse it on tab return to hide the native tile-texture gap.
-  - Retry missing avatar photos quietly in the background, and fade the quick-member stack out only as the bottom sheet reaches the top snap point.
+  - Render marker avatar images immediately with initials behind them while loading instead of gating image rendering on background prefetch completion.
+  - Warm avatar photos quietly in the background, and fade the quick-member stack out only as the bottom sheet reaches the top snap point.
 - Why:
   - The native Android map feels heavier when it is rebuilt or broadly re-tracked on tab switches.
   - Passing fresh-but-equivalent arrays back into the map wrapper makes Android feel like it is repainting even when the scene did not meaningfully change.
   - The emulator still showed a sub-100ms blank tile surface on fast tab returns even after mount-stability work, so a cached-frame mask is the pragmatic UX fix, but running that same workaround during cold start added too much perceived weight on weaker devices.
-  - Background retries preserve avatar recovery without making Home look like it is refreshing every time the user comes back.
+  - Prefetch-gated marker photos can miss Android's marker tracking window and leave Google Maps holding an earlier blank marker bitmap.
+  - Background prefetch warming preserves avatar recovery without making Home look like it is refreshing every time the user comes back.
 
 ## 2026-04 Personal Flood Risk Lives On Home As A Modal Forecast Sheet
 

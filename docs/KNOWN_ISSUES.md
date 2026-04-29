@@ -21,8 +21,8 @@
   - Web still shows a placeholder fallback instead of the draggable native map scene.
 - Android Home map tiles will stay blank if the Google Maps Android API key is not authorized for package `com.sosync.mobile` and the current debug SHA1 from `android/app/debug.keystore`.
   - `npm run doctor:android-live` now prints the fingerprint that must be added to the key restriction in Google Cloud Console.
-- Home cold-start and quick-tab-return smoothness still need broader physical-device validation after the narrowed Android snapshot workaround.
-  - The app now avoids extra cold-start snapshot work, but weaker Android devices should still be smoke-tested before treating map performance as fully settled.
+- Home cold-start avatar rendering and quick-tab-return smoothness still need broader physical-device validation after the marker and Android snapshot-cache fix.
+  - The app now avoids prefetch-gated marker photos and avoids extra cold-start snapshot work, but weaker Android devices should still be smoke-tested before treating map performance as fully settled.
 - Avatar upload depends on Firebase Storage being provisioned for the live project.
   - If the default bucket does not exist yet, profile photo upload will fail until Firebase Console -> Storage -> Get started is completed.
 - Email OTP verification depends on Cloud Functions and Resend being configured correctly in the live Firebase project.
