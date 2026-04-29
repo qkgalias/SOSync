@@ -195,7 +195,7 @@ export default function NotificationsScreen() {
             {activeTab === "all" ? (
               <Pressable
                 accessibilityRole="button"
-                className="mt-4 mr-2 self-end"
+                className="mt-4 mb-3 mr-4 self-end"
                 hitSlop={10}
                 onPress={handleClearAll}
               >
