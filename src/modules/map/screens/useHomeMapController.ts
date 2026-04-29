@@ -23,6 +23,7 @@ import {
   buildHomeMapMarkers,
   buildGoogleMapsDirectionsUrls,
   HOME_SHEET_SNAP_POINTS,
+  resolveHomeMarkerDisplayName,
   resolveHomeAddressLabel,
   resolveHomeMapAppearance,
 } from "@/modules/map/homeUtils";
@@ -86,7 +87,7 @@ export const useHomeMapController = () => {
   );
   const currentUser = useMemo(
     () => ({
-      displayName: profile?.name ?? authUser?.displayName ?? USER_SEED.name,
+      displayName: resolveHomeMarkerDisplayName(profile?.name ?? authUser?.displayName, USER_SEED.name),
       photoURL: profile?.photoURL ?? authUser?.photoURL ?? undefined,
       role: activeGroup?.ownerId === authUser?.uid ? "owner" : activeGroup?.memberRole,
       userId: authUser?.uid ?? USER_SEED.userId,

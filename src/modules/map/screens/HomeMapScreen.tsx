@@ -1,6 +1,6 @@
 /** Purpose: Compose the Home map scene from a controller hook and focused presentational pieces. */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Linking, Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Image, Linking, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import BottomSheet, { BottomSheetFlatList, BottomSheetModal } from "@gorhom/bottom-sheet";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -12,11 +12,13 @@ import Animated, {
   runOnJS,
   useAnimatedReaction,
   useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 
 import { useFloodRisk } from "@/hooks/useFloodRisk";
 import { FloodRiskBottomSheet } from "@/modules/map/components/FloodRiskBottomSheet";
-import { MapOverview } from "@/modules/map/components/MapOverview";
+import { MapOverview, type MapOverviewHandle } from "@/modules/map/components/MapOverview";
 import { WeatherBottomSheet } from "@/modules/map/components/WeatherBottomSheet";
 import { HomeContactRow } from "@/modules/map/components/HomeContactRow";
 import { HomeContactsEmptyState } from "@/modules/map/components/HomeContactsEmptyState";
@@ -82,8 +84,15 @@ export default function HomeMapScreen() {
     stableAlerts,
     stableHomeMarkers,
   } = useHomeMapController();
+  const mapOverviewRef = useRef<MapOverviewHandle | null>(null);
   const floodRiskModalRef = useRef<BottomSheetModal | null>(null);
   const weatherModalRef = useRef<BottomSheetModal | null>(null);
+  const cachedMapSnapshotUriRef = useRef<string | null>(null);
+  const hasCompletedInitialHomeFocusRef = useRef(false);
+  const snapshotCaptureTokenRef = useRef(0);
+  const cachedMapSnapshotOpacity = useSharedValue(0);
+  const [cachedMapSnapshotUri, setCachedMapSnapshotUri] = useState<string | null>(null);
+  const [isCachedMapSnapshotVisible, setIsCachedMapSnapshotVisible] = useState(false);
   const [isHomeToolAreaPressable, setIsHomeToolAreaPressable] = useState(true);
   const [isFloodRiskOpening, setIsFloodRiskOpening] = useState(false);
   const [isFloodRiskOpen, setIsFloodRiskOpen] = useState(false);
@@ -159,6 +168,56 @@ export default function HomeMapScreen() {
       ),
     };
   }, [sheetAnimatedIndex, topChromeFadeEndIndex, topChromeFadeStartIndex]);
+  const cachedMapSnapshotAnimatedStyle = useAnimatedStyle(
+    () => ({
+      opacity: cachedMapSnapshotOpacity.value,
+    }),
+    [cachedMapSnapshotOpacity],
+  );
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    if (isFocused) {
+      if (!hasCompletedInitialHomeFocusRef.current) {
+        hasCompletedInitialHomeFocusRef.current = true;
+        return;
+      }
+
+      const cachedUri = cachedMapSnapshotUriRef.current;
+      if (!cachedUri) {
+        return;
+      }
+
+      setCachedMapSnapshotUri(cachedUri);
+      setIsCachedMapSnapshotVisible(true);
+      cachedMapSnapshotOpacity.value = 1;
+      cachedMapSnapshotOpacity.value = withTiming(0, { duration: 260 }, (finished) => {
+        if (finished) {
+          runOnJS(setIsCachedMapSnapshotVisible)(false);
+        }
+      });
+      return;
+    }
+
+    if (!hasCompletedInitialHomeFocusRef.current) {
+      return;
+    }
+
+    snapshotCaptureTokenRef.current += 1;
+    const captureToken = snapshotCaptureTokenRef.current;
+
+    void mapOverviewRef.current?.takeSnapshot().then((snapshotUri) => {
+      if (!snapshotUri || captureToken !== snapshotCaptureTokenRef.current) {
+        return;
+      }
+
+      cachedMapSnapshotUriRef.current = snapshotUri;
+      setCachedMapSnapshotUri(snapshotUri);
+    });
+  }, [cachedMapSnapshotOpacity, isFocused]);
 
   useAnimatedReaction(
     () => sheetAnimatedIndex.value <= homeToolVisibleThreshold,
@@ -254,6 +313,7 @@ export default function HomeMapScreen() {
           }}
         >
           <MapOverview
+            ref={mapOverviewRef}
             alerts={stableAlerts}
             centers={centers}
             focusTarget={focusTarget}
@@ -270,6 +330,21 @@ export default function HomeMapScreen() {
             selectedMarkerBubbleId={selectedMarkerBubbleId}
           />
         </View>
+        {Platform.OS === "android" && isCachedMapSnapshotVisible && cachedMapSnapshotUri ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.cachedMapSnapshot,
+              cachedMapSnapshotAnimatedStyle,
+            ]}
+          >
+            <Image
+              resizeMode="cover"
+              source={{ uri: cachedMapSnapshotUri }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+        ) : null}
 
         <Animated.View
           className="absolute left-0 right-0 top-0 z-10 px-4"
@@ -480,3 +555,10 @@ export default function HomeMapScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  cachedMapSnapshot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+  },
+});

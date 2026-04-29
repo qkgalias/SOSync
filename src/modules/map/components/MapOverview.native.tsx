@@ -190,16 +190,43 @@ const AvatarMarker = ({
   marker,
   markerPalette,
   onMarkerPress,
-  prefetchedMarkerPhotos,
+  prefetchedMarkerPhotos: _prefetchedMarkerPhotos,
 }: AvatarMarkerProps) => {
   const hasPhoto = Boolean(marker.photoURL);
-  const isPhotoReady = Boolean(marker.photoURL && prefetchedMarkerPhotos[marker.photoURL]);
   const [imageError, setImageError] = useState(!hasPhoto);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [tracksViewChanges, setTracksViewChanges] = useState(Platform.OS === "android" && hasPhoto);
+  const disableTrackingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearDisableTrackingTimer = useCallback(() => {
+    if (!disableTrackingTimerRef.current) {
+      return;
+    }
+
+    clearTimeout(disableTrackingTimerRef.current);
+    disableTrackingTimerRef.current = null;
+  }, []);
+
+  const disableTrackingAfterImageSettles = useCallback(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    clearDisableTrackingTimer();
+    disableTrackingTimerRef.current = setTimeout(() => {
+      setTracksViewChanges(false);
+      disableTrackingTimerRef.current = null;
+    }, markerTrackAfterMountMs);
+  }, [clearDisableTrackingTimer]);
 
   useEffect(() => {
+    clearDisableTrackingTimer();
     setImageError(!hasPhoto);
-  }, [hasPhoto, marker.photoURL]);
+    setImageLoaded(false);
+    setTracksViewChanges(Platform.OS === "android" && hasPhoto);
+
+    return clearDisableTrackingTimer;
+  }, [clearDisableTrackingTimer, hasPhoto, marker.photoURL]);
 
   useEffect(() => {
     if (Platform.OS !== "android") {
@@ -212,18 +239,11 @@ const AvatarMarker = ({
     }
 
     setTracksViewChanges(true);
-    const timer = setTimeout(() => {
-      setTracksViewChanges(false);
-    }, markerTrackAfterMountMs);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [hasPhoto, isPhotoReady, marker.photoURL]);
+  }, [hasPhoto, marker.photoURL]);
 
   const bubbleSize = marker.isCurrentUser ? 50 : 42;
   const ringSize = marker.isCurrentUser ? 56 : 48;
-  const showInitials = !hasPhoto || imageError || !isPhotoReady;
+  const showInitials = !hasPhoto || imageError || !imageLoaded;
 
   return (
     <Marker
@@ -275,17 +295,24 @@ const AvatarMarker = ({
                 {toInitials(marker.displayName)}
               </Text>
             ) : null}
-            {hasPhoto && isPhotoReady && !imageError ? (
+            {hasPhoto && !imageError ? (
               <Image
                 fadeDuration={0}
                 onError={() => {
                   setImageError(true);
-                  setTracksViewChanges(false);
+                  disableTrackingAfterImageSettles();
+                }}
+                onLoad={() => {
+                  setImageLoaded(true);
+                }}
+                onLoadEnd={() => {
+                  disableTrackingAfterImageSettles();
                 }}
                 resizeMode="cover"
                 source={{ uri: marker.photoURL }}
                 style={{
                   height: bubbleSize,
+                  position: "absolute",
                   width: bubbleSize,
                 }}
               />
@@ -370,7 +397,10 @@ const MapOverviewComponent = (
 
     return appConfig.map.initialRegion;
   }, [centers, markers, selectedCenter]);
-  const initialRegion = currentUserInitialRegion ?? fallbackInitialRegion;
+  const resolvedInitialRegion = currentUserInitialRegion ?? fallbackInitialRegion;
+  const initialRegionRef = useRef(resolvedInitialRegion);
+  const latestRegionRef = useRef(resolvedInitialRegion);
+  const initialRegion = initialRegionRef.current;
   const markerPalette = useMemo(() => getMarkerPalette(mapTheme), [mapTheme]);
   const centerMarkerPalette = useMemo(() => getCenterMarkerPalette(mapTheme), [mapTheme]);
   const memberBubblePalette = useMemo(() => getMemberBubblePalette(mapTheme), [mapTheme]);
@@ -413,9 +443,26 @@ const MapOverviewComponent = (
   useImperativeHandle(
     ref,
     () => ({
-      takeSnapshot: async () => null,
+      takeSnapshot: async () => {
+        if (!mapRef.current || !mapLoaded || !mapViewport.height || !mapViewport.width) {
+          return null;
+        }
+
+        try {
+          return await mapRef.current.takeSnapshot({
+            format: "png",
+            height: Math.round(mapViewport.height),
+            quality: 0.82,
+            region: latestRegionRef.current,
+            result: "file",
+            width: Math.round(mapViewport.width),
+          });
+        } catch {
+          return null;
+        }
+      },
     }),
-    [],
+    [mapLoaded, mapViewport.height, mapViewport.width],
   );
 
   const animateToCoordinate = (latitude: number, longitude: number, latitudeDelta = 0.045, longitudeDelta = 0.045) => {
@@ -569,7 +616,10 @@ const MapOverviewComponent = (
         initialRegion={initialRegion}
         mapType="standard"
         moveOnMarkerPress={false}
-        onMapLoaded={() => setMapLoaded(true)}
+        onMapLoaded={() => {
+          latestRegionRef.current = initialRegion;
+          setMapLoaded(true);
+        }}
         onPress={(event) => {
           if (event.nativeEvent.action === "marker-press") {
             return;
@@ -582,7 +632,9 @@ const MapOverviewComponent = (
             onMemberBubbleDismiss?.();
           }
         }}
-        onRegionChangeComplete={(_, details) => {
+        onRegionChangeComplete={(region, details) => {
+          latestRegionRef.current = region;
+
           if (selectedCenter) {
             void updateSelectedCenterBubblePosition();
           }
@@ -639,12 +691,9 @@ const MapOverviewComponent = (
           </Marker>
         ))}
         {markers.map((marker) => {
-            const photoStateKey =
-              marker.photoURL && prefetchedMarkerPhotos[marker.photoURL] ? "photo-ready" : "initials-only";
-
             return (
               <AvatarMarker
-                key={`${marker.markerId}:${photoStateKey}`}
+                key={`${marker.markerId}:${marker.photoURL ?? "initials"}`}
                 marker={marker}
                 markerPalette={markerPalette}
                 onMarkerPress={onMarkerPress}

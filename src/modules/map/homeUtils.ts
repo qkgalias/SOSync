@@ -37,6 +37,11 @@ export const sanitizeHomeMarkerPhotoURL = (photoURL?: string | null) => {
   return nextValue ? nextValue : undefined;
 };
 
+export const resolveHomeMarkerDisplayName = (displayName?: string | null, fallback = "SOSync") => {
+  const nextValue = displayName?.trim();
+  return nextValue ? nextValue : fallback;
+};
+
 export const buildHomeMarkerRenderSignature = (
   markers: Array<Pick<HomeMapMarker, "markerId" | "photoURL">>,
 ) =>
@@ -64,7 +69,7 @@ export const buildHomeMapMarkers = ({
     markers.set(currentUser.userId, {
       markerId: currentUser.userId,
       userId: currentUser.userId,
-      displayName: currentUser.displayName,
+      displayName: resolveHomeMarkerDisplayName(currentUser.displayName),
       role: currentUser.role,
       photoURL: sanitizeHomeMarkerPhotoURL(currentUser.photoURL),
       latitude: currentLocation.latitude,
@@ -92,7 +97,7 @@ export const buildHomeMapMarkers = ({
     markers.set(location.userId, {
       markerId: location.userId,
       userId: location.userId,
-      displayName: member.displayName,
+      displayName: resolveHomeMarkerDisplayName(member.displayName, "Circle member"),
       role: member.role,
       photoURL: sanitizeHomeMarkerPhotoURL(member.photoURL),
       latitude: location.latitude,

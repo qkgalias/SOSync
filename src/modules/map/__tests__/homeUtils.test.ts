@@ -4,6 +4,7 @@ import {
   buildHomeMarkerRenderSignature,
   buildGoogleMapsDirectionsUrls,
   HOME_SHEET_SNAP_POINTS,
+  resolveHomeMarkerDisplayName,
   resolveHomeAddressLabel,
   resolveHomeMapAppearance,
   sanitizeHomeMarkerPhotoURL,
@@ -137,6 +138,46 @@ describe("homeUtils", () => {
       expect.objectContaining({ photoURL: undefined, userId: "user-1" }),
       expect.objectContaining({ photoURL: undefined, userId: "user-2" }),
     ]);
+  });
+
+  it("keeps marker display names non-empty", () => {
+    const markers = buildHomeMapMarkers({
+      currentUser: {
+        userId: "user-1",
+        displayName: " ",
+      },
+      currentLocation: { latitude: 10.3, longitude: 123.9 },
+      members: [
+        {
+          userId: "user-2",
+          groupId: "group-1",
+          displayName: "",
+          role: "member",
+          joinedAt: "2026-03-22T00:00:00.000Z",
+        },
+      ],
+      groupLocations: [
+        {
+          locationId: "group-1_user-2",
+          userId: "user-2",
+          groupId: "group-1",
+          latitude: 10.31,
+          longitude: 123.91,
+          updatedAt: "2026-03-22T00:00:00.000Z",
+          sharingState: "live",
+        },
+      ],
+    });
+
+    expect(markers).toEqual([
+      expect.objectContaining({ displayName: "SOSync", userId: "user-1" }),
+      expect.objectContaining({ displayName: "Circle member", userId: "user-2" }),
+    ]);
+  });
+
+  it("resolves marker display names with a caller-provided fallback", () => {
+    expect(resolveHomeMarkerDisplayName(" Karlos Galias ", "Fallback")).toBe("Karlos Galias");
+    expect(resolveHomeMarkerDisplayName(" ", "Fallback")).toBe("Fallback");
   });
 
   it("builds a stable marker render signature from marker ids and avatar urls", () => {

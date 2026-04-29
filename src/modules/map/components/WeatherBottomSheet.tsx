@@ -1,5 +1,5 @@
 /** Purpose: Render the dedicated Home weather experience as a modal bottom sheet. */
-import { type ForwardedRef, forwardRef } from "react";
+import { type ForwardedRef, type ReactNode, forwardRef } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import {
   BottomSheetBackdrop,
@@ -53,6 +53,64 @@ const renderBackdrop = (props: BottomSheetBackdropProps) => (
   />
 );
 
+const ActionButton = ({
+  disabled = false,
+  icon,
+  label,
+  onPress,
+  primary = false,
+}: {
+  disabled?: boolean;
+  icon: string;
+  label: string;
+  onPress: () => void;
+  primary?: boolean;
+}) => {
+  const { resolvedTheme, themeTokens } = useAppTheme();
+
+  return (
+    <BottomSheetTouchableOpacity
+      activeOpacity={0.88}
+      disabled={disabled}
+      onPress={onPress}
+      style={{
+        alignItems: "center",
+        backgroundColor: primary
+          ? themeTokens.accentPrimary
+          : resolvedTheme === "dark"
+            ? themeTokens.surfaceElevated
+            : themeTokens.surfaceInput,
+        borderColor: primary ? themeTokens.accentPrimary : themeTokens.borderSubtle,
+        borderRadius: 999,
+        borderWidth: 1,
+        flexDirection: "row",
+        opacity: disabled ? 0.7 : 1,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+      }}
+    >
+      <MaterialCommunityIcons color={primary ? "#FFFFFF" : themeTokens.accentPrimary} name={icon as never} size={16} />
+      <Text className={`ml-2 text-[14px] font-semibold ${primary ? "text-white" : "text-ink"}`}>{label}</Text>
+    </BottomSheetTouchableOpacity>
+  );
+};
+
+const StateCard = ({
+  action,
+  body,
+  title,
+}: {
+  action?: ReactNode;
+  body: ReactNode;
+  title: string;
+}) => (
+  <View className="mt-5 rounded-[24px] border border-line bg-surface px-5 py-5">
+    <Text className="text-[20px] font-semibold text-ink">{title}</Text>
+    <View className="mt-2">{body}</View>
+    {action ? <View className="mt-4 flex-row flex-wrap gap-3">{action}</View> : null}
+  </View>
+);
+
 export const WeatherBottomSheet = forwardRef(function WeatherBottomSheet(
   {
     error,
@@ -82,8 +140,6 @@ export const WeatherBottomSheet = forwardRef(function WeatherBottomSheet(
   const showErrorState = !showLocationOffState && status === "error" && !floodRisk;
   const showContent = !showLocationOffState && !showPermissionState && !showInitialLoading && !showErrorState;
   const isDark = resolvedTheme === "dark";
-  const cardClassName = "mt-5 rounded-[24px] border border-line bg-surface px-5 py-5";
-  const refreshButtonSurface = isDark ? themeTokens.surfaceElevated : themeTokens.surfaceInput;
   const iconChipSurface = isDark ? themeTokens.surfaceElevated : themeTokens.accentSoft;
 
   return (
@@ -120,80 +176,46 @@ export const WeatherBottomSheet = forwardRef(function WeatherBottomSheet(
             </View>
 
             {showContent ? (
-              <BottomSheetTouchableOpacity
-                activeOpacity={0.88}
+              <ActionButton
                 disabled={isRefreshing}
+                icon="refresh"
+                label={isRefreshing ? "Refreshing" : "Refresh"}
                 onPress={onRefresh}
-                style={{
-                  alignItems: "center",
-                  backgroundColor: refreshButtonSurface,
-                  borderColor: themeTokens.borderSubtle,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  flexDirection: "row",
-                  opacity: isRefreshing ? 0.7 : 1,
-                  paddingHorizontal: 14,
-                  paddingVertical: 12,
-                }}
-              >
-                <MaterialCommunityIcons color={themeTokens.accentPrimary} name="refresh" size={16} />
-                <Text className="ml-2 text-[13px] font-semibold text-ink">
-                  {isRefreshing ? "Refreshing" : "Refresh"}
-                </Text>
-              </BottomSheetTouchableOpacity>
+              />
             ) : null}
           </View>
 
           {showLocationOffState ? (
-            <View className={cardClassName}>
-              <Text className="text-[20px] font-semibold text-ink">Location is off</Text>
-              <Text className="mt-2 text-[14px] leading-7 text-secondary">
-                Turn on location to see local weather.
-              </Text>
-            </View>
+            <StateCard
+              body={
+                <Text className="text-[14px] leading-7 text-secondary">
+                  Turn on location to see local weather.
+                </Text>
+              }
+              title="Location is off"
+            />
           ) : null}
 
           {showPermissionState ? (
-            <View className={cardClassName}>
-              <Text className="text-[20px] font-semibold text-ink">Turn on location</Text>
-              <Text className="mt-2 text-[14px] leading-7 text-secondary">
-                We need your location to check nearby weather conditions.
-              </Text>
-              <View className="mt-4 flex-row gap-3">
-                <BottomSheetTouchableOpacity
-                  activeOpacity={0.88}
-                onPress={onRequestLocationAccess}
-                style={{
-                  alignItems: "center",
-                  backgroundColor: themeTokens.accentPrimary,
-                  borderRadius: 999,
-                  flexDirection: "row",
-                  paddingHorizontal: 16,
-                    paddingVertical: 12,
-                  }}
-                >
-                  <MaterialCommunityIcons color="#FFFFFF" name="crosshairs-gps" size={16} />
-                  <Text className="ml-2 text-[14px] font-semibold text-white">Allow location</Text>
-                </BottomSheetTouchableOpacity>
-                <BottomSheetTouchableOpacity
-                  activeOpacity={0.88}
-                onPress={onOpenSettings}
-                style={{
-                  alignItems: "center",
-                  backgroundColor: refreshButtonSurface,
-                  borderColor: themeTokens.borderSubtle,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  flexDirection: "row",
-                    paddingHorizontal: 16,
-                  paddingVertical: 12,
-                }}
-              >
-                  <MaterialCommunityIcons color={themeTokens.accentPrimary} name="cog-outline" size={16} />
-                  <Text className="ml-2 text-[14px] font-semibold text-ink">Open settings</Text>
-                </BottomSheetTouchableOpacity>
-              </View>
-            </View>
+            <StateCard
+              action={
+                <>
+                  <ActionButton
+                    icon="crosshairs-gps"
+                    label="Allow location"
+                    onPress={onRequestLocationAccess}
+                    primary
+                  />
+                  <ActionButton icon="cog-outline" label="Open settings" onPress={onOpenSettings} />
+                </>
+              }
+              body={
+                <Text className="text-[14px] leading-7 text-secondary">
+                  We need your location to check nearby weather conditions.
+                </Text>
+              }
+              title="Turn on location"
+            />
           ) : null}
 
           {showInitialLoading ? (
@@ -207,28 +229,15 @@ export const WeatherBottomSheet = forwardRef(function WeatherBottomSheet(
           ) : null}
 
           {showErrorState ? (
-            <View className={cardClassName}>
-              <Text className="text-[20px] font-semibold text-ink">Couldn&apos;t load weather</Text>
-              <Text className="mt-2 text-[14px] leading-7 text-secondary">
-                {error ?? "We couldn&apos;t load local weather right now. Try again in a moment."}
-              </Text>
-              <BottomSheetTouchableOpacity
-                activeOpacity={0.88}
-                className="mt-4 self-start"
-                onPress={onRefresh}
-                style={{
-                  alignItems: "center",
-                  backgroundColor: themeTokens.accentPrimary,
-                  borderRadius: 999,
-                  flexDirection: "row",
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                }}
-              >
-                <MaterialCommunityIcons color="#FFFFFF" name="refresh" size={16} />
-                <Text className="ml-2 text-[14px] font-semibold text-white">Try again</Text>
-              </BottomSheetTouchableOpacity>
-            </View>
+            <StateCard
+              action={<ActionButton icon="refresh" label="Try again" onPress={onRefresh} primary />}
+              body={
+                <Text className="text-[14px] leading-7 text-secondary">
+                  {error ?? "We couldn&apos;t load local weather right now. Try again in a moment."}
+                </Text>
+              }
+              title="Couldn&apos;t load weather"
+            />
           ) : null}
 
           {showContent ? (
