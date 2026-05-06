@@ -14,7 +14,6 @@ const DEFAULT_GROUP_ID = "ungrouped";
 const legacyTypeMap: Record<string, NotificationPayloadType> = {
   disaster: "disaster_alert",
   evacuation: "disaster_alert",
-  message: "message",
   sos: "sos_alert",
 };
 
@@ -23,7 +22,7 @@ export const toNotificationPayloadType = (value?: string | null): NotificationPa
     return null;
   }
 
-  if (value === "disaster_alert" || value === "sos_alert" || value === "message") {
+  if (value === "disaster_alert" || value === "sos_alert") {
     return value;
   }
 
@@ -34,8 +33,6 @@ export const toNotificationKind = (value?: string | null): NotificationKind => {
   switch (toNotificationPayloadType(value)) {
     case "sos_alert":
       return "sos";
-    case "message":
-      return "message";
     default:
       return "disaster";
   }
@@ -44,17 +41,21 @@ export const toNotificationKind = (value?: string | null): NotificationKind => {
 const toEntityId = (data: NotificationDataShape) => data.alertId ?? data.eventId ?? data.threadId ?? data.entityId;
 
 export const resolveNotificationRoute = (data: NotificationDataShape) => {
+  const payloadType = toNotificationPayloadType(data.type ?? data.kind);
+  if (!payloadType) {
+    return null;
+  }
+
   if (data.targetRoute) {
     return data.targetRoute;
   }
 
   const entityId = toEntityId(data);
 
-  switch (toNotificationPayloadType(data.type ?? data.kind)) {
+  switch (payloadType) {
     case "disaster_alert":
       return entityId ? `/alerts/${entityId}` : "/notifications";
     case "sos_alert":
-    case "message":
       return "/notifications";
     default:
       return null;
@@ -63,9 +64,12 @@ export const resolveNotificationRoute = (data: NotificationDataShape) => {
 
 export const buildNotificationFeedItem = (
   remoteMessage: Pick<FirebaseMessagingTypes.RemoteMessage, "data" | "messageId" | "notification">,
-): NotificationFeedItem => {
+): NotificationFeedItem | null => {
   const data = (remoteMessage.data ?? {}) as NotificationDataShape;
   const type = data.type ?? data.kind;
+  if (!toNotificationPayloadType(type)) {
+    return null;
+  }
 
   return {
     id: remoteMessage.messageId ?? toEntityId(data) ?? `remote-${Date.now()}`,

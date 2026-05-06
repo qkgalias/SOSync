@@ -1,6 +1,6 @@
 /** Purpose: Notification, device token, and SOS feed contracts for alert delivery. */
-export type NotificationKind = "disaster" | "sos" | "evacuation" | "message";
-export type NotificationPayloadType = "disaster_alert" | "sos_alert" | "message";
+export type NotificationKind = "disaster" | "sos" | "evacuation";
+export type NotificationPayloadType = "disaster_alert" | "sos_alert";
 
 export type NotificationFeedItem = {
   id: string;

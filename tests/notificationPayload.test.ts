@@ -17,6 +17,11 @@ describe("notification payload helpers", () => {
       },
     });
 
+    expect(item).not.toBeNull();
+    if (!item) {
+      throw new Error("Expected disaster payload to produce a feed item.");
+    }
+
     expect(item.kind).toBe("disaster");
     expect(item.groupId).toBe("group-1");
     expect(item.targetRoute).toBe("/alerts/alert-123");

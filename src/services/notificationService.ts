@@ -87,7 +87,12 @@ export const notificationService = {
       return () => undefined;
     }
 
-    return onMessage(messagingInstance(), (message) => callback(buildNotificationFeedItem(message)));
+    return onMessage(messagingInstance(), (message) => {
+      const item = buildNotificationFeedItem(message);
+      if (item) {
+        callback(item);
+      }
+    });
   },
 
   async presentForegroundNotification(item: NotificationFeedItem) {
@@ -115,7 +120,8 @@ export const notificationService = {
     }
 
     const unsubscribeRemote = onNotificationOpenedApp(messagingInstance(), (message) => {
-      const route = message ? buildNotificationFeedItem(message).targetRoute : null;
+      const item = message ? buildNotificationFeedItem(message) : null;
+      const route = item?.targetRoute ?? null;
       if (route) {
         callback(route);
       }
@@ -141,7 +147,7 @@ export const notificationService = {
     }
 
     const message = await getInitialRemoteNotification(messagingInstance());
-    return message ? buildNotificationFeedItem(message).targetRoute ?? null : null;
+    return message ? buildNotificationFeedItem(message)?.targetRoute ?? null : null;
   },
 
   async deleteCurrentToken(userId: string, tokenId?: string) {

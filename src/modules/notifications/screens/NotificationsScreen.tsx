@@ -28,7 +28,6 @@ import { formatTimestampLabel } from "@/utils/helpers";
 const iconByKind = {
   disaster: "alert-circle",
   evacuation: "map-marker-path",
-  message: "message-text",
   sos: "alarm-light",
 } as const;
 
