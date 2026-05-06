@@ -5,6 +5,7 @@ import { act, render, waitFor } from "@testing-library/react-native";
 import type { LocationObject } from "expo-location";
 
 import { useLocation } from "@/hooks/useLocation";
+import { apiService } from "@/services/apiService";
 import { firestoreService } from "@/services/firestoreService";
 import { locationService } from "@/services/locationService";
 
@@ -15,9 +16,14 @@ jest.mock("@react-native-async-storage/async-storage", () => ({
 
 jest.mock("@/services/firestoreService", () => ({
   firestoreService: {
-    listEvacuationCenters: jest.fn(),
     listenToLocations: jest.fn(),
     upsertLocation: jest.fn(),
+  },
+}));
+
+jest.mock("@/services/apiService", () => ({
+  apiService: {
+    getNearbyEvacuationCenters: jest.fn(),
   },
 }));
 
@@ -32,6 +38,7 @@ jest.mock("@/services/locationService", () => ({
 }));
 
 const mockedAsyncStorage = jest.mocked(AsyncStorage);
+const mockedApiService = jest.mocked(apiService);
 const mockedFirestoreService = jest.mocked(firestoreService);
 const mockedLocationService = jest.mocked(locationService);
 
@@ -53,7 +60,7 @@ describe("useLocation", () => {
     jest.clearAllMocks();
     mockedAsyncStorage.getItem.mockResolvedValue(null);
     mockedAsyncStorage.setItem.mockResolvedValue();
-    mockedFirestoreService.listEvacuationCenters.mockResolvedValue([]);
+    mockedApiService.getNearbyEvacuationCenters.mockResolvedValue([]);
     mockedFirestoreService.listenToLocations.mockReturnValue(jest.fn());
     mockedFirestoreService.upsertLocation.mockResolvedValue({} as never);
     mockedLocationService.getNearestCenter.mockReturnValue(null);
@@ -100,6 +107,35 @@ describe("useLocation", () => {
       expect(mockedLocationService.watchPosition).toHaveBeenCalledTimes(1);
       expect(mockedLocationService.getCurrentPosition).toHaveBeenCalledTimes(1);
       expect(mockedAsyncStorage.setItem).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("waits for a signed-in user before requesting nearby evacuation centers", async () => {
+    mockedLocationService.requestPermission.mockResolvedValue({ status: "granted" } as never);
+    mockedLocationService.watchPosition.mockResolvedValue({ remove: jest.fn() } as never);
+    mockedLocationService.getCurrentPosition.mockResolvedValue(buildLocationObject(10.2635, 123.8395) as never);
+
+    function Probe({ userId }: { userId?: string }) {
+      useLocation(userId, "group-1", true, []);
+      return null;
+    }
+
+    const screen = render(<Probe />);
+
+    await waitFor(() => {
+      expect(mockedLocationService.getCurrentPosition).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockedApiService.getNearbyEvacuationCenters).not.toHaveBeenCalled();
+
+    screen.rerender(<Probe userId="user-1" />);
+
+    await waitFor(() => {
+      expect(mockedApiService.getNearbyEvacuationCenters).toHaveBeenCalledWith({
+        accuracy: 12,
+        latitude: 10.2635,
+        longitude: 123.8395,
+      });
     });
   });
 });

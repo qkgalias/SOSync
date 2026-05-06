@@ -4,14 +4,52 @@ import axios from "axios";
 import { requireFunctionsBaseUrl, resolveActiveFirebaseClientMode } from "@/config/backendRuntime";
 import { normalizeFloodRiskOverviewResponse } from "@/modules/map/floodOverviewAdapter";
 import { buildMockFloodRiskOverview } from "@/modules/map/mockFloodRiskScenarios";
-import type { DisasterAlert, FloodRiskOverview, RouteSummary } from "@/types";
+import type { DisasterAlert, EvacuationCenter, EvacuationTravelMode, FloodRiskOverview, RouteSummary } from "@/types";
 import { firebaseAuth, hasFirebaseApp } from "@/services/firebase";
 
 const getClientMode = () => resolveActiveFirebaseClientMode(hasFirebaseApp());
 const API_TIMEOUT_MS = 12_000;
+const AUTH_SESSION_SETTLE_MS = 250;
+const AUTH_SESSION_READY_ATTEMPTS = 10;
+
+export class NavigationAuthorizationError extends Error {
+  code: "invalid_center" | "rate_limited" | "unknown";
+  retryAfterSeconds?: number;
+
+  constructor(input: {
+    code: "invalid_center" | "rate_limited" | "unknown";
+    message: string;
+    retryAfterSeconds?: number;
+  }) {
+    super(input.message);
+    this.name = "NavigationAuthorizationError";
+    this.code = input.code;
+    this.retryAfterSeconds = input.retryAfterSeconds;
+  }
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForAuthenticatedUser = async () => {
+  const immediateUser = firebaseAuth().currentUser;
+  if (immediateUser) {
+    return immediateUser;
+  }
+
+  for (let attempt = 0; attempt < AUTH_SESSION_READY_ATTEMPTS; attempt += 1) {
+    await wait(AUTH_SESSION_SETTLE_MS);
+
+    const currentUser = firebaseAuth().currentUser;
+    if (currentUser) {
+      return currentUser;
+    }
+  }
+
+  return null;
+};
 
 const getAuthenticatedHeaders = async () => {
-  const currentUser = firebaseAuth().currentUser;
+  const currentUser = await waitForAuthenticatedUser();
   if (!currentUser) {
     throw new Error("Sign in before requesting backend data.");
   }
@@ -23,9 +61,64 @@ const getAuthenticatedHeaders = async () => {
 };
 
 export const apiService = {
+  async authorizeEvacuationNavigationStart(input: {
+    origin: { latitude: number; longitude: number };
+    destination: { latitude: number; longitude: number; centerId: string };
+    travelMode: EvacuationTravelMode;
+  }) {
+    if (getClientMode() === "demo") {
+      return { allowed: true as const };
+    }
+
+    const headers = await getAuthenticatedHeaders();
+    try {
+      const response = await axios.post<{ allowed: true }>(
+        `${requireFunctionsBaseUrl()}/authorizeEvacuationNavigationStart`,
+        input,
+        {
+          headers,
+          timeout: API_TIMEOUT_MS,
+        },
+      );
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          throw new NavigationAuthorizationError({
+            code: "invalid_center",
+            message:
+              typeof error.response.data?.error === "string"
+                ? error.response.data.error
+                : "That evacuation center is no longer nearby.",
+          });
+        }
+
+        if (error.response?.status === 429) {
+          throw new NavigationAuthorizationError({
+            code: "rate_limited",
+            message:
+              typeof error.response.data?.error === "string"
+                ? error.response.data.error
+                : "Too many navigation attempts. Try again shortly.",
+            retryAfterSeconds:
+              typeof error.response.data?.retryAfterSeconds === "number"
+                ? error.response.data.retryAfterSeconds
+                : undefined,
+          });
+        }
+      }
+
+      throw new NavigationAuthorizationError({
+        code: "unknown",
+        message: "Navigation authorization failed. Please try again.",
+      });
+    }
+  },
+
   async getEvacuationRoute(input: {
     origin: { latitude: number; longitude: number };
     destination: { latitude: number; longitude: number; centerId: string };
+    travelMode: EvacuationTravelMode;
   }) {
     if (getClientMode() === "demo") {
       const distanceMeters = 1850;
@@ -34,7 +127,10 @@ export const apiService = {
         durationSeconds: 660,
         encodedPolyline: "",
         hasGeometry: false,
+        steps: [],
         targetCenterId: input.destination.centerId,
+        travelMode: input.travelMode,
+        warnings: [],
       } satisfies RouteSummary;
     }
 
@@ -48,6 +144,44 @@ export const apiService = {
       },
     );
     return response.data.route;
+  },
+
+  async getNearbyEvacuationCenters(input: { latitude: number; longitude: number }) {
+    if (getClientMode() === "demo") {
+      const { EVACUATION_CENTER_SEED } = await import("@/utils/constants");
+      const { locationService } = await import("@/services/locationService");
+
+      return EVACUATION_CENTER_SEED
+        .map((center) => ({
+          ...center,
+          distanceMeters: Math.round(locationService.distanceBetween(input, center)),
+          serviceRadiusKm: Math.min(Math.max(center.serviceRadiusKm ?? 35, 0), 75),
+        }))
+        .filter((center) => (center.distanceMeters ?? Number.POSITIVE_INFINITY) <= (center.serviceRadiusKm ?? 35) * 1000)
+        .sort((left, right) => (left.distanceMeters ?? 0) - (right.distanceMeters ?? 0))
+        .slice(0, 8);
+    }
+
+    const headers = await getAuthenticatedHeaders();
+    try {
+      const response = await axios.post<{ centers: EvacuationCenter[] }>(
+        `${requireFunctionsBaseUrl()}/getNearbyEvacuationCenters`,
+        { origin: input },
+        {
+          headers,
+          timeout: API_TIMEOUT_MS,
+        },
+      );
+      return response.data.centers;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        throw new Error(
+          "The live getNearbyEvacuationCenters function is missing. Deploy the backend with `npm run firebase:deploy:backend`.",
+        );
+      }
+
+      throw error;
+    }
   },
 
   async syncDisasterAlerts(groupId: string) {

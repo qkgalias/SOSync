@@ -1,6 +1,6 @@
 /** Purpose: Keep Home map orchestration in one hook so the screen file stays focused on composition only. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Image, Linking } from "react-native";
+import { AppState, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,16 +21,16 @@ import {
 } from "@/modules/map/homeMapTheme";
 import {
   buildHomeMapMarkers,
-  buildGoogleMapsDirectionsUrls,
   HOME_SHEET_SNAP_POINTS,
   resolveHomeMarkerDisplayName,
   resolveHomeAddressLabel,
   resolveHomeMapAppearance,
+  sortNearbySafetyHubs,
 } from "@/modules/map/homeUtils";
 import { firestoreService } from "@/services/firestoreService";
 import { locationService } from "@/services/locationService";
 import { useAppTheme } from "@/providers/AppThemeProvider";
-import type { HomeMapFocusTarget } from "@/types";
+import type { EvacuationTravelMode, HomeMapFocusTarget } from "@/types";
 import { USER_SEED } from "@/utils/constants";
 import { toDistanceLabel } from "@/utils/helpers";
 
@@ -106,6 +106,7 @@ export const useHomeMapController = () => {
   const [photoPrefetchAttempt, setPhotoPrefetchAttempt] = useState(0);
   const [sheetIndex, setSheetIndex] = useState(0);
   const [selectedCenterId, setSelectedCenterId] = useState<string | null>(null);
+  const [selectedTravelMode, setSelectedTravelMode] = useState<EvacuationTravelMode>("four_wheeler");
   const sheetAnimatedIndex = useSharedValue(0);
   const focusTokenRef = useRef(0);
   const hasFocusedCurrentUserRef = useRef(false);
@@ -266,13 +267,9 @@ export const useHomeMapController = () => {
     nearestCenterAddress: nearestCenter?.address ?? null,
     groupName: activeGroup?.name ?? null,
   });
-  const selectedCenter = selectedCenterId ? centerLookup[selectedCenterId] ?? null : null;
-  const activeHubCenter = selectedCenter ?? nearestCenter ?? null;
-  const hubSummaryLabel = currentLocation && activeHubCenter
-    ? `${toDistanceLabel(locationService.distanceBetween(currentLocation, activeHubCenter))} away`
-    : activeHubCenter
-      ? "Open this safety hub in Maps for directions."
-      : "Location access is required to resolve nearby hubs.";
+  const nearbySafetyHubs = useMemo(() => {
+    return sortNearbySafetyHubs(centers, currentLocation);
+  }, [centers, currentLocation]);
   const sheetContentPaddingBottom = Math.max(Math.min(insets.bottom, 8), 4);
   const isSheetFullyExpanded = sheetIndex >= sheetSnapPoints.length - 1;
   const missingMarkerPhotoUrls = useMemo(
@@ -410,36 +407,14 @@ export const useHomeMapController = () => {
     handleFocusCenter(nearestCenter.centerId);
   }, [handleFocusCenter, nearestCenter]);
 
-  const handleOpenHubInMaps = useCallback(async (centerId?: string | null) => {
-    const targetCenter =
-      (centerId ? centerLookup[centerId] : null) ??
-      activeHubCenter;
-
-    if (!targetCenter) {
-      return;
-    }
-
-    const urls = buildGoogleMapsDirectionsUrls({
-      destination: {
-        latitude: targetCenter.latitude,
-        longitude: targetCenter.longitude,
-      },
-      origin: currentLocation ?? undefined,
-    });
-
-    try {
-      const canOpenAppUrl = await Linking.canOpenURL(urls.appUrl);
-      await Linking.openURL(canOpenAppUrl ? urls.appUrl : urls.webUrl);
-    } catch {
-      await Linking.openURL(urls.webUrl);
-    }
-  }, [activeHubCenter, centerLookup, currentLocation]);
+  const handleTravelModeSelect = useCallback((travelMode: EvacuationTravelMode) => {
+    setSelectedTravelMode(travelMode);
+  }, []);
 
   const handleCenterPress = useCallback((centerId: string) => {
     setSelectedCenterId(centerId);
     setSelectedMarkerBubbleId(null);
-    issueFocus({ kind: "center", centerId });
-  }, [issueFocus]);
+  }, []);
 
   const handleMapPress = useCallback(() => {
     setSelectedCenterId(null);
@@ -449,10 +424,6 @@ export const useHomeMapController = () => {
   const handleMemberBubbleDismiss = useCallback(() => {
     setSelectedMarkerBubbleId(null);
   }, []);
-
-  const handleCenterOpenMaps = useCallback((centerId: string) => {
-    void handleOpenHubInMaps(centerId);
-  }, [handleOpenHubInMaps]);
 
   const handleToggleSharing = useCallback(async () => {
     const nextValue = !isSharingLive;
@@ -481,25 +452,23 @@ export const useHomeMapController = () => {
 
   return {
     activeGroupName: activeGroup?.name ?? "SOSync Home",
-    activeHubCenter,
     addressLabel,
     appearance,
     centers: stableCenters,
     contactItems,
     currentLocation,
     groups,
-    handleCenterOpenMaps,
     handleCenterPress,
     handleFocusCurrentUser,
     handleFocusNearestHub,
     handleMapPress,
     handleMarkerFocus,
     handleMemberBubbleDismiss,
-    handleOpenHubInMaps,
     handleOpenSos,
+    handleTravelModeSelect,
     handleToggleSharing,
     handleTrustedCircleSelect: setSelectedGroupId,
-    hubSummaryLabel,
+    nearbySafetyHubs,
     isSheetFullyExpanded,
     isSharingLive,
     nearestCenter,
@@ -511,6 +480,7 @@ export const useHomeMapController = () => {
     reverseGeocodedLocality,
     requestLocationAccess,
     selectedCenterId,
+    selectedTravelMode,
     selectedMarkerBubbleId,
     selectedGroupId,
     selectedMarkerId,

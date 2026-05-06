@@ -7,6 +7,7 @@ import {
   resolveHomeMarkerDisplayName,
   resolveHomeAddressLabel,
   resolveHomeMapAppearance,
+  sortNearbySafetyHubs,
   sanitizeHomeMarkerPhotoURL,
 } from "@/modules/map/homeUtils";
 
@@ -235,6 +236,37 @@ describe("homeUtils", () => {
     ).toBe("Fallback Safety Hub");
 
     expect(resolveHomeAddressLabel({ groupName: "Family Circle" })).toBe("Family Circle");
+  });
+
+  it("sorts nearby safety hubs by distance from nearest to farthest", () => {
+    const hubs = sortNearbySafetyHubs(
+      [
+        {
+          centerId: "far",
+          distanceMeters: 4_500,
+          latitude: 10.4,
+          longitude: 123.95,
+          name: "Far Hub",
+        },
+        {
+          centerId: "near",
+          distanceMeters: 900,
+          latitude: 10.31,
+          longitude: 123.91,
+          name: "Near Hub",
+        },
+        {
+          centerId: "mid",
+          distanceMeters: 2_400,
+          latitude: 10.35,
+          longitude: 123.93,
+          name: "Mid Hub",
+        },
+      ],
+      { latitude: 10.3, longitude: 123.9 },
+    );
+
+    expect(hubs.map((hub) => hub.centerId)).toEqual(["near", "mid", "far"]);
   });
 
   it("chooses system-aware Home appearance", () => {

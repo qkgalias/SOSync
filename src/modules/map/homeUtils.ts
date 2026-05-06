@@ -2,6 +2,7 @@
 import { Platform, type ColorSchemeName } from "react-native";
 
 import type { GroupLocation, GroupMember, HomeMapAppearance, HomeMapMarker, MapCoordinate } from "@/types";
+import { locationService } from "@/services/locationService";
 
 type BuildHomeMapMarkersInput = {
   blockedUserIds?: string[];
@@ -48,6 +49,34 @@ export const buildHomeMarkerRenderSignature = (
   markers
     .map((marker) => `${marker.markerId}:${sanitizeHomeMarkerPhotoURL(marker.photoURL) ?? "initials"}`)
     .join("|");
+
+export const sortNearbySafetyHubs = (
+  centers: Array<{
+    centerId: string;
+    distanceMeters?: number;
+    latitude: number;
+    longitude: number;
+    name: string;
+  }>,
+  currentLocation: MapCoordinate | null,
+) => {
+  const getDistanceMeters = (center: { distanceMeters?: number; latitude: number; longitude: number }) =>
+    center.distanceMeters ??
+    (currentLocation ? Math.round(locationService.distanceBetween(currentLocation, center)) : Number.POSITIVE_INFINITY);
+
+  return [...centers]
+    .sort((left, right) => {
+      const leftDistance = getDistanceMeters(left);
+      const rightDistance = getDistanceMeters(right);
+
+      if (leftDistance !== rightDistance) {
+        return leftDistance - rightDistance;
+      }
+
+      return left.name.localeCompare(right.name);
+    })
+    .slice(0, 8);
+};
 
 export const buildHomeMapMarkers = ({
   blockedUserIds = [],

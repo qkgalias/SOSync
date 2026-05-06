@@ -1,4 +1,4 @@
-/** Purpose: Render the Home map as a full-scene native surface with avatar markers and focus targeting. */
+/** Purpose: Render the Home map with Google Navigation SDK's map layer on native builds. */
 import {
   forwardRef,
   memo,
@@ -8,13 +8,20 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentProps,
   type ForwardedRef,
 } from "react";
-import { Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import MapView, { Circle, Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Platform, StyleSheet, Text, View, processColor } from "react-native";
+import type { ColorValue } from "react-native";
+import {
+  MapView,
+  MapColorScheme,
+  MapType,
+  type MapViewController,
+} from "@googlemaps/react-native-navigation-sdk";
 
 import { appConfig } from "@/config/appConfig";
+import { buildLocalMarkerIcon, hasNativeMarkerIconSupport } from "@/modules/map/markerIconService";
 import { getThemeTokens } from "@/theme/appTheme";
 import type {
   DisasterAlert,
@@ -22,8 +29,8 @@ import type {
   HomeMapAppearance,
   HomeMapFocusTarget,
   HomeMapMarker,
+  MapCoordinate,
 } from "@/types";
-import { toInitials } from "@/utils/helpers";
 
 type MapOverviewProps = {
   alerts: DisasterAlert[];
@@ -32,25 +39,19 @@ type MapOverviewProps = {
   highlightedCenterId?: string | null;
   mapTheme: HomeMapAppearance;
   markers: HomeMapMarker[];
-  onCenterOpenMaps?: (centerId: string) => void;
   onCenterPress?: (centerId: string) => void;
+  onCenterRoutePress?: (centerId: string) => void;
   onMapPress?: () => void;
   onMarkerPress?: (markerId: string) => void;
   onMemberBubbleDismiss?: () => void;
   prefetchedMarkerPhotos?: Record<string, true>;
+  routeCoordinates?: MapCoordinate[];
   selectedCenterId?: string | null;
   selectedMarkerBubbleId?: string | null;
 };
 
 export type MapOverviewHandle = {
   takeSnapshot: () => Promise<string | null>;
-};
-
-type AvatarMarkerProps = {
-  marker: HomeMapMarker;
-  markerPalette: ReturnType<typeof getMarkerPalette>;
-  onMarkerPress?: (markerId: string) => void;
-  prefetchedMarkerPhotos: Record<string, true>;
 };
 
 const alertRadius: Record<string, number> = {
@@ -101,228 +102,68 @@ const darkMapStyle = [
   { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#8FB2C4" }] },
 ];
 
-const getMarkerPalette = (mapTheme: HomeMapAppearance) => {
-  const tokens = getThemeTokens(mapTheme);
+const maxMapCommandRetries = 8;
+const normalBaseMapType = MapType.NORMAL as unknown as ComponentProps<typeof MapView>["mapType"];
 
-  return mapTheme === "dark"
-    ? {
-        bubbleFill: tokens.surfaceElevated,
-        bubbleText: tokens.textPrimary,
-        markerShadow: "rgba(0, 0, 0, 0.28)",
-        ring: tokens.surface,
-      }
-    : {
-        bubbleFill: "#FFFFFF",
-        bubbleText: "#472523",
-        markerShadow: "rgba(0, 0, 0, 0.16)",
-        ring: "#FFFFFF",
-      };
-};
+const isMapNotInitializedError = (error: unknown) =>
+  String(error instanceof Error ? error.message : error)
+    .toLowerCase()
+    .includes("initialize the map view");
 
-const getCenterMarkerPalette = (mapTheme: HomeMapAppearance) => {
-  const tokens = getThemeTokens(mapTheme);
-
-  return mapTheme === "dark"
-    ? {
-        border: tokens.borderStrong,
-        fill: tokens.surfaceElevated,
-        highlightFill: tokens.accentSoft,
-        icon: tokens.accentPrimary,
-      }
-    : {
-        border: "#D8C9C4",
-        fill: "#FFFFFF",
-        highlightFill: "#FFF7F4",
-        icon: tokens.accentPrimary,
-      };
-};
-
-const getMemberBubblePalette = (mapTheme: HomeMapAppearance) => {
-  const tokens = getThemeTokens(mapTheme);
-
-  return mapTheme === "dark"
-    ? {
-        background: tokens.surfaceElevated,
-        shadow: "rgba(0, 0, 0, 0.28)",
-        text: tokens.textPrimary,
-      }
-    : {
-        background: "#FFFFFF",
-        shadow: "rgba(22, 24, 29, 0.18)",
-        text: "#2E2C2C",
-      };
-};
-
-const getCenterBubblePalette = (mapTheme: HomeMapAppearance) => {
-  const tokens = getThemeTokens(mapTheme);
-
-  return mapTheme === "dark"
-    ? {
-        actionBackground: tokens.accentSoft,
-        background: tokens.surfaceElevated,
-        border: tokens.borderSubtle,
-        icon: tokens.accentPrimary,
-        shadow: "rgba(0, 0, 0, 0.3)",
-        text: tokens.textPrimary,
-        textMuted: tokens.textSecondary,
-      }
-    : {
-        actionBackground: "#FFF4F1",
-        background: "#FFFFFF",
-        border: "rgba(123, 44, 40, 0.12)",
-        icon: tokens.accentPrimary,
-        shadow: "rgba(22, 24, 29, 0.18)",
-        text: "#2E2C2C",
-        textMuted: "#6A6767",
-      };
-};
-
-const markerTrackAfterMountMs = 260;
-
-const toRegion = (latitude: number, longitude: number, latitudeDelta = 0.04, longitudeDelta = 0.04) => ({
-  latitude,
-  longitude,
-  latitudeDelta,
-  longitudeDelta,
+const toLatLng = (coordinate: { latitude: number; longitude: number }) => ({
+  lat: coordinate.latitude,
+  lng: coordinate.longitude,
 });
 
-const AvatarMarker = ({
-  marker,
-  markerPalette,
-  onMarkerPress,
-  prefetchedMarkerPhotos: _prefetchedMarkerPhotos,
-}: AvatarMarkerProps) => {
-  const hasPhoto = Boolean(marker.photoURL);
-  const [imageError, setImageError] = useState(!hasPhoto);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [tracksViewChanges, setTracksViewChanges] = useState(Platform.OS === "android" && hasPhoto);
-  const disableTrackingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+const toSdkColor = (color: string) => {
+  const processedColor = processColor(color);
+  return (typeof processedColor === "number" ? processedColor : 0) as unknown as ColorValue;
+};
 
-  const clearDisableTrackingTimer = useCallback(() => {
-    if (!disableTrackingTimerRef.current) {
-      return;
-    }
+const getInitialCameraCoordinate = (
+  markers: HomeMapMarker[],
+  centers: EvacuationCenter[],
+) => {
+  const currentUserMarker = markers.find((marker) => marker.isCurrentUser);
+  const fallbackMarker = markers[0];
+  const fallbackCenter = centers[0];
+  const fallbackRegion = appConfig.map.initialRegion;
 
-    clearTimeout(disableTrackingTimerRef.current);
-    disableTrackingTimerRef.current = null;
-  }, []);
-
-  const disableTrackingAfterImageSettles = useCallback(() => {
-    if (Platform.OS !== "android") {
-      return;
-    }
-
-    clearDisableTrackingTimer();
-    disableTrackingTimerRef.current = setTimeout(() => {
-      setTracksViewChanges(false);
-      disableTrackingTimerRef.current = null;
-    }, markerTrackAfterMountMs);
-  }, [clearDisableTrackingTimer]);
-
-  useEffect(() => {
-    clearDisableTrackingTimer();
-    setImageError(!hasPhoto);
-    setImageLoaded(false);
-    setTracksViewChanges(Platform.OS === "android" && hasPhoto);
-
-    return clearDisableTrackingTimer;
-  }, [clearDisableTrackingTimer, hasPhoto, marker.photoURL]);
-
-  useEffect(() => {
-    if (Platform.OS !== "android") {
-      return;
-    }
-
-    if (!hasPhoto) {
-      setTracksViewChanges(false);
-      return;
-    }
-
-    setTracksViewChanges(true);
-  }, [hasPhoto, marker.photoURL]);
-
-  const bubbleSize = marker.isCurrentUser ? 50 : 42;
-  const ringSize = marker.isCurrentUser ? 56 : 48;
-  const showInitials = !hasPhoto || imageError || !imageLoaded;
-
-  return (
-    <Marker
-      coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-      identifier={marker.markerId}
-      onPress={() => onMarkerPress?.(marker.markerId)}
-      tracksViewChanges={Platform.OS === "android" ? tracksViewChanges : undefined}
-    >
-      <View
-        style={{
-          alignItems: "center",
-          justifyContent: "center",
-          shadowColor: markerPalette.markerShadow,
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.18,
-          shadowRadius: 18,
-        }}
-      >
-        <View
-          style={{
-            alignItems: "center",
-            backgroundColor: markerPalette.ring,
-            borderRadius: marker.isCurrentUser ? 28 : 24,
-            height: ringSize,
-            justifyContent: "center",
-            padding: 3,
-            width: ringSize,
-          }}
-        >
-          <View
-            style={{
-              alignItems: "center",
-              backgroundColor: markerPalette.bubbleFill,
-              borderRadius: marker.isCurrentUser ? 25 : 21,
-              height: bubbleSize,
-              justifyContent: "center",
-              overflow: "hidden",
-              width: bubbleSize,
-            }}
-          >
-            {showInitials ? (
-              <Text
-                style={{
-                  color: markerPalette.bubbleText,
-                  fontSize: marker.isCurrentUser ? 14 : 12,
-                  fontWeight: "700",
-                }}
-              >
-                {toInitials(marker.displayName)}
-              </Text>
-            ) : null}
-            {hasPhoto && !imageError ? (
-              <Image
-                fadeDuration={0}
-                onError={() => {
-                  setImageError(true);
-                  disableTrackingAfterImageSettles();
-                }}
-                onLoad={() => {
-                  setImageLoaded(true);
-                }}
-                onLoadEnd={() => {
-                  disableTrackingAfterImageSettles();
-                }}
-                resizeMode="cover"
-                source={{ uri: marker.photoURL }}
-                style={{
-                  height: bubbleSize,
-                  position: "absolute",
-                  width: bubbleSize,
-                }}
-              />
-            ) : null}
-          </View>
-        </View>
-      </View>
-    </Marker>
+  return toLatLng(
+    currentUserMarker ??
+      fallbackMarker ??
+      fallbackCenter ??
+      { latitude: fallbackRegion.latitude, longitude: fallbackRegion.longitude },
   );
 };
+
+const getMapPalette = (mapTheme: HomeMapAppearance) => {
+  const tokens = getThemeTokens(mapTheme);
+
+  return mapTheme === "dark"
+    ? {
+        body: "rgba(232, 237, 242, 0.82)",
+        surface: "rgba(24, 35, 48, 0.9)",
+        title: "#FFFFFF",
+        accent: tokens.accentPrimary,
+      }
+    : {
+        body: "#6A6767",
+        surface: "rgba(255, 255, 255, 0.94)",
+        title: "#2E2C2C",
+        accent: tokens.accentPrimary,
+      };
+};
+
+const getMemberIconId = (marker: HomeMapMarker) => `member:${marker.markerId}`;
+
+const getCenterIconId = (center: EvacuationCenter) => `center:${center.centerId}`;
+
+const getMemberMarkerOptions = (marker: HomeMapMarker) => ({
+  id: `member:${marker.markerId}`,
+  position: toLatLng(marker),
+  title: marker.displayName.trim() || "Circle member",
+});
 
 const MapOverviewComponent = (
   {
@@ -332,26 +173,35 @@ const MapOverviewComponent = (
     highlightedCenterId,
     mapTheme,
     markers,
-    onCenterOpenMaps,
     onCenterPress,
+    onCenterRoutePress,
     onMapPress,
     onMarkerPress,
     onMemberBubbleDismiss,
-    prefetchedMarkerPhotos = {},
     selectedCenterId = null,
-    selectedMarkerBubbleId = null,
   }: MapOverviewProps,
   ref: ForwardedRef<MapOverviewHandle>,
 ) => {
-  const mapRef = useRef<MapView | null>(null);
-  const hasCenteredCurrentUserRef = useRef(false);
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const mapControllerRef = useRef<MapViewController | null>(null);
+  const hasLoadedMapRef = useRef(false);
+  const canRunMapCommandsRef = useRef(false);
+  const hasAppliedInitialCameraRef = useRef(false);
+  const mapCommandRetryCountRef = useRef(0);
+  const pendingFocusTargetRef = useRef<HomeMapFocusTarget | null>(null);
+  const [mapControllerReadyToken, setMapControllerReadyToken] = useState(0);
+  const [mapCommandReadyToken, setMapCommandReadyToken] = useState(0);
+  const [mapCommandRetryToken, setMapCommandRetryToken] = useState(0);
   const [showDiagnosticHint, setShowDiagnosticHint] = useState(false);
-  const [mapViewport, setMapViewport] = useState({ height: 0, width: 0 });
-  const [selectedCenterPoint, setSelectedCenterPoint] = useState<{ x: number; y: number } | null>(null);
-  const [selectedCenterBubbleSize, setSelectedCenterBubbleSize] = useState({ height: 96, width: 220 });
-  const [selectedMemberBubblePoint, setSelectedMemberBubblePoint] = useState<{ x: number; y: number } | null>(null);
-  const [selectedMemberBubbleSize, setSelectedMemberBubbleSize] = useState({ height: 42, width: 120 });
+  const [showStaleNativeBuildHint, setShowStaleNativeBuildHint] = useState(false);
+  const [shouldApplyMapStyle, setShouldApplyMapStyle] = useState(false);
+  const [centerIconPaths, setCenterIconPaths] = useState<Record<string, string>>({});
+  const [markerIconPaths, setMarkerIconPaths] = useState<Record<string, string>>({});
+  const initialCameraTargetRef = useRef(getInitialCameraCoordinate(markers, centers));
+  const palette = useMemo(() => getMapPalette(mapTheme), [mapTheme]);
+  const mapStyle = useMemo(
+    () => JSON.stringify(mapTheme === "dark" ? darkMapStyle : lightMapStyle),
+    [mapTheme],
+  );
   const currentUserMarker = useMemo(() => markers.find((marker) => marker.isCurrentUser) ?? null, [markers]);
   const markerLookup = useMemo(
     () =>
@@ -369,165 +219,333 @@ const MapOverviewComponent = (
       }, {}),
     [centers],
   );
-  const selectedCenter = useMemo(
-    () => (selectedCenterId ? centerLookup[selectedCenterId] ?? null : null),
-    [centerLookup, selectedCenterId],
-  );
-  const selectedMemberBubbleMarker = useMemo(
-    () => (selectedMarkerBubbleId ? markerLookup[selectedMarkerBubbleId] ?? null : null),
-    [markerLookup, selectedMarkerBubbleId],
-  );
-  const currentUserInitialRegion = useMemo(
-    () =>
-      currentUserMarker
-        ? toRegion(currentUserMarker.latitude, currentUserMarker.longitude, 0.1, 0.1)
-        : null,
-    [currentUserMarker],
-  );
-  const fallbackInitialRegion = useMemo(() => {
-    const firstMarker = markers[0] ?? null;
-    if (firstMarker) {
-      return toRegion(firstMarker.latitude, firstMarker.longitude, 0.1, 0.1);
-    }
-
-    const preferredCenter = selectedCenter ?? centers[0] ?? null;
-    if (preferredCenter) {
-      return toRegion(preferredCenter.latitude, preferredCenter.longitude, 0.1, 0.1);
-    }
-
-    return appConfig.map.initialRegion;
-  }, [centers, markers, selectedCenter]);
-  const resolvedInitialRegion = currentUserInitialRegion ?? fallbackInitialRegion;
-  const initialRegionRef = useRef(resolvedInitialRegion);
-  const latestRegionRef = useRef(resolvedInitialRegion);
-  const initialRegion = initialRegionRef.current;
-  const markerPalette = useMemo(() => getMarkerPalette(mapTheme), [mapTheme]);
-  const centerMarkerPalette = useMemo(() => getCenterMarkerPalette(mapTheme), [mapTheme]);
-  const memberBubblePalette = useMemo(() => getMemberBubblePalette(mapTheme), [mapTheme]);
-  const centerBubblePalette = useMemo(() => getCenterBubblePalette(mapTheme), [mapTheme]);
-
-  const updateSelectedCenterBubblePosition = useCallback(async () => {
-    if (!mapRef.current || !selectedCenter) {
-      setSelectedCenterPoint(null);
-      return;
-    }
-
-    try {
-      const nextPoint = await mapRef.current.pointForCoordinate({
-        latitude: selectedCenter.latitude,
-        longitude: selectedCenter.longitude,
-      });
-      setSelectedCenterPoint(nextPoint);
-    } catch {
-      setSelectedCenterPoint(null);
-    }
-  }, [selectedCenter]);
-
-  const updateSelectedMemberBubblePosition = useCallback(async () => {
-    if (!mapRef.current || !selectedMemberBubbleMarker) {
-      setSelectedMemberBubblePoint(null);
-      return;
-    }
-
-    try {
-      const nextPoint = await mapRef.current.pointForCoordinate({
-        latitude: selectedMemberBubbleMarker.latitude,
-        longitude: selectedMemberBubbleMarker.longitude,
-      });
-      setSelectedMemberBubblePoint(nextPoint);
-    } catch {
-      setSelectedMemberBubblePoint(null);
-    }
-  }, [selectedMemberBubbleMarker]);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      takeSnapshot: async () => {
-        if (!mapRef.current || !mapLoaded || !mapViewport.height || !mapViewport.width) {
-          return null;
-        }
-
-        try {
-          return await mapRef.current.takeSnapshot({
-            format: "png",
-            height: Math.round(mapViewport.height),
-            quality: 0.82,
-            region: latestRegionRef.current,
-            result: "file",
-            width: Math.round(mapViewport.width),
-          });
-        } catch {
-          return null;
-        }
-      },
-    }),
-    [mapLoaded, mapViewport.height, mapViewport.width],
-  );
-
-  const animateToCoordinate = (latitude: number, longitude: number, latitudeDelta = 0.045, longitudeDelta = 0.045) => {
-    mapRef.current?.animateToRegion(toRegion(latitude, longitude, latitudeDelta, longitudeDelta), 420);
-  };
-
-  useEffect(() => {
-    if (!currentUserMarker || hasCenteredCurrentUserRef.current) {
-      return;
-    }
-
-    hasCenteredCurrentUserRef.current = true;
-    animateToCoordinate(currentUserMarker.latitude, currentUserMarker.longitude, 0.08, 0.08);
-  }, [currentUserMarker]);
-
-  useEffect(() => {
-    if (!selectedCenter || !mapLoaded) {
-      setSelectedCenterPoint(null);
-      return;
-    }
-
-    void updateSelectedCenterBubblePosition();
-  }, [mapLoaded, selectedCenter, updateSelectedCenterBubblePosition]);
-
-  useEffect(() => {
-    if (!selectedMemberBubbleMarker || !mapLoaded) {
-      setSelectedMemberBubblePoint(null);
-      return;
-    }
-
-    void updateSelectedMemberBubblePosition();
-  }, [mapLoaded, selectedMemberBubbleMarker, updateSelectedMemberBubblePosition]);
-
-  useEffect(() => {
-    if (!focusTarget) {
-      return;
-    }
-
-    if (focusTarget.kind === "currentUser" && currentUserMarker) {
-      animateToCoordinate(currentUserMarker.latitude, currentUserMarker.longitude);
-      return;
-    }
-
-    if (focusTarget.kind === "marker") {
-      const marker = markerLookup[focusTarget.markerId];
-      if (marker) {
-        animateToCoordinate(marker.latitude, marker.longitude);
-      }
-      return;
-    }
-
-    if (focusTarget.kind === "center") {
-      const center = centerLookup[focusTarget.centerId];
-      if (center) {
-        animateToCoordinate(center.latitude, center.longitude, 0.06, 0.06);
-      }
-    }
-  }, [centerLookup, currentUserMarker, focusTarget, markerLookup]);
 
   useEffect(() => {
     if (Platform.OS !== "android") {
       return;
     }
 
-    if (mapLoaded) {
+    const hasSupport = hasNativeMarkerIconSupport();
+    setShowStaleNativeBuildHint(!hasSupport);
+
+    if (!hasSupport) {
+      console.warn("Rebuild Android dev build: SOSyncMarkerIcon native module is missing.");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedMapRef.current || !mapControllerRef.current) {
+      return;
+    }
+
+    setShouldApplyMapStyle(false);
+    const timer = setTimeout(() => {
+      setShouldApplyMapStyle(true);
+    }, 80);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [mapControllerReadyToken, mapStyle]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android" || !hasNativeMarkerIconSupport()) {
+      return;
+    }
+
+    let active = true;
+
+    void Promise.all(
+      markers.map(async (marker) => {
+        const iconPath = await buildLocalMarkerIcon({
+          displayName: marker.displayName,
+          isCurrentUser: marker.isCurrentUser,
+          mapTheme,
+          markerId: marker.markerId,
+        });
+
+        return iconPath ? [getMemberIconId(marker), iconPath] as const : null;
+      }),
+    ).then((entries) => {
+      if (!active) {
+        return;
+      }
+
+      setMarkerIconPaths(
+        entries.reduce<Record<string, string>>((nextValue, entry) => {
+          if (entry) {
+            nextValue[entry[0]] = entry[1];
+          }
+          return nextValue;
+        }, {}),
+      );
+    });
+
+    void Promise.all(
+      markers
+        .filter((marker) => Boolean(marker.photoURL))
+        .map(async (marker) => {
+          const iconPath = await buildLocalMarkerIcon({
+            displayName: marker.displayName,
+            isCurrentUser: marker.isCurrentUser,
+            mapTheme,
+            markerId: marker.markerId,
+            photoURL: marker.photoURL,
+          });
+
+          return iconPath ? [getMemberIconId(marker), iconPath] as const : null;
+        }),
+    ).then((entries) => {
+      if (!active) {
+        return;
+      }
+
+      setMarkerIconPaths((currentValue) =>
+        entries.reduce<Record<string, string>>((nextValue, entry) => {
+          if (entry) {
+            nextValue[entry[0]] = entry[1];
+          }
+          return nextValue;
+        }, { ...currentValue }),
+      );
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [mapTheme, markers]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android" || !hasNativeMarkerIconSupport()) {
+      return;
+    }
+
+    let active = true;
+
+      void Promise.all(
+        centers.map(async (center) => {
+          const iconPath = await buildLocalMarkerIcon({
+            isCenter: true,
+            mapTheme,
+            markerId: center.centerId,
+          });
+
+        return iconPath ? [getCenterIconId(center), iconPath] as const : null;
+      }),
+    ).then((entries) => {
+      if (!active) {
+        return;
+      }
+
+      setCenterIconPaths(
+        entries.reduce<Record<string, string>>((nextValue, entry) => {
+          if (entry) {
+            nextValue[entry[0]] = entry[1];
+          }
+          return nextValue;
+        }, {}),
+      );
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [centers, mapTheme]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      takeSnapshot: async () => null,
+    }),
+    [],
+  );
+
+  const moveCameraTo = useCallback((coordinate: { latitude: number; longitude: number }, zoom = 14) => {
+    if (!mapControllerRef.current || !hasLoadedMapRef.current || !canRunMapCommandsRef.current) {
+      return false;
+    }
+
+    void Promise.resolve(
+      mapControllerRef.current.moveCamera({
+        target: toLatLng(coordinate),
+        tilt: 0,
+        zoom,
+      }),
+    ).catch((error) => {
+      if (isMapNotInitializedError(error)) {
+        canRunMapCommandsRef.current = false;
+        pendingFocusTargetRef.current = focusTarget ?? pendingFocusTargetRef.current;
+        setMapCommandRetryToken((currentValue) => currentValue + 1);
+      }
+    });
+
+    return true;
+  }, [focusTarget]);
+
+  useEffect(() => {
+    const controller = mapControllerRef.current;
+    if (!controller || !hasLoadedMapRef.current || hasAppliedInitialCameraRef.current) {
+      return;
+    }
+
+    let active = true;
+    const timer = setTimeout(() => {
+      void Promise.resolve(
+        controller.moveCamera({
+          target: initialCameraTargetRef.current,
+          tilt: 0,
+          zoom: 13,
+        }),
+      )
+        .then(() => {
+          if (active) {
+            hasAppliedInitialCameraRef.current = true;
+          }
+        })
+        .catch((error) => {
+          if (!active) {
+            return;
+          }
+
+          if (isMapNotInitializedError(error)) {
+            setMapCommandRetryToken((currentValue) => currentValue + 1);
+          } else {
+            console.warn("Home map initial camera move failed.", error);
+          }
+        });
+    }, 280);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [mapCommandRetryToken, mapControllerReadyToken]);
+
+  useEffect(() => {
+    const controller = mapControllerRef.current;
+    if (!controller || !hasLoadedMapRef.current) {
+      return;
+    }
+
+    let active = true;
+    const retryDelayMs = Math.min(250 + mapCommandRetryCountRef.current * 180, 1200);
+
+    const timer = setTimeout(() => {
+      const operations: Array<Promise<unknown>> = [
+        Promise.resolve(controller.clearMapView()),
+        ...alerts.map((alert) =>
+          Promise.resolve(
+            controller.addCircle({
+              center: toLatLng(alert),
+              fillColor: toSdkColor(mapTheme === "dark" ? "rgba(255, 94, 94, 0.18)" : "rgba(214, 82, 78, 0.14)"),
+              id: `alert:${alert.alertId}`,
+              radius: alertRadius[alert.severity] ?? 1400,
+              strokeColor: toSdkColor(mapTheme === "dark" ? "rgba(255, 124, 124, 0.52)" : "rgba(214, 82, 78, 0.54)"),
+              strokeWidth: 2,
+            }),
+          ),
+        ),
+        ...centers.flatMap((center) => {
+          const iconPath = centerIconPaths[getCenterIconId(center)];
+
+          if (!iconPath) {
+            return [];
+          }
+
+          return [
+            Promise.resolve(
+            controller.addMarker({
+              id: `center:${center.centerId}`,
+              imgPath: iconPath,
+              position: toLatLng(center),
+              title: center.name,
+            }),
+            ),
+          ];
+        }),
+        ...markers.flatMap((marker) => {
+          const iconPath = markerIconPaths[getMemberIconId(marker)];
+
+          if (!iconPath) {
+            return [];
+          }
+
+          return [
+            Promise.resolve(
+            controller.addMarker({
+              imgPath: iconPath,
+              ...getMemberMarkerOptions(marker),
+            }),
+            ),
+          ];
+        }),
+      ];
+
+      void Promise.allSettled(operations).then((results) => {
+        if (!active) {
+          return;
+        }
+
+        const hasInitializationRace = results.some(
+          (result) => result.status === "rejected" && isMapNotInitializedError(result.reason),
+        );
+
+        if (hasInitializationRace && mapCommandRetryCountRef.current < maxMapCommandRetries) {
+          canRunMapCommandsRef.current = false;
+          mapCommandRetryCountRef.current += 1;
+          setMapCommandRetryToken((currentValue) => currentValue + 1);
+          return;
+        }
+
+        if (hasInitializationRace) {
+          canRunMapCommandsRef.current = false;
+          setShowDiagnosticHint(true);
+          console.warn("Home map commands failed after Navigation SDK map initialization retries.");
+          return;
+        }
+
+        mapCommandRetryCountRef.current = 0;
+        canRunMapCommandsRef.current = true;
+        setMapCommandReadyToken((currentValue) => currentValue + 1);
+      });
+    }, retryDelayMs);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [alerts, centerIconPaths, centers, mapCommandRetryToken, mapControllerReadyToken, mapTheme, markerIconPaths, markers]);
+
+  const applyFocusTarget = useCallback((target: HomeMapFocusTarget) => {
+    if (target.kind === "currentUser") {
+      return currentUserMarker ? moveCameraTo(currentUserMarker) : true;
+    }
+
+    if (target.kind === "marker") {
+      const marker = markerLookup[target.markerId];
+      return marker ? moveCameraTo(marker) : true;
+    }
+
+    const center = centerLookup[target.centerId];
+    return center ? moveCameraTo(center, 13) : true;
+  }, [centerLookup, currentUserMarker, markerLookup, moveCameraTo]);
+
+  useEffect(() => {
+    const target = focusTarget ?? pendingFocusTargetRef.current;
+    if (!target) {
+      return;
+    }
+
+    const didApplyFocus = applyFocusTarget(target);
+    pendingFocusTargetRef.current = didApplyFocus ? null : target;
+  }, [applyFocusTarget, focusTarget, mapCommandReadyToken, mapCommandRetryToken, mapControllerReadyToken]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    if (hasLoadedMapRef.current) {
       setShowDiagnosticHint(false);
       return;
     }
@@ -539,335 +557,88 @@ const MapOverviewComponent = (
     return () => {
       clearTimeout(timer);
     };
-  }, [mapLoaded]);
-
-  const hintPalette =
-    mapTheme === "dark"
-      ? {
-          border: "rgba(255, 255, 255, 0.14)",
-          body: "rgba(232, 237, 242, 0.82)",
-          surface: "rgba(24, 35, 48, 0.9)",
-          title: "#FFFFFF",
-        }
-      : {
-          border: "rgba(123, 44, 40, 0.12)",
-          body: "#6A6767",
-          surface: "rgba(255, 255, 255, 0.94)",
-          title: "#2E2C2C",
-        };
-
-  const bubbleLeft =
-    selectedCenterPoint && mapViewport.width
-      ? Math.min(
-          Math.max(selectedCenterPoint.x - selectedCenterBubbleSize.width / 2, 12),
-          Math.max(mapViewport.width - selectedCenterBubbleSize.width - 12, 12),
-        )
-      : 0;
-  const bubbleTop =
-    selectedCenterPoint && mapViewport.height
-      ? Math.min(
-          Math.max(selectedCenterPoint.y - selectedCenterBubbleSize.height - 18, 12),
-          Math.max(mapViewport.height - selectedCenterBubbleSize.height - 12, 12),
-        )
-      : 0;
-  const bubblePointerLeft = selectedCenterPoint
-    ? Math.min(
-        Math.max(selectedCenterPoint.x - bubbleLeft - 8, 18),
-        Math.max(selectedCenterBubbleSize.width - 26, 18),
-      )
-    : 18;
-  const memberBubbleLeft =
-    selectedMemberBubblePoint && mapViewport.width
-      ? (() => {
-          const preferredRight = selectedMemberBubblePoint.x + 18;
-          const maxRightAligned = Math.max(mapViewport.width - selectedMemberBubbleSize.width - 12, 12);
-          if (preferredRight <= maxRightAligned) {
-            return preferredRight;
-          }
-
-          return Math.max(selectedMemberBubblePoint.x - selectedMemberBubbleSize.width - 18, 12);
-        })()
-      : 0;
-  const memberBubbleTop =
-    selectedMemberBubblePoint && mapViewport.height
-      ? Math.min(
-          Math.max(selectedMemberBubblePoint.y - selectedMemberBubbleSize.height / 2 - 6, 12),
-          Math.max(mapViewport.height - selectedMemberBubbleSize.height - 12, 12),
-        )
-      : 0;
+  }, [mapControllerReadyToken]);
 
   return (
-    <View
-      onLayout={(event) => {
-        const { height, width } = event.nativeEvent.layout;
-        setMapViewport((currentValue) =>
-          currentValue.height === height && currentValue.width === width
-            ? currentValue
-            : { height, width },
-        );
-      }}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <MapView
-        ref={mapRef}
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        customMapStyle={mapTheme === "dark" ? darkMapStyle : lightMapStyle}
-        initialRegion={initialRegion}
-        mapType="standard"
-        moveOnMarkerPress={false}
-        onMapLoaded={() => {
-          latestRegionRef.current = initialRegion;
-          setMapLoaded(true);
+        compassEnabled={false}
+        initialCameraPosition={{
+          target: initialCameraTargetRef.current,
+          tilt: 0,
+          zoom: 13,
         }}
-        onPress={(event) => {
-          if (event.nativeEvent.action === "marker-press") {
+        indoorEnabled={false}
+        mapColorScheme={mapTheme === "dark" ? MapColorScheme.DARK : MapColorScheme.LIGHT}
+        mapStyle={shouldApplyMapStyle ? mapStyle : undefined}
+        mapToolbarEnabled={false}
+        mapType={normalBaseMapType}
+        myLocationButtonEnabled={false}
+        myLocationEnabled={false}
+        onMapClick={onMapPress}
+        onMapReady={() => {
+          hasLoadedMapRef.current = true;
+          setShowDiagnosticHint(false);
+          setMapControllerReadyToken((currentValue) => currentValue + 1);
+          setTimeout(() => {
+            setShouldApplyMapStyle(true);
+          }, 80);
+        }}
+        onMapViewControllerCreated={(controller) => {
+          mapControllerRef.current = controller;
+          setMapControllerReadyToken((currentValue) => currentValue + 1);
+        }}
+        onMarkerClick={(marker) => {
+          const [kind, id] = marker.id.split(":");
+          if (kind === "center" && id) {
+            onCenterPress?.(id);
             return;
           }
 
-          onMapPress?.();
-        }}
-        onRegionChangeStart={(_, details) => {
-          if (details.isGesture && selectedMemberBubbleMarker) {
-            onMemberBubbleDismiss?.();
+          if (kind === "member" && id) {
+            onMarkerPress?.(id);
           }
         }}
-        onRegionChangeComplete={(region, details) => {
-          latestRegionRef.current = region;
-
-          if (selectedCenter) {
-            void updateSelectedCenterBubblePosition();
+        onMarkerInfoWindowTapped={(marker) => {
+          const [kind, id] = marker.id.split(":");
+          if (kind === "member" && id) {
+            onMarkerPress?.(id);
+            return;
           }
 
-          if (selectedMemberBubbleMarker && !details.isGesture) {
-            void updateSelectedMemberBubblePosition();
+          if (kind === "center" && id) {
+            onCenterRoutePress?.(id);
           }
         }}
-        rotateEnabled={false}
-        showsBuildings={false}
-        showsCompass={false}
-        toolbarEnabled={false}
-      >
-        {alerts.map((alert) => (
-          <Circle
-            key={alert.alertId}
-            center={{ latitude: alert.latitude, longitude: alert.longitude }}
-            fillColor={mapTheme === "dark" ? "rgba(255, 94, 94, 0.18)" : "rgba(214, 82, 78, 0.14)"}
-            radius={alertRadius[alert.severity] ?? 1400}
-            strokeColor={mapTheme === "dark" ? "rgba(255, 124, 124, 0.52)" : "rgba(214, 82, 78, 0.54)"}
-            strokeWidth={2}
-          />
-        ))}
-        {centers.map((center) => (
-          <Marker
-            key={center.centerId}
-            coordinate={{ latitude: center.latitude, longitude: center.longitude }}
-            identifier={center.centerId}
-            onPress={() => onCenterPress?.(center.centerId)}
-          >
-            <View
-              style={{
-                alignItems: "center",
-                backgroundColor:
-                  highlightedCenterId === center.centerId
-                    ? centerMarkerPalette.highlightFill
-                    : centerMarkerPalette.fill,
-                borderColor:
-                  highlightedCenterId === center.centerId ? centerMarkerPalette.icon : centerMarkerPalette.border,
-                borderRadius: 18,
-                borderWidth: 1,
-                elevation: 2,
-                height: 36,
-                justifyContent: "center",
-                shadowColor: markerPalette.markerShadow,
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.12,
-                shadowRadius: 12,
-                width: 36,
-              }}
-            >
-              <MaterialCommunityIcons color={centerMarkerPalette.icon} name="home-city-outline" size={18} />
-            </View>
-          </Marker>
-        ))}
-        {markers.map((marker) => {
-            return (
-              <AvatarMarker
-                key={`${marker.markerId}:${marker.photoURL ?? "initials"}`}
-                marker={marker}
-                markerPalette={markerPalette}
-                onMarkerPress={onMarkerPress}
-                prefetchedMarkerPhotos={prefetchedMarkerPhotos}
-              />
-            );
-        })}
-      </MapView>
-      {selectedCenter && selectedCenterPoint ? (
-        <View pointerEvents="box-none" style={styles.centerBubbleLayer}>
-          <View
-            style={{
-              left: bubbleLeft,
-              position: "absolute",
-              top: bubbleTop,
-            }}
-          >
-            <View
-              onLayout={(event) => {
-                const { height, width } = event.nativeEvent.layout;
-                setSelectedCenterBubbleSize((currentValue) =>
-                  currentValue.height === height && currentValue.width === width
-                    ? currentValue
-                    : { height, width },
-                );
-              }}
-              style={{
-                backgroundColor: centerBubblePalette.background,
-                borderColor: centerBubblePalette.border,
-                borderRadius: 16,
-                borderWidth: 1,
-                maxWidth: 220,
-                minWidth: 180,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-                shadowColor: centerBubblePalette.shadow,
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.16,
-                shadowRadius: 18,
-              }}
-            >
-              <View
-                style={{
-                  alignItems: "center",
-                  flexDirection: "row",
-                }}
-              >
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      color: centerBubblePalette.text,
-                      fontSize: 16,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {selectedCenter.name}
-                  </Text>
-                  <Text
-                    numberOfLines={2}
-                    style={{
-                      color: centerBubblePalette.textMuted,
-                      fontSize: 13,
-                      lineHeight: 18,
-                      marginTop: 4,
-                    }}
-                  >
-                    {selectedCenter.address}
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityHint="Open Maps directions to this safety hub"
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open Maps directions to ${selectedCenter.name}`}
-                  hitSlop={8}
-                  onPress={() => onCenterOpenMaps?.(selectedCenter.centerId)}
-                  style={({ pressed }) => ({
-                    alignItems: "center",
-                    backgroundColor: centerBubblePalette.actionBackground,
-                    borderRadius: 999,
-                    height: 40,
-                    justifyContent: "center",
-                    opacity: pressed ? 0.78 : 1,
-                    width: 40,
-                  })}
-                >
-                  <MaterialCommunityIcons color={centerBubblePalette.icon} name="navigation-variant" size={18} />
-                </Pressable>
-              </View>
-            </View>
-            <View
-              style={{
-                borderLeftColor: "transparent",
-                borderLeftWidth: 8,
-                borderRightColor: "transparent",
-                borderRightWidth: 8,
-                borderTopColor: centerBubblePalette.background,
-                borderTopWidth: 10,
-                height: 0,
-                marginLeft: bubblePointerLeft,
-                marginTop: -1,
-                width: 0,
-              }}
-            />
-          </View>
-        </View>
-      ) : null}
-      {selectedMemberBubbleMarker && selectedMemberBubblePoint ? (
-        <View pointerEvents="box-none" style={styles.centerBubbleLayer}>
-          <View
-            style={{
-              left: memberBubbleLeft,
-              position: "absolute",
-              top: memberBubbleTop,
-            }}
-          >
-            <View
-              onLayout={(event) => {
-                const { height, width } = event.nativeEvent.layout;
-                setSelectedMemberBubbleSize((currentValue) =>
-                  currentValue.height === height && currentValue.width === width
-                    ? currentValue
-                    : { height, width },
-                );
-              }}
-              style={{
-                backgroundColor: memberBubblePalette.background,
-                borderRadius: 999,
-                maxWidth: 168,
-                minWidth: 84,
-                paddingHorizontal: 14,
-                paddingVertical: 9,
-                shadowColor: memberBubblePalette.shadow,
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 0.14,
-                shadowRadius: 14,
-              }}
-            >
-              <Text
-                numberOfLines={1}
-                style={{
-                  color: memberBubblePalette.text,
-                  fontSize: 15,
-                  fontWeight: "700",
-                }}
-              >
-                {selectedMemberBubbleMarker.displayName}
-              </Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
+        rotateGesturesEnabled
+        scrollGesturesEnabled
+        style={styles.map}
+        tiltGesturesEnabled={false}
+        trafficEnabled={false}
+        zoomControlsEnabled={false}
+        zoomGesturesEnabled
+      />
       {showDiagnosticHint ? (
         <View pointerEvents="none" style={styles.hintWrapper}>
-          <View
-            style={[
-              styles.hintCard,
-              {
-                backgroundColor: hintPalette.surface,
-                borderColor: hintPalette.border,
-              },
-            ]}
-          >
-            <Text style={[styles.hintTitle, { color: hintPalette.title }]}>Map tiles failed to load</Text>
-            <Text style={[styles.hintBody, { color: hintPalette.body }]}>
-              On Android this usually means the Google Maps key is not authorized for package
+          <View style={[styles.hintCard, { backgroundColor: palette.surface }]}>
+            <Text style={[styles.hintTitle, { color: palette.title }]}>Map failed to load</Text>
+            <Text style={[styles.hintBody, { color: palette.body }]}>
+              Check that the Android API key is enabled for Maps SDK and Navigation SDK for package
               {" "}
               <Text style={styles.hintCode}>com.sosync.mobile</Text>
-              {" "}
-              and the current debug SHA1. Run
-              {" "}
-              <Text style={styles.hintCode}>npm run doctor:android-live</Text>
-              {" "}
-              to see the exact fingerprint.
+              .
+            </Text>
+          </View>
+        </View>
+      ) : null}
+      {showStaleNativeBuildHint ? (
+        <View pointerEvents="none" style={styles.nativeHintWrapper}>
+          <View style={[styles.hintCard, { backgroundColor: palette.surface }]}>
+            <Text style={[styles.hintTitle, { color: palette.title }]}>Rebuild Android dev build</Text>
+            <Text style={[styles.hintBody, { color: palette.body }]}>
+              SOSyncMarkerIcon is missing, so circular map avatars cannot render. Run{" "}
+              <Text style={styles.hintCode}>npm run android</Text>
+              {" "}once, then keep using the dev build.
             </Text>
           </View>
         </View>
@@ -883,12 +654,11 @@ const areMapOverviewPropsEqual = (prev: MapOverviewProps, next: MapOverviewProps
   prev.highlightedCenterId === next.highlightedCenterId &&
   prev.mapTheme === next.mapTheme &&
   prev.markers === next.markers &&
-  prev.onCenterOpenMaps === next.onCenterOpenMaps &&
   prev.onCenterPress === next.onCenterPress &&
+  prev.onCenterRoutePress === next.onCenterRoutePress &&
   prev.onMapPress === next.onMapPress &&
   prev.onMarkerPress === next.onMarkerPress &&
   prev.onMemberBubbleDismiss === next.onMemberBubbleDismiss &&
-  prev.prefetchedMarkerPhotos === next.prefetchedMarkerPhotos &&
   prev.selectedCenterId === next.selectedCenterId &&
   prev.selectedMarkerBubbleId === next.selectedMarkerBubbleId;
 
@@ -897,11 +667,9 @@ const ForwardedMapOverview = forwardRef<MapOverviewHandle, MapOverviewProps>(Map
 ForwardedMapOverview.displayName = "MapOverview";
 
 export const MapOverview = memo(ForwardedMapOverview, areMapOverviewPropsEqual);
+
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  centerBubbleLayer: {
     ...StyleSheet.absoluteFillObject,
   },
   hintBody: {
@@ -910,7 +678,6 @@ const styles = StyleSheet.create({
   },
   hintCard: {
     borderRadius: 18,
-    borderWidth: 1,
     maxWidth: 290,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -926,12 +693,19 @@ const styles = StyleSheet.create({
   },
   hintWrapper: {
     alignItems: "center",
-    bottom: 118,
+    bottom: 120,
     left: 16,
     position: "absolute",
     right: 16,
   },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+  nativeHintWrapper: {
+    alignItems: "center",
+    bottom: 210,
+    left: 16,
+    position: "absolute",
+    right: 16,
   },
 });

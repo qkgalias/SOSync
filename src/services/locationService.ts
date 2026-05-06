@@ -9,6 +9,17 @@ const LAST_KNOWN_LOCATION_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const LAST_KNOWN_LOCATION_REQUIRED_ACCURACY_METERS = 500;
 const WATCH_LOCATION_TIMEOUT_MS = 12_000;
 
+const getActiveLocationAccuracy = () =>
+  Platform.OS === "android" ? Location.Accuracy.High : Location.Accuracy.Balanced;
+
+const enableAndroidLocationProvider = async () => {
+  if (Platform.OS !== "android") {
+    return;
+  }
+
+  await Location.enableNetworkProviderAsync().catch(() => undefined);
+};
+
 const getFirstWatchedPosition = () =>
   new Promise<Location.LocationObject>((resolve, reject) => {
     let settled = false;
@@ -31,7 +42,7 @@ const getFirstWatchedPosition = () =>
 
     void Location.watchPositionAsync(
       {
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: getActiveLocationAccuracy(),
         distanceInterval: 0,
         timeInterval: 1_000,
       },
@@ -107,22 +118,11 @@ export const locationService = {
       throw new Error("Location permission is required to show the live disaster map.");
     }
 
-    const lastKnownLocation = await Location.getLastKnownPositionAsync({
-      maxAge: LAST_KNOWN_LOCATION_MAX_AGE_MS,
-      requiredAccuracy: LAST_KNOWN_LOCATION_REQUIRED_ACCURACY_METERS,
-    });
-
-    if (lastKnownLocation) {
-      return lastKnownLocation;
-    }
+    await enableAndroidLocationProvider();
 
     try {
-      if (Platform.OS === "android") {
-        await Location.enableNetworkProviderAsync().catch(() => undefined);
-      }
-
       return await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: getActiveLocationAccuracy(),
       });
     } catch (error) {
       try {
@@ -144,10 +144,12 @@ export const locationService = {
     }
   },
 
-  watchPosition(onUpdate: (location: Location.LocationObject) => void) {
+  async watchPosition(onUpdate: (location: Location.LocationObject) => void) {
+    await enableAndroidLocationProvider();
+
     return Location.watchPositionAsync(
       {
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: getActiveLocationAccuracy(),
         timeInterval: 15_000,
         distanceInterval: 50,
       },

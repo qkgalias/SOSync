@@ -1,50 +1,50 @@
-/** Purpose: Verify native Home map avatar markers render photos without waiting for prefetch bookkeeping. */
-import { Image, Platform } from "react-native";
-import { render } from "@testing-library/react-native";
+/** Purpose: Verify the native Home map delegates markers to Google Navigation SDK. */
+import { Platform } from "react-native";
+import { act, render, waitFor } from "@testing-library/react-native";
 
 import { MapOverview } from "@/modules/map/components/MapOverview.native";
-import type { HomeMapMarker } from "@/types";
+import type { DisasterAlert, EvacuationCenter, HomeMapMarker } from "@/types";
 
-jest.mock("@expo/vector-icons", () => {
-  const { Text } = require("react-native");
+const mockAddCircle = jest.fn().mockResolvedValue(undefined);
+const mockAddMarker = jest.fn().mockResolvedValue(undefined);
+const mockClearMapView = jest.fn();
+const mockMoveCamera = jest.fn();
 
-  return {
-    MaterialCommunityIcons: ({ name }: { name: string }) => <Text>{name}</Text>,
-  };
-});
-
-jest.mock("react-native-maps", () => {
+jest.mock("@googlemaps/react-native-navigation-sdk", () => {
   const React = require("react");
-  const { View } = require("react-native");
-
-  const MockMapView = React.forwardRef(({ children, ...props }: any, ref: any) => {
-    React.useImperativeHandle(ref, () => ({
-      animateToRegion: jest.fn(),
-      pointForCoordinate: jest.fn().mockResolvedValue({ x: 0, y: 0 }),
-      takeSnapshot: jest.fn().mockResolvedValue("file://home-map-snapshot.png"),
-    }));
-
-    return (
-      <View testID="map-view" {...props}>
-        {children}
-      </View>
-    );
-  });
-
-  const MockMarker = ({ children, identifier, tracksViewChanges }: any) => (
-    <View testID={`marker-${identifier}`} tracksViewChanges={tracksViewChanges}>
-      {children}
-    </View>
-  );
+  const { View: MockView } = require("react-native");
 
   return {
-    __esModule: true,
-    Circle: (props: any) => <View testID="map-circle" {...props} />,
-    Marker: MockMarker,
-    PROVIDER_GOOGLE: "google",
-    default: MockMapView,
+    MapColorScheme: {
+      DARK: "DARK",
+      LIGHT: "LIGHT",
+    },
+    MapType: {
+      NORMAL: "NORMAL",
+    },
+    MapView: ({ onMapReady, onMapViewControllerCreated, ...props }: any) => {
+      React.useEffect(() => {
+        onMapViewControllerCreated?.({
+          addCircle: mockAddCircle,
+          addMarker: mockAddMarker,
+          clearMapView: mockClearMapView,
+          moveCamera: mockMoveCamera,
+        });
+        onMapReady?.();
+      }, []);
+
+      return <MockView testID="navigation-view" {...props} />;
+    },
   };
 });
+
+jest.mock("@/modules/map/markerIconService", () => ({
+  buildLocalMarkerIcon: jest.fn(
+    async ({ markerId, mapTheme }: { mapTheme: string; markerId: string }) =>
+      `/tmp/${markerId}-${mapTheme}.png`,
+  ),
+  hasNativeMarkerIconSupport: jest.fn(() => true),
+}));
 
 const currentUserMarker: HomeMapMarker = {
   displayName: "Karlos Galias",
@@ -58,18 +58,31 @@ const currentUserMarker: HomeMapMarker = {
   userId: "user-1",
 };
 
-const renderMapOverview = (prefetchedMarkerPhotos: Record<string, true> = {}) =>
-  render(
-    <MapOverview
-      alerts={[]}
-      centers={[]}
-      mapTheme="light"
-      markers={[currentUserMarker]}
-      prefetchedMarkerPhotos={prefetchedMarkerPhotos}
-    />,
-  );
+const center: EvacuationCenter = {
+  address: "Talisay City, Cebu",
+  capacity: 300,
+  centerId: "center-1",
+  contact: "+639171234567",
+  latitude: 10.261,
+  longitude: 123.849,
+  name: "Talisay Evacuation Center",
+  region: "Central Visayas",
+};
 
-describe("MapOverview native avatar markers", () => {
+const alert: DisasterAlert = {
+  alertId: "alert-1",
+  createdAt: new Date("2026-05-05T00:00:00.000Z").toISOString(),
+  groupId: "group-1",
+  latitude: 10.26,
+  longitude: 123.84,
+  message: "Flood alert",
+  severity: "warning",
+  source: "manual",
+  title: "Flood warning",
+  type: "flood",
+};
+
+describe("MapOverview native Navigation SDK map", () => {
   beforeAll(() => {
     Object.defineProperty(Platform, "OS", {
       configurable: true,
@@ -77,31 +90,167 @@ describe("MapOverview native avatar markers", () => {
     });
   });
 
-  it("renders the avatar image immediately even before prefetch marks it ready", () => {
-    const screen = renderMapOverview();
-
-    const avatarImage = screen.UNSAFE_getByType(Image);
-    expect(avatarImage.props.source).toEqual({ uri: "https://example.com/avatar.jpg" });
-    expect(screen.queryByText("KG")).toBeTruthy();
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it("keeps the marker instance stable when prefetch readiness changes", () => {
-    const screen = renderMapOverview();
-    const markerBefore = screen.getByTestId("marker-user-1");
+  it("adds evacuation centers, alerts, and home markers to the Navigation SDK map", async () => {
+    render(
+      <MapOverview
+        alerts={[alert]}
+        centers={[center]}
+        mapTheme="light"
+        markers={[currentUserMarker]}
+      />,
+    );
 
-    screen.rerender(
+    await waitFor(() => {
+      expect(mockClearMapView).toHaveBeenCalled();
+      expect(mockAddCircle).toHaveBeenCalledWith(expect.objectContaining({ id: "alert:alert-1" }));
+      expect(mockAddMarker).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "center:center-1", imgPath: "/tmp/center-1-light.png" }),
+      );
+      expect(mockAddMarker).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "member:user-1",
+          imgPath: "/tmp/user-1-light.png",
+          title: "Karlos Galias",
+        }),
+      );
+    });
+  });
+
+  it("uses a clean single-line title bubble for member markers", async () => {
+    render(
+      <MapOverview
+        alerts={[]}
+        centers={[center]}
+        mapTheme="light"
+        markers={[currentUserMarker]}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockAddMarker).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "member:user-1",
+          title: "Karlos Galias",
+        }),
+      );
+    });
+
+    const memberCall = mockAddMarker.mock.calls.find(([options]) => options.id === "member:user-1");
+    expect(memberCall?.[0]).not.toHaveProperty("snippet");
+  });
+
+  it("passes the SOSync custom map style to the Navigation SDK map", async () => {
+    const screen = render(
       <MapOverview
         alerts={[]}
         centers={[]}
         mapTheme="light"
         markers={[currentUserMarker]}
-        prefetchedMarkerPhotos={{ "https://example.com/avatar.jpg": true }}
       />,
     );
 
-    expect(screen.getByTestId("marker-user-1")).toBe(markerBefore);
-    expect(screen.UNSAFE_getByType(Image).props.source).toEqual({
-      uri: "https://example.com/avatar.jpg",
+    await waitFor(() => {
+      expect(screen.getByTestId("navigation-view").props.mapStyle).toContain("#F8F2EC");
+      expect(mockAddMarker).toHaveBeenCalledWith(expect.objectContaining({ id: "member:user-1" }));
+    });
+  });
+
+  it("routes marker taps through the existing Home callbacks", async () => {
+    const onCenterPress = jest.fn();
+    const onCenterRoutePress = jest.fn();
+    const onMarkerPress = jest.fn();
+    const screen = render(
+      <MapOverview
+        alerts={[]}
+        centers={[center]}
+        mapTheme="light"
+        markers={[currentUserMarker]}
+        onCenterPress={onCenterPress}
+        onCenterRoutePress={onCenterRoutePress}
+        onMarkerPress={onMarkerPress}
+      />,
+    );
+
+    const navigationView = screen.getByTestId("navigation-view");
+
+    await act(async () => {
+      navigationView.props.onMarkerClick({ id: "center:center-1" });
+      navigationView.props.onMarkerClick({ id: "member:user-1" });
+      navigationView.props.onMarkerInfoWindowTapped({ id: "center:center-1" });
+    });
+
+    expect(onCenterPress).toHaveBeenCalledWith("center-1");
+    expect(onMarkerPress).toHaveBeenCalledWith("user-1");
+    expect(onCenterRoutePress).toHaveBeenCalledWith("center-1");
+  });
+
+  it("does not open route preview when the center marker itself is tapped", async () => {
+    const onCenterPress = jest.fn();
+    const onCenterRoutePress = jest.fn();
+    const screen = render(
+      <MapOverview
+        alerts={[]}
+        centers={[center]}
+        mapTheme="light"
+        markers={[currentUserMarker]}
+        onCenterPress={onCenterPress}
+        onCenterRoutePress={onCenterRoutePress}
+      />,
+    );
+
+    const navigationView = screen.getByTestId("navigation-view");
+
+    await act(async () => {
+      navigationView.props.onMarkerClick({ id: "center:center-1" });
+    });
+
+    expect(onCenterPress).toHaveBeenCalledWith("center-1");
+    expect(onCenterRoutePress).not.toHaveBeenCalled();
+  });
+
+  it("opens route preview when the center native nametag is tapped", async () => {
+    const onCenterRoutePress = jest.fn();
+    const screen = render(
+      <MapOverview
+        alerts={[]}
+        centers={[center]}
+        mapTheme="light"
+        markers={[currentUserMarker]}
+        onCenterRoutePress={onCenterRoutePress}
+      />,
+    );
+
+    const navigationView = screen.getByTestId("navigation-view");
+
+    await act(async () => {
+      navigationView.props.onMarkerInfoWindowTapped({ id: "center:center-1" });
+    });
+
+    expect(onCenterRoutePress).toHaveBeenCalledWith("center-1");
+  });
+
+  it("moves the Navigation SDK camera when Home issues a focus target", async () => {
+    render(
+      <MapOverview
+        alerts={[]}
+        centers={[center]}
+        focusTarget={{ kind: "center", centerId: "center-1", token: 1 }}
+        mapTheme="dark"
+        markers={[currentUserMarker]}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockMoveCamera).toHaveBeenCalledWith(
+        expect.objectContaining({
+          target: { lat: 10.261, lng: 123.849 },
+          zoom: 13,
+        }),
+      );
     });
   });
 });

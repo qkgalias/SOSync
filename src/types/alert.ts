@@ -9,9 +9,14 @@ export type DisasterAlert = {
   type: AlertType;
   severity: AlertSeverity;
   source: AlertSource;
+  sourceProvider?: string;
   title: string;
   message: string;
   latitude: number;
   longitude: number;
+  forecastWindow?: string;
+  generatedAt?: string;
+  locationBasis?: "group_locations" | "group_default" | "philippines_default";
+  locationConfidence?: "higher" | "medium" | "fallback";
   createdAt: string;
 };

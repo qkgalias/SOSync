@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AppThemeProvider } from "@/providers/AppThemeProvider";
+import { NavigationSdkProvider } from "@/providers/NavigationSdkProvider";
 import { SessionProvider } from "@/providers/SessionProvider";
 
 export const AppProviders = ({ children }: PropsWithChildren) => (
@@ -12,7 +13,9 @@ export const AppProviders = ({ children }: PropsWithChildren) => (
     <SessionProvider>
       <AppThemeProvider>
         <SafeAreaProvider>
-          <BottomSheetModalProvider>{children}</BottomSheetModalProvider>
+          <NavigationSdkProvider>
+            <BottomSheetModalProvider>{children}</BottomSheetModalProvider>
+          </NavigationSdkProvider>
         </SafeAreaProvider>
       </AppThemeProvider>
     </SessionProvider>

@@ -18,6 +18,7 @@ import Animated, {
 
 import { useFloodRisk } from "@/hooks/useFloodRisk";
 import { FloodRiskBottomSheet } from "@/modules/map/components/FloodRiskBottomSheet";
+import { EvacuationNavigationOverlay } from "@/modules/map/components/EvacuationNavigationOverlay";
 import { MapOverview, type MapOverviewHandle } from "@/modules/map/components/MapOverview";
 import { WeatherBottomSheet } from "@/modules/map/components/WeatherBottomSheet";
 import { HomeContactRow } from "@/modules/map/components/HomeContactRow";
@@ -36,6 +37,7 @@ import { useHomeMapController } from "@/modules/map/screens/useHomeMapController
 import {
   resolveHomeWeatherPreview,
 } from "@/modules/map/weatherPresentation";
+import type { EvacuationCenter } from "@/types";
 import { toCallHref } from "@/utils/helpers";
 
 export default function HomeMapScreen() {
@@ -43,7 +45,6 @@ export default function HomeMapScreen() {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const {
     activeGroupName,
-    activeHubCenter,
     addressLabel,
     appearance,
     centers,
@@ -51,20 +52,19 @@ export default function HomeMapScreen() {
     currentLocation,
     focusTarget,
     groups,
-    handleCenterOpenMaps,
     handleCenterPress,
     handleFocusCurrentUser,
     handleFocusNearestHub,
     handleMapPress,
     handleMarkerFocus,
     handleMemberBubbleDismiss,
-    handleOpenHubInMaps,
     handleOpenSos,
+    handleTravelModeSelect,
     handleToggleSharing,
     handleTrustedCircleSelect,
-    hubSummaryLabel,
     isSheetFullyExpanded,
     isSharingLive,
+    nearbySafetyHubs,
     nearestCenter,
     palette,
     permissionStatus,
@@ -73,6 +73,7 @@ export default function HomeMapScreen() {
     reverseGeocodedLocality,
     requestLocationAccess,
     selectedCenterId,
+    selectedTravelMode,
     selectedMarkerBubbleId,
     selectedGroupId,
     selectedMarkerId,
@@ -98,6 +99,7 @@ export default function HomeMapScreen() {
   const [isFloodRiskOpen, setIsFloodRiskOpen] = useState(false);
   const [isWeatherOpening, setIsWeatherOpening] = useState(false);
   const [isWeatherOpen, setIsWeatherOpen] = useState(false);
+  const [navigationCenter, setNavigationCenter] = useState<EvacuationCenter | null>(null);
   const outlookLocation = isSharingLive ? currentLocation : null;
   const {
     data: floodRisk,
@@ -299,6 +301,16 @@ export default function HomeMapScreen() {
     ]);
   };
 
+  const handleStartNavigationForCenter = (centerId: string) => {
+    const targetCenter = centers.find((center) => center.centerId === centerId) ?? null;
+    if (!targetCenter) {
+      return;
+    }
+
+    handleCenterPress(targetCenter.centerId);
+    setNavigationCenter(targetCenter);
+  };
+
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: palette.page }}>
       <StatusBar style={appearance === "dark" ? "light" : "dark"} />
@@ -320,8 +332,8 @@ export default function HomeMapScreen() {
             highlightedCenterId={selectedCenterId}
             mapTheme={appearance}
             markers={stableHomeMarkers}
-            onCenterOpenMaps={handleCenterOpenMaps}
             onCenterPress={handleCenterPress}
+            onCenterRoutePress={handleStartNavigationForCenter}
             onMapPress={handleMapPress}
             onMarkerPress={handleMarkerFocus}
             onMemberBubbleDismiss={handleMemberBubbleDismiss}
@@ -474,15 +486,12 @@ export default function HomeMapScreen() {
             ListEmptyComponent={<HomeContactsEmptyState palette={palette} />}
             ListFooterComponent={
               <View style={{ marginTop: "auto" }}>
-                <HomeSafetyHubFooter
-                  activeHubCenter={activeHubCenter}
+              <HomeSafetyHubFooter
                   appearance={appearance}
-                  hubSummaryLabel={hubSummaryLabel}
-                  nearestCenterId={nearestCenter?.centerId ?? null}
-                  onOpenInMaps={() => {
-                    void handleOpenHubInMaps();
-                  }}
+                  nearbySafetyHubs={nearbySafetyHubs}
+                  onStartNavigation={handleStartNavigationForCenter}
                   palette={palette}
+                  selectedCenterId={selectedCenterId}
                 />
               </View>
             }
@@ -550,6 +559,17 @@ export default function HomeMapScreen() {
           onRequestLocationAccess={handleRequestFloodLocationAccess}
           permissionStatus={permissionStatus}
           status={floodRiskStatus}
+        />
+
+        <EvacuationNavigationOverlay
+          appearance={appearance}
+          center={navigationCenter}
+          currentLocation={currentLocation}
+          onClose={() => {
+            setNavigationCenter(null);
+          }}
+          onTravelModeChange={handleTravelModeSelect}
+          selectedTravelMode={selectedTravelMode}
         />
       </View>
     </SafeAreaView>

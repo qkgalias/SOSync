@@ -3,7 +3,20 @@ import { Platform } from "react-native";
 
 export type { MapOverviewHandle } from "./MapOverview.native";
 
-export const MapOverview =
-  Platform.OS === "web"
-    ? require("./MapOverview.web").MapOverview
-    : require("./MapOverview.native").MapOverview;
+const resolveMapOverview = () => {
+  if (Platform.OS === "web") {
+    return require("./MapOverview.web").MapOverview;
+  }
+
+  try {
+    return require("./MapOverview.native").MapOverview;
+  } catch (error) {
+    console.warn(
+      "Rebuild Android dev build: Google Navigation SDK native module is missing.",
+      error,
+    );
+    return require("./MapOverview.web").MapOverview;
+  }
+};
+
+export const MapOverview = resolveMapOverview();

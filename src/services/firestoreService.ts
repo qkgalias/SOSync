@@ -19,7 +19,6 @@ import type {
   BlockedUser,
   DisasterAlert,
   EmergencyHotline,
-  EvacuationCenter,
   Group,
   GroupMember,
   GroupPreferences,
@@ -32,7 +31,7 @@ import type {
 import { resolveActiveFirebaseClientMode } from "@/config/backendRuntime";
 import { firebaseAuth, hasFirebaseApp } from "@/services/firebase";
 import { resolveGroupsFromMemberships } from "@/services/firestoreService.helpers";
-import { ALERT_SEED, EVACUATION_CENTER_SEED, GROUP_SEED, PHILIPPINE_HOTLINE_SEED, USER_SEED } from "@/utils/constants";
+import { ALERT_SEED, GROUP_SEED, PHILIPPINE_HOTLINE_SEED, USER_SEED } from "@/utils/constants";
 import { sanitizeForFirestore } from "@/utils/firestore";
 import { toLocationId } from "@/utils/helpers";
 
@@ -321,17 +320,6 @@ export const firestoreService = {
       setDoc(doc(db(), "locations", payload.locationId), sanitizeForFirestore(payload), { merge: true }),
     );
     return payload;
-  },
-
-  async listEvacuationCenters(region: string) {
-    if (getClientMode() === "demo") {
-      return EVACUATION_CENTER_SEED.filter((center) => center.region === region);
-    }
-
-    const snapshot = await withFirestoreTimeout(
-      getDocs(query(collection(db(), "evacuation_centers"), where("region", "==", region))),
-    );
-    return snapshot.docs.map((doc: any) => ({ centerId: doc.id, ...doc.data() }) as EvacuationCenter);
   },
 
   listenToHotlines(region: string, callback: (hotlines: Hotline[]) => void) {

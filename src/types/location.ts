@@ -2,6 +2,7 @@
 export type SharingState = "live" | "paused" | "sos";
 export type MapCoordinate = { latitude: number; longitude: number };
 export type HomeMapAppearance = "light" | "dark";
+export type EvacuationTravelMode = "walk" | "two_wheeler" | "four_wheeler";
 
 export type GroupLocation = {
   locationId: string;
@@ -23,6 +24,18 @@ export type EvacuationCenter = {
   contact: string;
   address: string;
   region: string;
+  city?: string;
+  province?: string;
+  islandGroup?: string;
+  serviceRadiusKm?: number;
+  distanceMeters?: number;
+};
+
+export type RouteStep = {
+  distanceMeters: number;
+  durationSeconds: number;
+  encodedPolyline: string;
+  instruction: string;
 };
 
 export type RouteSummary = {
@@ -30,7 +43,10 @@ export type RouteSummary = {
   durationSeconds: number;
   encodedPolyline: string;
   hasGeometry: boolean;
+  steps: RouteStep[];
   targetCenterId: string;
+  travelMode: EvacuationTravelMode;
+  warnings: string[];
 };
 
 export type HomeMapMarker = {

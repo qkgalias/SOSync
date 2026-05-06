@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { EvacuationCenter, GroupLocation } from "@/types";
+import { apiService } from "@/services/apiService";
 import { firestoreService } from "@/services/firestoreService";
 import { locationService } from "@/services/locationService";
 
@@ -129,8 +130,31 @@ export const useLocation = (
   }, [applyCurrentLocation, ensureWatchSubscription, restoreCachedLocation, setNextPermissionStatus]);
 
   useEffect(() => {
-    firestoreService.listEvacuationCenters(region).then(setCenters).catch(() => setCenters([]));
-  }, [region]);
+    if (!currentLocation || !userId) {
+      setCenters([]);
+      return;
+    }
+
+    let active = true;
+
+    void apiService
+      .getNearbyEvacuationCenters(currentLocation)
+      .then((nextCenters) => {
+        if (active) {
+          setCenters(nextCenters);
+        }
+      })
+      .catch((error) => {
+        console.warn("Nearby evacuation center lookup failed.", error);
+        if (active) {
+          setCenters([]);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentLocation, region, userId]);
 
   useEffect(() => {
     if (!groupId) {
