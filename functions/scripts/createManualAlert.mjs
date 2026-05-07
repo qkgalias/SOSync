@@ -17,6 +17,8 @@ Creates one live Firestore alert document for a specific trusted circle so the A
 
 const validTypes = new Set(["flood", "storm", "evacuation"]);
 const validSeverities = new Set(["advisory", "watch", "warning", "critical"]);
+const validLocationBases = new Set(["group_locations", "group_default", "philippines_default"]);
+const validLocationConfidences = new Set(["higher", "medium", "fallback"]);
 
 const args = parseArgs();
 if (args.help) {
@@ -54,6 +56,22 @@ await withScriptErrorBoundary(async () => {
   const latitude = getNumberArg(args, "latitude", 14.5995);
   const longitude = getNumberArg(args, "longitude", 120.9842);
   const source = getStringArg(args, "source", "manual") ?? "manual";
+  const sourceProvider = getStringArg(args, "sourceProvider", "manual") ?? "manual";
+  const forecastWindow = getStringArg(args, "forecastWindow", "manual QA window") ?? "manual QA window";
+  const locationBasis = getStringArg(args, "locationBasis", "group_default") ?? "group_default";
+  const locationConfidence = getStringArg(args, "locationConfidence", "medium") ?? "medium";
+
+  if (!validLocationBases.has(locationBasis)) {
+    throw new Error(
+      `Invalid --locationBasis value: ${locationBasis}. Use group_locations, group_default, or philippines_default.`,
+    );
+  }
+
+  if (!validLocationConfidences.has(locationConfidence)) {
+    throw new Error(
+      `Invalid --locationConfidence value: ${locationConfidence}. Use higher, medium, or fallback.`,
+    );
+  }
 
   const db = getFirestoreForLiveProject(projectId);
   await db.collection("alerts").doc(alertId).set(
@@ -67,6 +85,11 @@ await withScriptErrorBoundary(async () => {
       message,
       latitude,
       longitude,
+      sourceProvider,
+      forecastWindow,
+      generatedAt: createdAt,
+      locationBasis,
+      locationConfidence,
       createdAt,
     },
     { merge: true },

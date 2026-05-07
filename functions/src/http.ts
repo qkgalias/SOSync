@@ -66,7 +66,7 @@ export const sendJsonError = (response: Response, statusCode: number, message: s
   response.status(statusCode).json({ error: message });
 };
 
-const takeRateLimit = async ({ limit, routeKey, subjectKey, windowMs }: RateLimitOptions) => {
+export const takeRateLimit = async ({ limit, routeKey, subjectKey, windowMs }: RateLimitOptions) => {
   const now = Date.now();
   const window = resolveRateLimitWindow(now, windowMs);
   const rateLimitRef = adminDb.collection(RATE_LIMIT_COLLECTION).doc(
@@ -114,6 +114,31 @@ export const sendRateLimitExceeded = (
     observedCount: rateLimit.count,
     retryAfterSeconds: rateLimit.retryAfterSeconds,
   });
+};
+
+export const authenticateRequest = async (
+  request: Request,
+  response: Response,
+): Promise<AuthenticatedHttpContext | null> => {
+  const ipAddress = extractClientIp(request);
+  const bearerToken = extractBearerToken(request.headers.authorization);
+
+  if (!bearerToken) {
+    sendJsonError(response, 401, "Authentication required.");
+    return null;
+  }
+
+  try {
+    const decodedToken = await adminAuth.verifyIdToken(bearerToken);
+
+    return {
+      ipAddress,
+      userId: decodedToken.uid,
+    };
+  } catch {
+    sendJsonError(response, 401, "Authentication required.");
+    return null;
+  }
 };
 
 export const requireAuthenticatedRequest = async (

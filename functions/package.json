@@ -8,6 +8,7 @@
     "test:flood": "tsx --test src/floodHelpers.test.ts",
     "serve": "firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions",
+    "audit:circle-data": "node scripts/auditCircleData.mjs",
     "backfill:circle-data": "node scripts/backfillCircleInviteCodes.mjs",
     "seed:test-data": "node scripts/seedLiveTestData.mjs",
     "seed:manual-alert": "node scripts/createManualAlert.mjs"

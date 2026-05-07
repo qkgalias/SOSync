@@ -11,4 +11,9 @@ export {
   updateCircleMemberRole,
 } from "./groups.js";
 export { fanOutDisasterAlert, fanOutSosEvent } from "./notifications.js";
-export { getEvacuationRoute } from "./routes.js";
+export {
+  authorizeEvacuationNavigationStart,
+  getEvacuationRoute,
+  getNearbyEvacuationCenters,
+} from "./routes.js";
+export { submitProblemReport, submitSupportRequest } from "./supportReports.js";
