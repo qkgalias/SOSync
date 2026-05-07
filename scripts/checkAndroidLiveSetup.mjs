@@ -215,7 +215,9 @@ if (!firebasercContent) {
   }
 }
 
-addWarning("Still verify in Firebase console: Email/Password auth, deployed Functions, rules/indexes, and Functions secrets.");
+addWarning("Run `npm run doctor:backend-release` before release smoke testing to verify backend rules, indexes, Storage, and Functions files.");
+addWarning("Still verify in Firebase console: Email/Password auth, default Storage bucket, deployed Functions, rules/indexes, and Functions secrets.");
+addWarning("Verify live backend flows after deploy: email OTP, avatar upload, support/report submission, flood lookup, and push token registration.");
 addWarning("Live Firestore test data is not automatic. Run `npm run seed:live-data` before opening Home, Hotlines, and SOS.");
 
 console.log("Android Live Firebase Setup Check");
