@@ -69,7 +69,6 @@ export const useHomeMapController = () => {
     centers,
     currentLocation,
     groupLocations,
-    nearestCenter,
     permissionStatus,
     requestLocationAccess,
   } = useLocation(
@@ -218,6 +217,10 @@ export const useHomeMapController = () => {
       [homeMarkers],
     ),
   );
+  const nearbySafetyHubs = useMemo(() => {
+    return sortNearbySafetyHubs(stableCenters, currentLocation);
+  }, [stableCenters, currentLocation]);
+  const nearestVisibleCenter = nearbySafetyHubs[0] ?? null;
   const markerLookup = useMemo(
     () =>
       stableHomeMarkers.reduce<Record<string, (typeof stableHomeMarkers)[number]>>((lookup, marker) => {
@@ -228,11 +231,11 @@ export const useHomeMapController = () => {
   );
   const centerLookup = useMemo(
     () =>
-      stableCenters.reduce<Record<string, (typeof stableCenters)[number]>>((lookup, center) => {
+      nearbySafetyHubs.reduce<Record<string, (typeof nearbySafetyHubs)[number]>>((lookup, center) => {
         lookup[center.centerId] = center;
         return lookup;
       }, {}),
-    [stableCenters],
+    [nearbySafetyHubs],
   );
   const visibleCircleMarkers = useMemo(
     () => stableHomeMarkers.filter((marker) => !marker.isCurrentUser),
@@ -264,12 +267,9 @@ export const useHomeMapController = () => {
   );
   const addressLabel = resolveHomeAddressLabel({
     reverseGeocodedAddress,
-    nearestCenterAddress: nearestCenter?.address ?? null,
+    nearestCenterAddress: nearestVisibleCenter?.address ?? null,
     groupName: activeGroup?.name ?? null,
   });
-  const nearbySafetyHubs = useMemo(() => {
-    return sortNearbySafetyHubs(centers, currentLocation);
-  }, [centers, currentLocation]);
   const sheetContentPaddingBottom = Math.max(Math.min(insets.bottom, 8), 4);
   const isSheetFullyExpanded = sheetIndex >= sheetSnapPoints.length - 1;
   const missingMarkerPhotoUrls = useMemo(
@@ -292,7 +292,7 @@ export const useHomeMapController = () => {
   }, [markerLookup, selectedMarkerBubbleId, selectedGroupId]);
 
   useEffect(() => {
-    if (!nearestCenter) {
+    if (!nearestVisibleCenter) {
       setSelectedCenterId(null);
       return;
     }
@@ -300,7 +300,7 @@ export const useHomeMapController = () => {
     if (selectedCenterId && !centerLookup[selectedCenterId]) {
       setSelectedCenterId(null);
     }
-  }, [centerLookup, nearestCenter, selectedCenterId, selectedGroupId]);
+  }, [centerLookup, nearestVisibleCenter, selectedCenterId, selectedGroupId]);
 
   useEffect(() => {
     if (!currentLocation || hasFocusedCurrentUserRef.current || !currentUser.userId) {
@@ -400,12 +400,12 @@ export const useHomeMapController = () => {
   }, [centerLookup, issueFocus]);
 
   const handleFocusNearestHub = useCallback(() => {
-    if (!nearestCenter) {
+    if (!nearestVisibleCenter) {
       return;
     }
 
-    handleFocusCenter(nearestCenter.centerId);
-  }, [handleFocusCenter, nearestCenter]);
+    handleFocusCenter(nearestVisibleCenter.centerId);
+  }, [handleFocusCenter, nearestVisibleCenter]);
 
   const handleTravelModeSelect = useCallback((travelMode: EvacuationTravelMode) => {
     setSelectedTravelMode(travelMode);
@@ -454,7 +454,7 @@ export const useHomeMapController = () => {
     activeGroupName: activeGroup?.name ?? "SOSync Home",
     addressLabel,
     appearance,
-    centers: stableCenters,
+    centers: nearbySafetyHubs,
     contactItems,
     currentLocation,
     groups,
@@ -471,7 +471,7 @@ export const useHomeMapController = () => {
     nearbySafetyHubs,
     isSheetFullyExpanded,
     isSharingLive,
-    nearestCenter,
+    nearestCenter: nearestVisibleCenter,
     palette,
     permissionStatus,
     prefetchedMarkerPhotos,

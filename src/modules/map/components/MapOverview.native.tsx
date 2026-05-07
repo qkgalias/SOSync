@@ -103,6 +103,7 @@ const darkMapStyle = [
 ];
 
 const maxMapCommandRetries = 8;
+const homeMapDefaultZoom = 15.5;
 const normalBaseMapType = MapType.NORMAL as unknown as ComponentProps<typeof MapView>["mapType"];
 
 const isMapNotInitializedError = (error: unknown) =>
@@ -360,24 +361,31 @@ const MapOverviewComponent = (
     [],
   );
 
-  const moveCameraTo = useCallback((coordinate: { latitude: number; longitude: number }, zoom = 14) => {
+  const moveCameraTo = useCallback((coordinate: { latitude: number; longitude: number }) => {
     if (!mapControllerRef.current || !hasLoadedMapRef.current || !canRunMapCommandsRef.current) {
       return false;
     }
 
-    void Promise.resolve(
-      mapControllerRef.current.moveCamera({
-        target: toLatLng(coordinate),
-        tilt: 0,
-        zoom,
-      }),
-    ).catch((error) => {
-      if (isMapNotInitializedError(error)) {
-        canRunMapCommandsRef.current = false;
-        pendingFocusTargetRef.current = focusTarget ?? pendingFocusTargetRef.current;
-        setMapCommandRetryToken((currentValue) => currentValue + 1);
-      }
-    });
+    const controller = mapControllerRef.current;
+
+    void Promise.resolve(controller.getCameraPosition?.())
+      .catch(() => null)
+      .then((cameraPosition) =>
+        Promise.resolve(
+          controller.moveCamera({
+            target: toLatLng(coordinate),
+            tilt: 0,
+            zoom: typeof cameraPosition?.zoom === "number" ? cameraPosition.zoom : homeMapDefaultZoom,
+          }),
+        ),
+      )
+      .catch((error) => {
+        if (isMapNotInitializedError(error)) {
+          canRunMapCommandsRef.current = false;
+          pendingFocusTargetRef.current = focusTarget ?? pendingFocusTargetRef.current;
+          setMapCommandRetryToken((currentValue) => currentValue + 1);
+        }
+      });
 
     return true;
   }, [focusTarget]);
@@ -394,7 +402,7 @@ const MapOverviewComponent = (
         controller.moveCamera({
           target: initialCameraTargetRef.current,
           tilt: 0,
-          zoom: 13,
+          zoom: homeMapDefaultZoom,
         }),
       )
         .then(() => {
@@ -527,7 +535,7 @@ const MapOverviewComponent = (
     }
 
     const center = centerLookup[target.centerId];
-    return center ? moveCameraTo(center, 13) : true;
+    return center ? moveCameraTo(center) : true;
   }, [centerLookup, currentUserMarker, markerLookup, moveCameraTo]);
 
   useEffect(() => {
@@ -566,7 +574,7 @@ const MapOverviewComponent = (
         initialCameraPosition={{
           target: initialCameraTargetRef.current,
           tilt: 0,
-          zoom: 13,
+          zoom: homeMapDefaultZoom,
         }}
         indoorEnabled={false}
         mapColorScheme={mapTheme === "dark" ? MapColorScheme.DARK : MapColorScheme.LIGHT}

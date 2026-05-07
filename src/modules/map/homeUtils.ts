@@ -50,33 +50,48 @@ export const buildHomeMarkerRenderSignature = (
     .map((marker) => `${marker.markerId}:${sanitizeHomeMarkerPhotoURL(marker.photoURL) ?? "initials"}`)
     .join("|");
 
-export const sortNearbySafetyHubs = (
-  centers: Array<{
-    centerId: string;
-    distanceMeters?: number;
-    latitude: number;
-    longitude: number;
-    name: string;
-  }>,
-  currentLocation: MapCoordinate | null,
-) => {
-  const getDistanceMeters = (center: { distanceMeters?: number; latitude: number; longitude: number }) =>
-    center.distanceMeters ??
-    (currentLocation ? Math.round(locationService.distanceBetween(currentLocation, center)) : Number.POSITIVE_INFINITY);
+export const NEARBY_SAFETY_HUB_MAX_DISTANCE_METERS = 2_000;
 
-  return [...centers]
+type NearbySafetyHubCandidate = {
+  centerId: string;
+  distanceMeters?: number;
+  latitude: number;
+  longitude: number;
+  name: string;
+};
+
+const resolveSafetyHubDistanceMeters = (
+  center: Pick<NearbySafetyHubCandidate, "distanceMeters" | "latitude" | "longitude">,
+  currentLocation: MapCoordinate | null,
+) =>
+  center.distanceMeters ??
+  (currentLocation ? Math.round(locationService.distanceBetween(currentLocation, center)) : Number.POSITIVE_INFINITY);
+
+export const sortNearbySafetyHubs = <T extends NearbySafetyHubCandidate>(
+  centers: T[],
+  currentLocation: MapCoordinate | null,
+) =>
+  centers
+    .map((center) => ({
+      center,
+      distanceMeters: resolveSafetyHubDistanceMeters(center, currentLocation),
+    }))
+    .filter(({ distanceMeters }) => distanceMeters <= NEARBY_SAFETY_HUB_MAX_DISTANCE_METERS)
     .sort((left, right) => {
-      const leftDistance = getDistanceMeters(left);
-      const rightDistance = getDistanceMeters(right);
+      const leftDistance = left.distanceMeters;
+      const rightDistance = right.distanceMeters;
 
       if (leftDistance !== rightDistance) {
         return leftDistance - rightDistance;
       }
 
-      return left.name.localeCompare(right.name);
+      return left.center.name.localeCompare(right.center.name);
     })
+    .map(({ center, distanceMeters }) => ({
+      ...center,
+      distanceMeters,
+    }))
     .slice(0, 8);
-};
 
 export const buildHomeMapMarkers = ({
   blockedUserIds = [],

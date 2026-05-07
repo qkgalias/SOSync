@@ -48,7 +48,7 @@ describe("HomeSafetyHubFooter", () => {
             capacity: 260,
             centerId: "far-1",
             contact: "456",
-            distanceMeters: 4_250,
+            distanceMeters: 1_750,
             latitude: 10.4,
             longitude: 123.98,
             name: "Far Hub",
@@ -71,5 +71,21 @@ describe("HomeSafetyHubFooter", () => {
     fireEvent.press(arrowButtons[0]);
 
     expect(onStartNavigation).toHaveBeenCalledWith("near-1");
+  });
+
+  it("renders the no nearby hubs card when the visible hub list is empty", () => {
+    const screen = render(
+      <HomeSafetyHubFooter
+        appearance="light"
+        nearbySafetyHubs={[]}
+        onStartNavigation={jest.fn()}
+        palette={getHomeMapPalette("light")}
+        selectedCenterId={null}
+      />,
+    );
+
+    expect(screen.getByText("Nearby Safety Hubs")).toBeTruthy();
+    expect(screen.getByText("No nearby safety hubs available")).toBeTruthy();
+    expect(screen.getByText("No nearby safety hubs found within 2 km of your location.")).toBeTruthy();
   });
 });

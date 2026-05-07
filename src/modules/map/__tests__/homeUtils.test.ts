@@ -4,6 +4,7 @@ import {
   buildHomeMarkerRenderSignature,
   buildGoogleMapsDirectionsUrls,
   HOME_SHEET_SNAP_POINTS,
+  NEARBY_SAFETY_HUB_MAX_DISTANCE_METERS,
   resolveHomeMarkerDisplayName,
   resolveHomeAddressLabel,
   resolveHomeMapAppearance,
@@ -238,35 +239,91 @@ describe("homeUtils", () => {
     expect(resolveHomeAddressLabel({ groupName: "Family Circle" })).toBe("Family Circle");
   });
 
-  it("sorts nearby safety hubs by distance from nearest to farthest", () => {
+  it("keeps only safety hubs within 2 km and sorts nearest to farthest", () => {
     const hubs = sortNearbySafetyHubs(
       [
         {
           centerId: "far",
-          distanceMeters: 4_500,
+          distanceMeters: 2_001,
           latitude: 10.4,
           longitude: 123.95,
           name: "Far Hub",
         },
         {
           centerId: "near",
-          distanceMeters: 900,
+          distanceMeters: 850,
           latitude: 10.31,
           longitude: 123.91,
           name: "Near Hub",
         },
         {
           centerId: "mid",
-          distanceMeters: 2_400,
+          distanceMeters: 1_600,
           latitude: 10.35,
           longitude: 123.93,
           name: "Mid Hub",
+        },
+        {
+          centerId: "edge",
+          distanceMeters: NEARBY_SAFETY_HUB_MAX_DISTANCE_METERS,
+          latitude: 10.35,
+          longitude: 123.94,
+          name: "Edge Hub",
         },
       ],
       { latitude: 10.3, longitude: 123.9 },
     );
 
-    expect(hubs.map((hub) => hub.centerId)).toEqual(["near", "mid", "far"]);
+    expect(hubs.map((hub) => hub.centerId)).toEqual(["near", "mid", "edge"]);
+  });
+
+  it("respects backend-provided safety hub distance before coordinate fallback", () => {
+    const hubs = sortNearbySafetyHubs(
+      [
+        {
+          centerId: "provided-near",
+          distanceMeters: 500,
+          latitude: 14.5995,
+          longitude: 120.9842,
+          name: "Provided Near Hub",
+        },
+        {
+          centerId: "provided-far",
+          distanceMeters: 2_500,
+          latitude: 10.3001,
+          longitude: 123.9001,
+          name: "Provided Far Hub",
+        },
+      ],
+      { latitude: 10.3, longitude: 123.9 },
+    );
+
+    expect(hubs.map((hub) => hub.centerId)).toEqual(["provided-near"]);
+    expect(hubs[0]).toEqual(expect.objectContaining({ distanceMeters: 500 }));
+  });
+
+  it("falls back to local distance when safety hub distance is missing", () => {
+    const hubs = sortNearbySafetyHubs(
+      [
+        {
+          centerId: "fallback-near",
+          latitude: 10.3005,
+          longitude: 123.9005,
+          name: "Fallback Near Hub",
+        },
+        {
+          centerId: "fallback-far",
+          latitude: 10.34,
+          longitude: 123.94,
+          name: "Fallback Far Hub",
+        },
+      ],
+      { latitude: 10.3, longitude: 123.9 },
+    );
+
+    expect(hubs.map((hub) => hub.centerId)).toEqual(["fallback-near"]);
+    expect(hubs[0]?.distanceMeters).toEqual(expect.any(Number));
+    expect(hubs[0]?.distanceMeters).toBeLessThanOrEqual(NEARBY_SAFETY_HUB_MAX_DISTANCE_METERS);
   });
 
   it("chooses system-aware Home appearance", () => {

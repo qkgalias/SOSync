@@ -8,6 +8,7 @@ import type { DisasterAlert, EvacuationCenter, HomeMapMarker } from "@/types";
 const mockAddCircle = jest.fn().mockResolvedValue(undefined);
 const mockAddMarker = jest.fn().mockResolvedValue(undefined);
 const mockClearMapView = jest.fn();
+const mockGetCameraPosition = jest.fn().mockResolvedValue({ zoom: 16.75 });
 const mockMoveCamera = jest.fn();
 
 jest.mock("@googlemaps/react-native-navigation-sdk", () => {
@@ -28,6 +29,7 @@ jest.mock("@googlemaps/react-native-navigation-sdk", () => {
           addCircle: mockAddCircle,
           addMarker: mockAddMarker,
           clearMapView: mockClearMapView,
+          getCameraPosition: mockGetCameraPosition,
           moveCamera: mockMoveCamera,
         });
         onMapReady?.();
@@ -92,6 +94,7 @@ describe("MapOverview native Navigation SDK map", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetCameraPosition.mockResolvedValue({ zoom: 16.75 });
   });
 
   it("adds evacuation centers, alerts, and home markers to the Navigation SDK map", async () => {
@@ -233,7 +236,58 @@ describe("MapOverview native Navigation SDK map", () => {
     expect(onCenterRoutePress).toHaveBeenCalledWith("center-1");
   });
 
-  it("moves the Navigation SDK camera when Home issues a focus target", async () => {
+  it("starts the Home map with a closer default zoom", async () => {
+    const screen = render(
+      <MapOverview
+        alerts={[]}
+        centers={[center]}
+        mapTheme="dark"
+        markers={[currentUserMarker]}
+      />,
+    );
+
+    expect(screen.getByTestId("navigation-view").props.initialCameraPosition).toEqual(
+      expect.objectContaining({
+        target: { lat: 10.3, lng: 123.9 },
+        zoom: 15.5,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockMoveCamera).toHaveBeenCalledWith(
+        expect.objectContaining({
+          target: { lat: 10.3, lng: 123.9 },
+          zoom: 15.5,
+        }),
+      );
+    });
+  });
+
+  it("moves the Navigation SDK camera using the current map zoom when Home issues a focus target", async () => {
+    render(
+      <MapOverview
+        alerts={[]}
+        centers={[center]}
+        focusTarget={{ kind: "center", centerId: "center-1", token: 1 }}
+        mapTheme="dark"
+        markers={[currentUserMarker]}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockGetCameraPosition).toHaveBeenCalled();
+      expect(mockMoveCamera).toHaveBeenCalledWith(
+        expect.objectContaining({
+          target: { lat: 10.261, lng: 123.849 },
+          zoom: 16.75,
+        }),
+      );
+    });
+  });
+
+  it("uses the closer default zoom for focus if current camera lookup is unavailable", async () => {
+    mockGetCameraPosition.mockRejectedValueOnce(new Error("camera unavailable"));
+
     render(
       <MapOverview
         alerts={[]}
@@ -248,7 +302,7 @@ describe("MapOverview native Navigation SDK map", () => {
       expect(mockMoveCamera).toHaveBeenCalledWith(
         expect.objectContaining({
           target: { lat: 10.261, lng: 123.849 },
-          zoom: 13,
+          zoom: 15.5,
         }),
       );
     });

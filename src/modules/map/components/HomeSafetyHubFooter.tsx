@@ -109,7 +109,7 @@ export const HomeSafetyHubFooter = ({
               No nearby safety hubs available
             </Text>
             <Text className="mt-1 text-[13px]" style={{ color: palette.sheetTextMuted }}>
-              Location access is required to resolve nearby hubs.
+              No nearby safety hubs found within 2 km of your location.
             </Text>
           </View>
         )}
