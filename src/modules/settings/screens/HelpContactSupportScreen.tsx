@@ -8,6 +8,7 @@ import { Button } from "@/components/Button";
 import { Screen } from "@/components/Screen";
 import { SUPPORT_EMAIL, buildMailtoUrl, getResolvedAppVersion, getResolvedBuildLabel } from "@/modules/settings/helpAboutUtils";
 import { useAppTheme } from "@/providers/AppThemeProvider";
+import { supportService } from "@/services/supportService";
 import { goBackOrReplace } from "@/utils/helpers";
 
 export default function HelpContactSupportScreen() {
@@ -15,6 +16,8 @@ export default function HelpContactSupportScreen() {
   const { themeTokens } = useAppTheme();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     const trimmedMessage = message.trim();
@@ -24,6 +27,7 @@ export default function HelpContactSupportScreen() {
     }
 
     setError("");
+    setFeedback("");
     const body = [
       "Support Request",
       "",
@@ -34,13 +38,29 @@ export default function HelpContactSupportScreen() {
       `Build: ${getResolvedBuildLabel()}`,
     ].join("\n");
 
-    await Linking.openURL(
-      buildMailtoUrl({
-        to: SUPPORT_EMAIL,
-        subject: "SOSync Support Request",
-        body,
-      }),
-    );
+    setSubmitting(true);
+    try {
+      const result = await supportService.submitSupportRequest({
+        appVersion: getResolvedAppVersion(),
+        buildLabel: getResolvedBuildLabel(),
+        deviceModel: Device.modelName ?? "Unknown device",
+        message: trimmedMessage,
+      });
+      setFeedback(`Support request received. Reference: ${result.requestId}`);
+      setMessage("");
+    } catch (submitError) {
+      console.warn("Support backend submission failed; opening email fallback.", submitError);
+      await Linking.openURL(
+        buildMailtoUrl({
+          to: SUPPORT_EMAIL,
+          subject: "SOSync Support Request",
+          body,
+        }),
+      );
+      setFeedback("We opened an email draft as a fallback because in-app support submission is unavailable.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -67,10 +87,12 @@ export default function HelpContactSupportScreen() {
           value={message}
         />
         {error ? <Text className="mt-2 text-[12px] leading-5 text-dangerText">{error}</Text> : null}
+        {feedback ? <Text className="mt-2 text-[12px] leading-5 text-accent">{feedback}</Text> : null}
 
         <Button
           className="mt-8 min-h-12 self-center rounded-full px-8"
-          label="Send Support Request"
+          disabled={submitting}
+          label={submitting ? "Sending..." : "Send Support Request"}
           onPress={() => {
             void handleSubmit();
           }}

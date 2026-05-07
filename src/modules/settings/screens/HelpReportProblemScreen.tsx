@@ -1,4 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
+import * as Device from "expo-device";
 import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Linking, Pressable, Text, TextInput, View } from "react-native";
@@ -18,23 +19,30 @@ import {
   getSelectedMediaLabel,
 } from "@/modules/settings/helpAboutUtils";
 import { Screen } from "@/components/Screen";
+import { useAuthSession } from "@/hooks/useAuthSession";
 import { useAppTheme } from "@/providers/AppThemeProvider";
+import { supportService } from "@/services/supportService";
 import { cn, goBackOrReplace } from "@/utils/helpers";
 
 type SelectedMedia = {
   uri: string;
   fileName?: string | null;
+  mimeType?: string | null;
   type?: string | null;
 };
 
 export default function HelpReportProblemScreen() {
   const router = useRouter();
+  const { authUser } = useAuthSession();
   const { themeTokens } = useAppTheme();
   const [category, setCategory] = useState<ReportProblemCategory | null>(REPORT_PROBLEM_CATEGORIES[0] ?? null);
   const [otherReason, setOtherReason] = useState("");
+  const [description, setDescription] = useState("");
   const [deviceModel, setDeviceModel] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia | null>(null);
   const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const needsOtherReason = category === "Other";
   const versionLabel = getResolvedAppVersion();
@@ -61,6 +69,7 @@ export default function HelpReportProblemScreen() {
     setSelectedMedia({
       uri: result.assets[0].uri,
       fileName: result.assets[0].fileName,
+      mimeType: result.assets[0].mimeType,
       type: result.assets[0].type,
     });
     setError("");
@@ -77,27 +86,70 @@ export default function HelpReportProblemScreen() {
       return;
     }
 
+    const trimmedDescription = description.trim();
+    if (!trimmedDescription) {
+      setError("Please describe what happened before submitting your report.");
+      return;
+    }
+
+    if (!authUser?.uid) {
+      setError("Sign in is required before submitting a problem report.");
+      return;
+    }
+
     setError("");
+    setFeedback("");
+    setSubmitting(true);
+    const reportId = supportService.createReportId();
+    const resolvedDeviceModel = deviceModel.trim() || Device.modelName || "Unknown device";
 
     const detailLines = [
       "Problem Report",
       "",
       `Category: ${category}`,
       needsOtherReason ? `Other reason: ${otherReason.trim()}` : null,
-      `Device: ${deviceModel.trim() || "Not provided"}`,
+      `Description: ${trimmedDescription}`,
+      `Device: ${resolvedDeviceModel}`,
       `Technical Data: ${technicalData}`,
       selectedMedia
         ? `Selected media: ${getSelectedMediaLabel(selectedMedia.uri, selectedMedia.fileName)} (attach manually from your mail app if needed)`
         : "Selected media: None",
     ].filter(Boolean);
 
-    await Linking.openURL(
-      buildMailtoUrl({
-        to: SUPPORT_EMAIL,
-        subject: `SOSync Problem Report - ${category}`,
-        body: detailLines.join("\n"),
-      }),
-    );
+    try {
+      const mediaFiles = selectedMedia
+        ? [await supportService.uploadReportMedia(authUser.uid, reportId, selectedMedia)]
+        : [];
+
+      const result = await supportService.submitProblemReport({
+        appVersion: versionLabel,
+        buildLabel,
+        category,
+        deviceModel: resolvedDeviceModel,
+        mediaFiles,
+        message: trimmedDescription,
+        otherReason: needsOtherReason ? otherReason.trim() : undefined,
+        reportId,
+      });
+
+      setFeedback(`Problem report submitted. Reference: ${result.reportId}`);
+      setDescription("");
+      setOtherReason("");
+      setDeviceModel("");
+      setSelectedMedia(null);
+    } catch (submitError) {
+      console.warn("Problem report backend submission failed; opening email fallback.", submitError);
+      await Linking.openURL(
+        buildMailtoUrl({
+          to: SUPPORT_EMAIL,
+          subject: `SOSync Problem Report - ${category}`,
+          body: detailLines.join("\n"),
+        }),
+      );
+      setFeedback("We opened an email draft as a fallback because in-app report submission is unavailable.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -161,6 +213,24 @@ export default function HelpReportProblemScreen() {
         ) : null}
 
         <View className="mt-4">
+          <Text className="mb-3 text-[13px] font-medium text-ink">What happened? (required)</Text>
+          <TextInput
+            multiline
+            className="min-h-[118px] rounded-[16px] border border-line bg-input px-4 py-4 text-[15px] leading-6 text-ink"
+            onChangeText={(value) => {
+              setDescription(value);
+              if (error) {
+                setError("");
+              }
+            }}
+            placeholder="Describe what you expected, what happened, and where you were in the app."
+            placeholderTextColor={themeTokens.textMuted}
+            textAlignVertical="top"
+            value={description}
+          />
+        </View>
+
+        <View className="mt-4">
           <View className="flex-row items-center justify-between">
             <Text className="text-[13px] font-medium text-ink">Attach Screenshot (optional)</Text>
             <MaterialCommunityIcons color={themeTokens.textMuted} name="paperclip" size={18} />
@@ -178,7 +248,7 @@ export default function HelpReportProblemScreen() {
           </Pressable>
           {selectedMedia ? (
             <Text className="mt-2 text-[12px] leading-5 text-muted">
-              Selected locally. You may need to attach it manually in your mail app before sending.
+              Selected media will be uploaded with your report when in-app submission is available.
             </Text>
           ) : null}
         </View>
@@ -200,10 +270,12 @@ export default function HelpReportProblemScreen() {
         </View>
 
         {error ? <Text className="mt-3 text-[12px] leading-5 text-dangerText">{error}</Text> : null}
+        {feedback ? <Text className="mt-3 text-[12px] leading-5 text-accent">{feedback}</Text> : null}
 
         <Button
           className="mt-8 min-h-12 self-center rounded-full px-8"
-          label="Submit Report"
+          disabled={submitting}
+          label={submitting ? "Submitting..." : "Submit Report"}
           onPress={() => {
             void handleSubmit();
           }}

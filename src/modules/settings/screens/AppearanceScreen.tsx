@@ -85,18 +85,6 @@ export default function AppearanceScreen() {
           <Text className="ml-4 text-[18px] text-ink">English</Text>
         </View>
       </View>
-
-      <Text className="mb-3 mt-8 text-[16px] font-semibold text-ink">Text</Text>
-      <View className="rounded-[22px] bg-panel px-5 py-4">
-        <View className="flex-row items-center">
-          <View className="h-8 w-8 items-center justify-center">
-            <MaterialCommunityIcons color={themeTokens.accentPrimary} name="format-font" size={26} />
-          </View>
-          <Text className="ml-4 flex-1 text-[18px] text-ink">Font</Text>
-          <Text className="mr-2 text-[18px] text-ink">System</Text>
-          <MaterialCommunityIcons color={themeTokens.textPrimary} name="chevron-right" size={24} />
-        </View>
-      </View>
     </Screen>
   );
 }

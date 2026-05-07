@@ -146,12 +146,12 @@ export default function EditProfileScreen() {
             {deleteFeedback ? <Text className="mt-1 text-sm text-danger">{deleteFeedback}</Text> : null}
 
             <Button
-              className="mt-5 min-h-11 rounded-full border border-danger bg-transparent"
+              className="mt-5 rounded-full bg-profileAccent"
               label="Delete account"
               loading={loadingDelete}
               onPress={handleDeleteAccount}
-              textClassName="text-danger"
-              variant="danger"
+              textClassName="text-white"
+              variant="primary"
             />
           </View>
         </View>

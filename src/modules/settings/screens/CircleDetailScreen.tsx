@@ -448,12 +448,12 @@ export default function CircleDetailScreen() {
       {message ? <Text className="mt-1 text-sm text-accent">{message}</Text> : null}
 
       <Button
-        className="mt-2 min-h-11 rounded-full border border-danger bg-transparent"
+        className="mt-2 rounded-full bg-profileAccent"
         label="Leave circle"
         loading={loadingAction === `leave:${circle.groupId}`}
         onPress={handleLeaveCircle}
-        textClassName="text-danger"
-        variant="danger"
+        textClassName="text-white"
+        variant="primary"
       />
 
       <MemberActionModal

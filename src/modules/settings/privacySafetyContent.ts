@@ -89,6 +89,7 @@ export const MANAGED_CIRCLE_ACCESS = {
 export const PRIVACY_POLICY_CONTENT = {
   title: "Privacy Policy",
   subtitle: "Detailed Data Rights & Usage Policies",
+  hostedUrl: "https://sosync.app/privacy",
   cards: [
     {
       title: "What we collect",
@@ -114,6 +115,7 @@ export const PRIVACY_POLICY_CONTENT = {
 export const TERMS_AND_CONDITIONS_CONTENT = {
   title: "Terms & Conditions",
   subtitle: "A clear agreement for responsible app usage.",
+  hostedUrl: "https://sosync.app/terms",
   cards: [
     {
       title: "Intended use",

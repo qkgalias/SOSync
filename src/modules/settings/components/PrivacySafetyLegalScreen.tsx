@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 
 import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
@@ -53,6 +53,18 @@ export const PrivacySafetyLegalScreen = ({ activeTab }: { activeTab: LegalTab })
         {content.cards.map((card) => (
           <PrivacySafetyInfoCard key={card.title} {...card} />
         ))}
+        <Pressable
+          accessibilityRole="link"
+          className="mt-2 rounded-[14px] bg-panel px-4 py-4"
+          onPress={() => {
+            void Linking.openURL(content.hostedUrl);
+          }}
+        >
+          <Text className="text-[14px] font-semibold text-ink">Open hosted {content.title}</Text>
+          <Text className="mt-1 text-[12px] leading-5 text-muted">
+            Hosted policy content is the release source of truth; this in-app screen is a readable summary.
+          </Text>
+        </Pressable>
       </View>
     </Screen>
   );

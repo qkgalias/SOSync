@@ -59,7 +59,7 @@ export const EMERGENCY_USAGE_GUIDE_CONTENT = {
     {
       title: "2. Situation Context is Key",
       body:
-        "Proactively share your Safety Status (Safe, Help, Evacuation) and Live Location. This gives your circle essential context before or after an alert, making their response more effective.",
+        "Keep Live Location on when you want your circle to see where you are. This gives them context before or after an SOS alert.",
       iconName: "map-marker-path",
     },
     {
@@ -78,7 +78,7 @@ export const HELP_FAQ_ITEMS: HelpFaqItem[] = [
   },
   {
     question: "Can I belong to more than one circle?",
-    answer: "Yes. SOSync keeps your memberships and lets you switch the active circle from the Account screen.",
+    answer: "Yes. SOSync keeps your memberships and lets you switch the active circle from the Home bottom sheet.",
   },
   {
     question: "Will my own SOS appear as a notification?",
