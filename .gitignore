@@ -50,6 +50,7 @@ junit.xml
 
 # local emulator logs
 firestore-debug.log
+firebase-debug.log
 
 # firebase functions build output
 functions/lib/
