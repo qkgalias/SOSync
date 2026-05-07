@@ -20,6 +20,7 @@ import { useBlockedUsers } from "@/hooks/useBlockedUsers";
 import { useGroupMembers } from "@/hooks/useGroupMembers";
 import { useLocation } from "@/hooks/useLocation";
 import { SlideToCancel } from "@/modules/sos/components/SlideToCancel";
+import { resolveSosSendBlockReason } from "@/modules/sos/sosSendGuards";
 import { useAppTheme } from "@/providers/AppThemeProvider";
 import { firestoreService } from "@/services/firestoreService";
 import { USER_SEED } from "@/utils/constants";
@@ -137,6 +138,7 @@ export default function SosScreen() {
   const { authUser, profile, selectedGroupId } = useAuthSession();
   const { blockedUserIds } = useBlockedUsers(authUser?.uid);
   const privacy = profile?.privacy ?? USER_SEED.privacy;
+  const safety = profile?.safety ?? USER_SEED.safety;
   const members = useGroupMembers(selectedGroupId).filter((member) => !blockedUserIds.includes(member.userId));
   const { currentLocation } = useLocation(
     authUser?.uid,
@@ -217,6 +219,19 @@ export default function SosScreen() {
       return;
     }
 
+    const blockReason = resolveSosSendBlockReason({
+      autoShareLocationOnSos: Boolean(safety.autoShareLocationOnSos),
+      currentLocation,
+      locationSharingEnabled: Boolean(privacy.locationSharingEnabled),
+      selectedGroupId,
+      userId: authUser?.uid,
+    });
+
+    if (blockReason) {
+      setStatusMessage(blockReason);
+      return;
+    }
+
     setStatusMessage("After the countdown starts, slide to cancel if you need to stop.");
     setCountdown(COUNTDOWN_SECONDS);
   };
@@ -241,20 +256,25 @@ export default function SosScreen() {
     }
 
     const send = async () => {
-      if (!authUser?.uid) {
-        setStatusMessage("Sign in is required before SOS can be sent.");
+      const blockReason = resolveSosSendBlockReason({
+        autoShareLocationOnSos: Boolean(safety.autoShareLocationOnSos),
+        currentLocation,
+        locationSharingEnabled: Boolean(privacy.locationSharingEnabled),
+        selectedGroupId,
+        userId: authUser?.uid,
+      });
+
+      if (blockReason) {
+        setStatusMessage(blockReason);
         setCountdown(null);
         return;
       }
 
-      if (!selectedGroupId) {
-        setStatusMessage("Join a trusted circle first so SOS has someone to reach.");
-        setCountdown(null);
-        return;
-      }
-
-      if (!currentLocation) {
-        setStatusMessage("Location is required before SOS can be sent.");
+      const senderId = authUser?.uid;
+      const groupId = selectedGroupId;
+      const location = currentLocation;
+      if (!senderId || !groupId || !location) {
+        setStatusMessage("Unable to send the SOS right now.");
         setCountdown(null);
         return;
       }
@@ -263,11 +283,11 @@ export default function SosScreen() {
 
       try {
         await firestoreService.createSosEvent({
-          groupId: selectedGroupId,
-          senderId: authUser.uid,
+          groupId,
+          senderId,
           message: "Immediate assistance requested. Check the live map for my current location.",
-          latitude: currentLocation.latitude,
-          longitude: currentLocation.longitude,
+          latitude: location.latitude,
+          longitude: location.longitude,
         });
         setStatusMessage(
           recipientCount > 0
@@ -283,7 +303,15 @@ export default function SosScreen() {
     };
 
     void send();
-  }, [authUser?.uid, countdown, currentLocation, recipientCount, selectedGroupId]);
+  }, [
+    authUser?.uid,
+    countdown,
+    currentLocation,
+    privacy.locationSharingEnabled,
+    recipientCount,
+    safety.autoShareLocationOnSos,
+    selectedGroupId,
+  ]);
 
   const primaryMessage =
     countdown !== null
