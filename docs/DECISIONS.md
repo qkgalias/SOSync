@@ -180,6 +180,16 @@
   - A full-page layout reads more clearly on different Android screen ratios.
   - Slide-to-cancel reduces accidental cancellation compared with a simple tap target.
 
+## 2026-05 SOS Requires Location-Sharing Consent
+
+- Decision:
+  - Block SOS countdown and send when live location sharing is off.
+  - Also block SOS when Auto-share location on SOS is off, because current `sos_events` still require coordinates.
+  - Enforce the same requirement in Firestore rules for `sos_events` creation.
+- Why:
+  - A cached device coordinate from private map context must not bypass the user's paused sharing preference.
+  - Server-side rules keep stale or modified clients from creating coordinate-bearing SOS events after the user has disabled sharing.
+
 ## 2026-03 Signed-In Profile Uses Dedicated Account, Permissions, Privacy, Help, And Appearance Surfaces
 
 - Decision:
@@ -245,6 +255,7 @@
 ## 2026-04 Nearest Safety Hub Uses Direct Google Maps Handoff
 
 - Decision:
+  - Superseded by `2026-05 Evacuation Routing Stays In App And Centers Are Location-Scoped`.
   - Keep nearest-hub routing lightweight in v1 by selecting a hub inside SOSync and handing off directly to Google Maps for navigation.
   - Replace raw native evacuation-center callouts with a custom tapped-center bubble that shows the center name, address, and a navigation action.
   - Keep the existing authenticated backend route proxy dormant for now instead of deleting it, so the app can reuse it later without another backend rebuild.
@@ -252,6 +263,73 @@
   - Direct Maps handoff is clearer and lighter than mixing a partial in-app preview with an external navigation action.
   - The raw Google marker callout does not match the rest of the Home map UI or the custom user bubble language.
   - Keeping the backend route proxy dormant lowers risk now while preserving an easy path back to in-app routing if the product needs it later.
+
+## 2026-05 Evacuation Routing Stays In App And Centers Are Location-Scoped
+
+- Decision:
+  - Superseded by `2026-05 Android Evacuation Navigation Uses Google Navigation SDK`.
+  - Show evacuation centers only when they are near the user's current coordinate, with the authenticated Cloud Function filtering PH centers server-side by service radius before the app renders them.
+  - Apply a stricter Home UI visibility cap of 2 km for map markers, safety-hub cards, and route-preview entry points, while keeping an empty state when no returned centers qualify.
+  - Block direct client reads of the full `evacuation_centers` collection so the backend remains the visible-center gate.
+  - Replace direct Google Maps handoff with Home-based route preview for `Walk`, `Two-wheel`, and `Four-wheel` travel modes.
+  - Render the route polyline, ETA/distance, warnings, and compact steps inside SOSync, while deferring full live turn-by-turn navigation.
+- Why:
+  - Users should not see Manila/Luzon evacuation options while they are in Visayas/Cebu, because that creates false safety affordances during an emergency.
+  - Keeping directions in Home lets users compare modes and routes without context-switching away from live circle/location awareness.
+  - Server-side filtering protects the full center list from broad client reads and gives the product one place to tune visibility radius.
+  - Route preview is useful now, while voice/navigation-grade guidance would require a larger reliability and UX pass.
+
+## 2026-05 Android Evacuation Navigation Uses Google Navigation SDK
+
+- Decision:
+  - Keep nearby evacuation-center filtering in the authenticated backend function, but move active Home navigation to Google Navigation SDK for React Native on Android.
+  - Replace the previous route-preview/polyline Home experience with a full-screen built-in Google navigation surface inside SOSync.
+  - Map `Walk`, `Two-wheel`, and `Four-wheel` to the SDK walking, two-wheeler, and driving travel modes.
+  - Stop guidance when the user taps the explicit back/stop control or leaves the navigation surface.
+  - Keep the backend `getEvacuationRoute` proxy available as dormant fallback/debt, not as the surfaced Home navigation path.
+  - Disable native mini-map surfaces that depend on `react-native-maps` while the Navigation SDK is installed, because Google’s Navigation SDK and Maps SDK should not coexist in the same Android app.
+- Why:
+  - The product requirement is Maps-like turn-by-turn guidance, not just a polyline and written steps.
+  - Google Navigation SDK owns route calculation, rerouting, ETA, and turn instructions more reliably than a custom route-preview UI.
+  - Staying Android-first matches the current validation platform and avoids pretending iOS Navigation SDK integration is already ready.
+  - Removing `react-native-maps` lowers the risk of duplicate Google Maps SDK conflicts in the native build.
+
+## 2026-05 Home Navigation Start Is Server-Authorized And Rate-Limited
+
+- Decision:
+  - Require an authenticated backend authorization step before Home starts or restarts Google Navigation SDK guidance to an evacuation center.
+  - Validate at authorization time that the requested center is still within the user's current nearby evacuation-center set before allowing guidance to start.
+  - Apply a Firestore-backed fixed-window limit of 5 navigation-start attempts per signed-in user per 5 minutes, shared across all nearby centers and all travel modes.
+  - Count mode switches that restart guidance against the same budget, but do not spend attempts for passive UI actions like simply opening the navigation surface.
+  - Keep blocked users inside the in-app navigation overlay and show an exact wait-time message derived from backend `retryAfterSeconds`.
+- Why:
+  - Active guidance now runs on-device through Google Navigation SDK, so a backend authorization boundary preserves a trustworthy per-user limit instead of relying on client-only restraint.
+  - Rechecking nearby-center eligibility at start time prevents stale or spoofed center selections from bypassing the product rule that evacuation guidance is only for nearby hubs.
+  - A fixed shared budget protects backend/navigation startup paths from rapid restart hammering while keeping the UX understandable during emergencies.
+
+## 2026-05 Home Safety-Hub Navigation Uses Preview And Trip Bottom Sheets
+
+- Decision:
+  - Remove always-visible travel-mode chips from the Home `Nearest Safety Hub` card and keep only a single `Navigate` CTA there.
+  - Open a Google-Maps-like route preview bottom sheet when the user taps `Navigate`, with travel-mode tabs, route summary, and a `Start` action inside the sheet.
+  - After guidance begins, remove the previous custom top overlay and keep SOSync-owned trip controls, retry states, and stop action in a bottom-sheet-style panel over the Navigation SDK map.
+  - Continue to allow mode switches during active guidance, but keep those controls inside the bottom sheet instead of on the Home footer or in a top banner.
+- Why:
+  - The Home footer should stay lightweight and should not expose route-mode choices before the user has explicitly entered the navigation flow.
+  - A preview sheet matches the mental model users already know from Google Maps better than immediate full-screen guidance with floating custom chrome.
+  - Moving live trip controls into a bottom sheet keeps the map cleaner and aligns the navigation surface with the rest of SOSync's sheet-based Home UI.
+
+## 2026-05 Home Navigation SDK Keeps SOSync Map Styling
+
+- Decision:
+  - Keep Home on Google Navigation SDK, but restore the prior SOSync map style and custom marker language through local Android-generated marker PNGs.
+  - Apply a local postinstall patch to the beta Navigation SDK so `mapStyle` can accept raw JSON and marker `imgPath` can point to cached local files as well as bundled assets.
+  - Generate circular current-user/member icons with profile photos or initials fallback, and use a branded local evacuation-center icon instead of default Google pins.
+- Why:
+  - Reintroducing `react-native-maps` would undermine the Android Navigation SDK migration and risk duplicate Maps SDK dependency conflicts.
+  - The default Google base map and red pins make Home feel visually disconnected from the rest of SOSync.
+  - Local generated PNGs preserve the previous avatar marker design while working within the Navigation SDK's native marker API.
+  - Evacuation-center route entry uses a React-rendered nametag overlay so the marker tap can stay purely presentational and only the nametag direction arrow opens the route preview.
 
 ## 2026-04 Home Prioritizes Visual Stability Over Eager Redraws
 
@@ -330,6 +408,25 @@
 - Why:
   - A saved appearance preference that only affects a few screens creates a broken-feeling product and makes the settings screen untrustworthy.
   - One semantic theme layer is easier to maintain than one-off dark patches and keeps the rounded emergency-first UI consistent across all major flows.
+
+## 2026-05 Pre-Release Hardening Focus
+
+- Decision:
+  - Treat the current Android live-device core flow as mostly validated.
+  - Move release focus to backend provisioning, live rules/index deployment, legacy circle migration, alert geography, Home map reliability, support/report operations, and theme QA.
+  - Keep full in-app messaging deferred and ignore unsupported `message` notification payloads for release.
+- Why:
+  - The highest remaining release risk is no longer whether the core Android app opens and navigates; it is whether live services, data shape, safety information, and support workflows are trustworthy under real use.
+
+## 2026-05 Support Reports Use Backend Queue First
+
+- Decision:
+  - Submit signed-in support requests and problem reports through authenticated Cloud Functions into `support_reports`.
+  - Store optional report media in Firebase Storage under `supportReports/{userId}/{reportId}/...`.
+  - Keep structured email drafts only as fallback when backend submission is unavailable.
+- Why:
+  - Email-only handoff made reports hard to track and gave users no durable in-app submission reference.
+  - A backend queue gives the team a minimal review surface without blocking the mobile release on a full admin console.
 
 ## 2026-03 Home Map Uses A Soft Pastel Palette And Stays Mounted Across Tabs
 

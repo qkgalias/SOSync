@@ -337,7 +337,7 @@ What the Home screen uses:
 - shared member locations
 - alerts
 - evacuation centers
-- route summary from the backend
+- Android Navigation SDK guidance state
 
 How it works:
 
@@ -345,8 +345,9 @@ How it works:
 - if live sharing is enabled, `useLocation` writes the location into Firestore
 - the app listens to other group members' locations from the `locations` collection
 - the app listens to alerts from the `alerts` collection
-- the app loads evacuation centers
-- when a route is requested, the app calls the backend HTTP endpoint `getEvacuationRoute`
+- the app loads nearby evacuation centers through the authenticated backend visibility gate
+- when navigation is requested on Android, the app opens Google Navigation SDK guidance inside SOSync
+- the backend `getEvacuationRoute` endpoint remains available as dormant fallback/debt, but Home active guidance no longer depends on it
 
 Web note:
 
@@ -676,7 +677,7 @@ This section groups dependencies by purpose instead of listing `package.json` li
 | --- | --- |
 | `expo-location` | Location permission, current location, and location watching. |
 | `expo-notifications` | Local and device notification permission handling and foreground notification presentation. |
-| `react-native-maps` | Native Home map experience on Android and iOS builds. |
+| `@googlemaps/react-native-navigation-sdk` | Android Home map and in-app evacuation turn-by-turn navigation. |
 | `expo-image-picker` | Picking profile photos from the device. |
 | `expo-clipboard` | Copying invite codes and invite text. |
 | `expo-constants` | Reading runtime config and app version details. |

@@ -7,12 +7,13 @@ For the shortest day-to-day command list, start with [Daily Testing Cheat Sheet]
 Run these first:
 
 ```bash
+npm run doctor:backend-release
 npm run typecheck
 npx jest --runInBand --watchman=false
 npm --prefix functions run build
 ```
 
-These checks confirm that the app TypeScript, current Jest suite, and Functions TypeScript all compile cleanly.
+These checks confirm that the backend release files are present, app TypeScript compiles, the current Jest suite passes, and Functions TypeScript builds cleanly.
 `npm test` may still try to use Watchman on some machines; prefer `npx jest --runInBand --watchman=false` for deterministic local runs.
 
 ## Android Smoke Test
@@ -23,7 +24,8 @@ Android prerequisites:
 
 - Android SDK installed locally.
 - Either `ANDROID_HOME` / `ANDROID_SDK_ROOT` is set, or `android/local.properties` points at your SDK path.
-- Use a development build, not Expo Go, because the app depends on native Firebase and map modules.
+- Use a development build, not Expo Go, because the app depends on native Firebase and Google Navigation SDK modules.
+- The Android Google API key must be authorized for package `com.sosync.mobile` plus the debug/release SHA1 and must have Maps SDK for Android and Navigation SDK enabled.
 - The Firebase project must already have a default Cloud Firestore database created.
 - The Firebase project must already have its default Firebase Storage bucket created if you want avatar upload to work.
 - Cloud Functions email verification requires `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to be configured in Firebase Functions before live testing.
@@ -103,7 +105,7 @@ What to verify:
 - join path: circle hub -> enter permanent 6-digit code -> permissions
 - invite-step and circle-name-step resume behavior after closing and reopening the app before permissions are complete
 - permissions and privacy defaults flow
-- full-screen Home map rendering with avatar markers, compact tap-to-show member name pills anchored beside the tapped marker, dynamic light/dark pastel scene styling, and the draggable bottom sheet
+- full-screen Home map rendering through Google Navigation SDK, restored SOSync light/dark map styling, circular avatar/member markers, evacuation-center markers, and the draggable bottom sheet
 - Android emulator GPS defaults to Google HQ (`1600 Amphitheatre Parkway`) unless you set a mock device location, so reset emulator location before judging whether Home is centering on the expected real-world area
 - on cold launch, Home should mount the map immediately, prefer the best already-known user location when available, and then recenter quietly when a fresher live fix arrives instead of blocking the first render
 - if Expo Dev Launcher opens instead of the SOSync app, prefer the emulator-safe `http://10.0.2.2:8081` server entry instead of stale `RECENTLY OPENED` LAN IPs before judging location or map behavior
@@ -119,14 +121,12 @@ What to verify:
 - trusted-circle chips should sit in a cleaner dedicated lane with enough top/bottom breathing room and a clearer gap before the divider below
 - the Home bottom sheet should end cleanly at the safety-hub section without a loose helper note or extra white tail under the final divider
 - Home `Report/SOS` CTA opens the SOS flow from the sheet
-- Home keeps the shared bottom tab bar visible during normal sheet use, and returning from other tabs should not visibly remount or flash the map
-- returning to Home from other tabs should not trigger the native map loading overlay or a noticeable wrapper repaint
-- quick Home <-> Hotlines/Profile/Alerts tab swaps should not feel like the native map scene is recreated; the scene should stay warm and preserve camera/sheet state
-- on Android, quick tab returns should still show the cached Home map frame immediately instead of flashing a blank/beige tile surface before the live map texture catches up, but cold start should not feel delayed by snapshot work
-- on Android fresh launch, the current-user map marker should show either initials immediately or the profile photo once loaded; it should not show as a blank white circle
-- on Android, switching away from Home and returning repeatedly should preserve marker avatars and should not re-center or repaint the map when the cached last GPS location is unchanged
-- Home marker avatars stay visible when switching tabs, backgrounding/foregrounding the app, and returning to Home without forcing an app restart
-- if a map avatar photo fails or stalls, the marker falls back to initials instead of showing a blank white bubble
+- Home keeps the shared bottom tab bar visible during normal sheet use, and returning from other tabs should not visibly remount or flash the Navigation SDK map
+- returning to Home from other tabs should not trigger a noticeable map wrapper repaint
+- quick Home <-> Hotlines/Profile/Alerts tab swaps should not feel like the native map scene is recreated; the scene should stay warm and preserve camera/sheet state as much as the Navigation SDK allows
+- on Android fresh launch, current-user and member locations should appear as circular avatar or initials markers, never default red Google pins
+- on Android fresh launch, the Home map should use the muted SOSync map style instead of the default POI-heavy Google map styling
+- on Android, switching away from Home and returning repeatedly should preserve visible markers and should not re-center or repaint the map when the cached last GPS location is unchanged
 - fully expanding the Home bottom sheet fades the top address pill and the right-side quick-member avatar stack out together, and lowering the sheet fades both back in together without a lingering shadow
 - Home floating `Flood risk` and `Weather` CTAs sit side by side just above the collapsed sheet with only a very small gap, hide before they visually overlap the rising main sheet, and open dedicated near-fullscreen sheets instead of routing away
 - the floating `Weather` CTA remains the only entry point into the full Weather sheet; the new Home header weather preview is informational only
@@ -141,7 +141,7 @@ What to verify:
 - the primary monitoring-point card should clearly say it is the nearest modeled reference for the user, not an exact street-level flood reading
 - nearby monitoring points should show distinct labels, distance, severity, trend, and updated time, and tapping one should open a centered popup modal instead of a nested bottom sheet
 - the `How to read this alert` section should stay short, plain-language, and easy to scan, without raw threshold numbers or raw unit strings in the main sheet
-- the in-sheet flood mini map should render the user location, nearby gauges, and polygons only when Google returns usable geometry; otherwise it should hide cleanly without empty placeholders
+- the in-sheet flood mini map is currently disabled while Home uses Google Navigation SDK; the flood sheet should hide that section cleanly without empty placeholders
 - when validating Philippines coverage, Talisay City, Cebu is the primary QA target for smoke testing, but the shipped feature should still reflect the device user's real current location
 - onboarding/auth dark-red sheets reach the bottom edge without a white strip in the bottom safe area
 - onboarding screens now match the same dark-red family as Profile/Settings, with no leftover coral/pink surfaces on welcome, sign-in, sign-up, verification, create/join circle, invite, or permissions
@@ -149,20 +149,37 @@ What to verify:
 - sign-in `Forgot Password?` validates the email field inline, sends a branded password reset email with generic success copy, and does not sign the user in or change routes
 - password reset email is delivered through the matching flat SOSync Resend template with one `Reset password` button, no visible raw reset URL, the `#650B11` theme, and the updated ignore-if-unrequested security notice
 - shared token consumers outside onboarding still look intentional after the universal token swap, especially the bottom tab active tint, notifications accents, and secondary buttons
-- safety-hub Maps handoff
-- tapping `Nearest Safety Hub` now selects and focuses the nearest hub without drawing an in-app route line
-- tapping an evacuation-center marker no longer shows the raw native Google callout; it shows a custom bubble with the center name, address, and a navigation icon
-- tapping the custom center-bubble navigation icon opens Google Maps directions to that tapped center
-- tapping a member marker, including the current user marker, should show the same compact member-name pill, and no member name should be visible by default on first Home load
+- in-app safety-hub navigation
+- set Android/emulator GPS near Talisay City, Cebu and confirm only nearby Visayas/Cebu centers are visible while Manila/Luzon centers are hidden
+- near Talisay, confirm the visible seeded centers can include `Talisay Sports Academy Center` and `Tabunok Barangay Hall`
+- set Android/emulator GPS near Manila and confirm Manila centers appear while Visayas/Cebu centers are hidden
+- near Manila, confirm the visible seeded centers can include `Don Bosco School` and `Dapitan Sports Complex`
+- Home should display only safety hubs within 2 km of the user in both the map markers and the `Nearby Safety Hubs` list; when none qualify, the list should show `No nearby safety hubs available`
+- tapping `Nearest Safety Hub` selects and focuses the nearest visible hub without opening an external app
+- tapping an evacuation-center marker selects that center on the Home map and shows its soft rounded nametag without changing the marker icon style
+- tapping the evacuation-center label text should not open navigation; only the direction arrow inside the nametag, or the Home safety-hub entry point, should open the in-app route preview bottom sheet
+- the Home safety-hub card should show only a single `Navigate` CTA and no always-visible `Walk`, `Two-wheel`, or `Four-wheel` chips
+- in the route preview sheet, switching `Walk`, `Two-wheel`, and `Four-wheel` should update the previewed route without starting guidance yet
+- pressing `Start` from the route preview sheet should begin in-app guidance after the Google/SOSync navigation terms flow if prompted
+- once guidance starts, the old custom top overlay should be gone and trip controls/status should live in the bottom-sheet-style navigation panel instead
+- starting in-app evacuation guidance 5 times within 5 minutes should continue to work for the same signed-in user, even when attempts are spread across different nearby centers or travel modes
+- the 6th guidance start attempt within that 5-minute window should stay inside the navigation overlay and show a clear wait-time message instead of starting guidance
+- while rate-limited, the retry action should remain blocked until the countdown expires, and after expiry the same nearby center should be able to start guidance again
+- if the selected evacuation center is no longer nearby for the user's current coordinate, the navigation overlay should refuse to start guidance with a nearby-center error instead of spending a navigation-start attempt
+- move the emulator GPS off-route and confirm the SDK updates/reroutes guidance
+- tapping `Stop`/back returns to Home and ends guidance cleanly
+- no external Google Maps app should open during navigation
+- tapping a member marker, including the current user marker, should keep Home focused on that marker without opening evacuation guidance
 - panning or zooming the map should dismiss the member-name pill immediately instead of letting it follow the screen
 - the member-name pill should be a clean oblong with no pointer arrow
 - tapping a Home contact name with a saved phone number should show the same `Cancel / Call` confirmation pattern used by Hotlines
 - the Home contact trailing focus icon should stay tappable without the extra inner white circular background
-- `Open in Maps` from the nearest-hub card launches Google Maps directions for the currently active hub: the selected center when one is tapped, otherwise the nearest center
-- no in-app route polyline or route-preview error/loading copy should appear on Home anymore
+- `Navigate` from the nearest-hub card starts guidance for the currently active hub: the selected center when one is tapped, otherwise the nearest center
+- navigation errors should stay inside the full-screen SOSync navigation surface with retry copy instead of opening Maps
 - hotline row rendering, including `911`, `Philippine Red Cross`, `NDRRMC`, `PNP`, `BFP`, `Talisay City DRRMO Rescue`, and `Barangay Tabunok Hall`
 - hotline tap -> confirm -> system dialer handoff
 - SOS countdown, send, and trusted-circle alerting without automatic hotline dialing
+- SOS should refuse to start countdown or send when live location sharing is off or Auto-share location on SOS is off, showing clear location-sharing copy instead of creating a stale-coordinate SOS event
 - full-page SOS layout stays stable across different Android screen ratios and does not clip the ring cluster or bottom copy
 - SOS cancel now uses the left-to-right slide control during countdown, and partial drags snap back safely
 - notification `Unread`-first default, `All` history tab, read movement from `Unread` to `All`, 30-day visible-feed retention, unread-count badge on the Alerts nav item capped at `9+`, SOS detail popup on tap, SOS push and in-app Alerts suppression for the caller, and swipe-down refresh updating relative timestamps
@@ -231,6 +248,7 @@ These seed commands target the live Firebase project and intentionally reject `F
 Before a live smoke pass on the redesigned flow, deploy the backend updates:
 
 ```bash
+npm run doctor:backend-release
 npm run firebase:deploy:backend
 ```
 
@@ -238,9 +256,20 @@ This is important because the current app build depends on:
 - updated Firestore rules for `groupPreferences`, `blockedUsers`, and `notificationReads`
 - updated Firestore rules that block direct client access to `email_verifications/{uid}`
 - new Firebase Storage rules for owner-scoped avatar uploads plus public branding asset reads
+- new Firebase Storage rules for owner-scoped support report media under `supportReports/{userId}/{reportId}/...`
+- deployed support/report Cloud Functions for backend-backed help and problem-report submission
 - updated Cloud Functions behavior for permanent circle creation, join, role management, ownership transfer, leave-circle safety, and block-aware SOS push fanout
 - new Cloud Functions behavior for Resend-backed email OTP send/verify
-- authenticated HTTP Cloud Functions behavior for route proxying and disaster-alert sync, including bearer-token checks and route-level rate limits
+- authenticated HTTP Cloud Functions behavior for dormant route proxying and disaster-alert sync, including bearer-token checks and route-level rate limits
+
+After deploying backend updates and running the circle backfill, audit legacy circle data:
+
+```bash
+npm run backfill:circle-codes
+npm run audit:circle-data
+```
+
+The audit should report no circles missing `ownerId`, permanent `inviteCode`, owner membership, or valid member roles before release.
 
 If the app starts logging repeated Firestore `permission-denied` warnings for `members`, `locations`, `alerts`, or `sos_events`, check these first:
 - the signed-in user is still a member of the currently selected group
@@ -250,7 +279,7 @@ If the app starts logging repeated Firestore `permission-denied` warnings for `m
 Android Maps key note:
 
 - `npm run doctor:android-live` now prints the SHA1 fingerprint from `android/app/debug.keystore`.
-- The Google Maps Android API key must allow package `com.sosync.mobile` with that SHA1, or the Home map will render a blank tile surface even when the app itself is working.
+- The Google Maps Android API key must allow package `com.sosync.mobile` with that SHA1 and enable Maps SDK for Android plus Navigation SDK, or the Home map/navigation surface will fail even when the app itself is working.
 
 ## Firebase Emulator Path (Secondary / Local-Isolated)
 
