@@ -36,6 +36,17 @@ service cloud.firestore {
       );
     }
 
+    function userProfilePath(userId) {
+      return /databases/$(database)/documents/users/$(userId);
+    }
+
+    function canCreateSosEvent() {
+      return isSignedIn()
+        && exists(userProfilePath(request.auth.uid))
+        && get(userProfilePath(request.auth.uid)).data.privacy.locationSharingEnabled == true
+        && get(userProfilePath(request.auth.uid)).data.safety.autoShareLocationOnSos == true;
+    }
+
     match /users/{userId} {
       allow read, write: if isSelf(userId);
 
@@ -109,7 +120,8 @@ service cloud.firestore {
       allow read: if isSignedIn() && isGroupMember(resource.data.groupId);
       allow create: if isSignedIn()
         && request.resource.data.senderId == request.auth.uid
-        && isGroupMember(request.resource.data.groupId);
+        && isGroupMember(request.resource.data.groupId)
+        && canCreateSosEvent();
       allow update: if isSignedIn()
         && (resource.data.senderId == request.auth.uid || isGroupAdmin(resource.data.groupId));
       allow delete: if false;

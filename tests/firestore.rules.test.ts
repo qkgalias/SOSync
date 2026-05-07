@@ -50,6 +50,24 @@ describeIfEmulator("firestore rules", () => {
         userId: "user-2",
         role: "member",
       });
+      await db.collection("users").doc("user-1").set({
+        name: "Responder One",
+        privacy: {
+          locationSharingEnabled: true,
+        },
+        safety: {
+          autoShareLocationOnSos: true,
+        },
+      });
+      await db.collection("users").doc("user-2").set({
+        name: "Responder Two",
+        privacy: {
+          locationSharingEnabled: true,
+        },
+        safety: {
+          autoShareLocationOnSos: true,
+        },
+      });
       await db.collection("alerts").doc("alert-1").set({
         groupId: "group-1",
         title: "Flood risk rising",
@@ -99,6 +117,84 @@ describeIfEmulator("firestore rules", () => {
     await assertFails(
       db.collection("email_verifications").doc("user-1").set({
         email: "user@example.com",
+      }),
+    );
+  });
+
+  it("allows SOS creation when the member has location sharing and SOS auto-share enabled", async () => {
+    const db = testEnv.authenticatedContext("user-1").firestore();
+    await assertSucceeds(
+      db.collection("sos_events").doc("sos-allowed").set({
+        createdAt: new Date().toISOString(),
+        eventId: "sos-allowed",
+        groupId: "group-1",
+        latitude: 10.3,
+        longitude: 123.9,
+        message: "Immediate assistance requested.",
+        senderId: "user-1",
+        status: "active",
+      }),
+    );
+  });
+
+  it("blocks SOS creation when location sharing is off", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context: any) => {
+      const db = context.firestore();
+      await db.collection("users").doc("user-1").set(
+        {
+          privacy: {
+            locationSharingEnabled: false,
+          },
+          safety: {
+            autoShareLocationOnSos: true,
+          },
+        },
+        { merge: true },
+      );
+    });
+
+    const db = testEnv.authenticatedContext("user-1").firestore();
+    await assertFails(
+      db.collection("sos_events").doc("sos-location-off").set({
+        createdAt: new Date().toISOString(),
+        eventId: "sos-location-off",
+        groupId: "group-1",
+        latitude: 10.3,
+        longitude: 123.9,
+        message: "Immediate assistance requested.",
+        senderId: "user-1",
+        status: "active",
+      }),
+    );
+  });
+
+  it("blocks SOS creation when SOS location auto-share is off", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context: any) => {
+      const db = context.firestore();
+      await db.collection("users").doc("user-1").set(
+        {
+          privacy: {
+            locationSharingEnabled: true,
+          },
+          safety: {
+            autoShareLocationOnSos: false,
+          },
+        },
+        { merge: true },
+      );
+    });
+
+    const db = testEnv.authenticatedContext("user-1").firestore();
+    await assertFails(
+      db.collection("sos_events").doc("sos-auto-share-off").set({
+        createdAt: new Date().toISOString(),
+        eventId: "sos-auto-share-off",
+        groupId: "group-1",
+        latitude: 10.3,
+        longitude: 123.9,
+        message: "Immediate assistance requested.",
+        senderId: "user-1",
+        status: "active",
       }),
     );
   });
