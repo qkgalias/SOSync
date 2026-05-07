@@ -64,6 +64,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /support_reports/{reportId} {
+      allow read, write: if false;
+    }
+
     match /{path=**}/members/{userId} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
@@ -112,7 +116,7 @@ service cloud.firestore {
     }
 
     match /evacuation_centers/{centerId} {
-      allow read: if isSignedIn();
+      allow read: if false;
       allow write: if false;
     }
 
