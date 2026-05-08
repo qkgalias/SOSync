@@ -182,7 +182,7 @@ What to verify:
 - SOS should refuse to start countdown or send when live location sharing is off or Auto-share location on SOS is off, showing clear location-sharing copy instead of creating a stale-coordinate SOS event
 - full-page SOS layout stays stable across different Android screen ratios and does not clip the ring cluster or bottom copy
 - SOS cancel now uses the left-to-right slide control during countdown, and partial drags snap back safely
-- notification `Unread`-first default, `All` history tab, read movement from `Unread` to `All`, 30-day visible-feed retention, unread-count badge on the Alerts nav item capped at `9+`, SOS detail popup on tap, SOS push and in-app Alerts suppression for the caller, and swipe-down refresh updating relative timestamps
+- notification `Unread`-first default, `All` history tab, read movement from `Unread` to `All`, 30-day visible-feed retention, join-time filtering that hides alerts/SOS events created before the current user joined the circle, unread-count badge on the Alerts nav item capped at `9+`, SOS detail popup on tap, SOS push and in-app Alerts suppression for the caller, and swipe-down refresh updating relative timestamps
 - redesigned profile hub with active-circle member previews or a compact no-circle card with modal join/create actions
 - profile avatar pencil opens the image picker and updates the saved profile photo without routing away from the Profile page
 - main Profile page keeps separate gray-card `General` and `Appearance` rows instead of one shared grouped panel

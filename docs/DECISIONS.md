@@ -190,6 +190,15 @@
   - A cached device coordinate from private map context must not bypass the user's paused sharing preference.
   - Server-side rules keep stale or modified clients from creating coordinate-bearing SOS events after the user has disabled sharing.
 
+## 2026-05 Notification Feeds Start At Circle Join Time
+
+- Decision:
+  - Use the active membership `joinedAt` as the lower bound for disaster alert and SOS feed visibility.
+  - Skip push fanout to members whose `joinedAt` is after the event timestamp.
+- Why:
+  - New circle members should not inherit historical emergency activity that happened before they joined.
+  - Keeping the old records in Firestore preserves group history for existing members without exposing it to late joiners.
+
 ## 2026-03 Signed-In Profile Uses Dedicated Account, Permissions, Privacy, Help, And Appearance Surfaces
 
 - Decision:
