@@ -96,4 +96,10 @@ describe("useFloodRisk.helpers", () => {
       }),
     ).toBe("You've refreshed flood outlook too often. Please wait a bit before trying again.");
   });
+
+  it("maps offline flood failures to a reconnect message", () => {
+    expect(
+      getFloodRiskErrorMessage(new Error("Network request failed")),
+    ).toBe("We couldn't load flood information because you're offline. Reconnect to the internet and try again.");
+  });
 });

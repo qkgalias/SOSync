@@ -14,6 +14,7 @@ import { httpsCallable } from "@react-native-firebase/functions";
 
 import { resolveActiveFirebaseClientMode } from "@/config/backendRuntime";
 import { hasFirebaseApp, firebaseFunctions } from "@/services/firebase";
+import { toFriendlyBackendErrorMessage } from "@/utils/backendErrors";
 import { normalizeDisplayName, normalizeEmail, sanitizeOtpCode } from "@/utils/input";
 
 const MOCK_AUTH_STORAGE_KEY = "@sosync/mock-auth";
@@ -76,7 +77,7 @@ const extractAuthMessage = (error: unknown) => {
   return typeof candidate === "string" ? candidate : "";
 };
 
-const toFriendlyAuthError = (error: unknown) => {
+export const toFriendlyAuthError = (error: unknown, context: "account" | "otp" | "reset" = "account") => {
   const code = extractAuthCode(error);
   const message = extractAuthMessage(error);
 
@@ -84,7 +85,7 @@ const toFriendlyAuthError = (error: unknown) => {
     return new Error("That verification code is not valid. Enter the latest 6-digit code from your email.");
   }
 
-  if (code === "auth/code-expired" || code === "functions/deadline-exceeded") {
+  if (code === "auth/code-expired") {
     return new Error("That verification code expired. Request a new one and try again.");
   }
 
@@ -120,7 +121,34 @@ const toFriendlyAuthError = (error: unknown) => {
     return new Error("Too many attempts. Wait a moment and try again.");
   }
 
-  return error instanceof Error ? error : new Error("Authentication request failed.");
+  if (context === "otp") {
+    return new Error(
+      toFriendlyBackendErrorMessage(error, {
+        genericMessage: "We couldn't verify that code right now. Please try again in a moment.",
+        offlineMessage: "You're offline right now. Reconnect to the internet, then request or verify the code again.",
+        rateLimitMessage: message || "Wait before requesting another verification code.",
+        timeoutMessage: "The verification request took too long. Check your connection and try again.",
+      }),
+    );
+  }
+
+  if (context === "reset") {
+    return new Error(
+      toFriendlyBackendErrorMessage(error, {
+        genericMessage: "We couldn't send a reset email right now. Try again in a moment.",
+        offlineMessage: "You're offline right now. Reconnect to the internet, then try sending the reset email again.",
+        timeoutMessage: "Sending the reset email took too long. Check your connection and try again.",
+      }),
+    );
+  }
+
+  return new Error(
+    toFriendlyBackendErrorMessage(error, {
+      genericMessage: error instanceof Error ? error.message : "Authentication request failed.",
+      offlineMessage: "You're offline right now. Reconnect to the internet, then try again.",
+      timeoutMessage: "That request took too long. Check your connection and try again.",
+    }),
+  );
 };
 
 const getClientMode = () => resolveActiveFirebaseClientMode(hasFirebaseApp());
@@ -286,7 +314,7 @@ export const authService = {
         throw new Error(extractAuthMessage(error) || "Enter a valid email address.");
       }
 
-      throw new Error("We couldn't send a reset email right now. Try again in a moment.");
+      throw toFriendlyAuthError(error, "reset");
     }
   },
 
@@ -314,7 +342,7 @@ export const authService = {
       pendingVerificationEmail = currentUser.email;
       return response;
     } catch (error) {
-      throw toFriendlyAuthError(error);
+      throw toFriendlyAuthError(error, "otp");
     }
   },
 
@@ -359,7 +387,7 @@ export const authService = {
       pendingVerificationEmail = "";
       return { ...toAuthIdentity(refreshedUser), emailVerified: true };
     } catch (error) {
-      throw toFriendlyAuthError(error);
+      throw toFriendlyAuthError(error, "otp");
     }
   },
 

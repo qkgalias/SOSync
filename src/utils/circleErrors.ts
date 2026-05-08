@@ -1,4 +1,6 @@
 /** Purpose: Convert callable circle errors into safe, user-facing messages. */
+import { toFriendlyBackendErrorMessage } from "@/utils/backendErrors";
+
 const extractErrorCode = (error: unknown) => {
   if (!error || typeof error !== "object") {
     return "";
@@ -34,13 +36,14 @@ export const toFriendlyJoinCircleError = (error: unknown) => {
     return "Your session expired. Sign in again before joining a circle.";
   }
 
-  if (code === "functions/deadline-exceeded" || normalizedMessage.includes("deadline")) {
-    return "Joining took too long. Check your connection and try again.";
-  }
-
   if (code === "functions/internal" || normalizedMessage === "internal") {
     return "We could not join that circle right now. Check the code and try again.";
   }
 
-  return message || "Unable to join the trusted circle right now.";
+  return toFriendlyBackendErrorMessage(error, {
+    authMessage: "Your session expired. Sign in again before joining a circle.",
+    genericMessage: "We could not join the trusted circle right now. Try again in a moment.",
+    offlineMessage: "You're offline right now. Reconnect to the internet, then try joining the circle again.",
+    timeoutMessage: "Joining took too long. Check your connection and try again.",
+  }) || message || "Unable to join the trusted circle right now.";
 };

@@ -31,6 +31,7 @@ import type {
 import { resolveActiveFirebaseClientMode } from "@/config/backendRuntime";
 import { firebaseAuth, hasFirebaseApp } from "@/services/firebase";
 import { resolveGroupsFromMemberships } from "@/services/firestoreService.helpers";
+import { toFriendlyBackendErrorMessage } from "@/utils/backendErrors";
 import { ALERT_SEED, GROUP_SEED, PHILIPPINE_HOTLINE_SEED, USER_SEED } from "@/utils/constants";
 import { sanitizeForFirestore } from "@/utils/firestore";
 import { toLocationId } from "@/utils/helpers";
@@ -45,6 +46,8 @@ const FIRESTORE_TIMEOUT_MESSAGE =
 const FIRESTORE_AUTH_RETRY_DELAYS_MS = [300, 700, 1_200];
 const PROFILE_SETUP_PERMISSION_MESSAGE =
   "Account created, but profile setup could not finish. Please try Continue again or sign in to resume setup.";
+const PROFILE_SAVE_GENERIC_MESSAGE = "We couldn't save your profile right now. Please try again in a moment.";
+const PROFILE_SAVE_OFFLINE_MESSAGE = "We couldn't save your profile right now. Check your internet connection and try again.";
 
 const withFallback = <T>(value: T, callback: (payload: T) => void) => {
   callback(value);
@@ -142,7 +145,13 @@ export const firestoreService = {
         const retryDelay = FIRESTORE_AUTH_RETRY_DELAYS_MS[attempt];
 
         if (!isPermissionDenied) {
-          throw error;
+          throw new Error(
+            toFriendlyBackendErrorMessage(error, {
+              genericMessage: PROFILE_SAVE_GENERIC_MESSAGE,
+              offlineMessage: PROFILE_SAVE_OFFLINE_MESSAGE,
+              timeoutMessage: PROFILE_SAVE_OFFLINE_MESSAGE,
+            }),
+          );
         }
 
         if (retryDelay === undefined) {

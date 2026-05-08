@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import NetInfo from "@react-native-community/netinfo";
 import Animated, {
   Easing,
   cancelAnimation,
@@ -20,6 +21,7 @@ import { useBlockedUsers } from "@/hooks/useBlockedUsers";
 import { useGroupMembers } from "@/hooks/useGroupMembers";
 import { useLocation } from "@/hooks/useLocation";
 import { SlideToCancel } from "@/modules/sos/components/SlideToCancel";
+import { resolveSosSendErrorMessage, SOS_OFFLINE_MESSAGE } from "@/modules/sos/sosErrorMessage";
 import { resolveSosSendBlockReason } from "@/modules/sos/sosSendGuards";
 import { useAppTheme } from "@/providers/AppThemeProvider";
 import { firestoreService } from "@/services/firestoreService";
@@ -282,6 +284,13 @@ export default function SosScreen() {
       sendingRef.current = true;
 
       try {
+        const networkState = await NetInfo.fetch();
+        const isOffline = networkState.isConnected === false || networkState.isInternetReachable === false;
+        if (isOffline) {
+          setStatusMessage(SOS_OFFLINE_MESSAGE);
+          return;
+        }
+
         await firestoreService.createSosEvent({
           groupId,
           senderId,
@@ -295,7 +304,10 @@ export default function SosScreen() {
             : "SOS sent.",
         );
       } catch (error) {
-        setStatusMessage(error instanceof Error ? error.message : "Unable to send the SOS right now.");
+        console.warn("SOS send failed.", error);
+        const networkState = await NetInfo.fetch().catch(() => null);
+        const isOffline = networkState?.isConnected === false || networkState?.isInternetReachable === false;
+        setStatusMessage(resolveSosSendErrorMessage({ error, isOffline }));
       } finally {
         setCountdown(null);
         sendingRef.current = false;

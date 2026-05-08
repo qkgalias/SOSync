@@ -13,4 +13,10 @@ describe("circle error helpers", () => {
       "We could not find a circle with that code. Check the 6 digits and try again.",
     );
   });
+
+  it("maps offline join failures to reconnect copy", () => {
+    expect(toFriendlyJoinCircleError(Object.assign(new Error("Network request failed"), { code: "functions/unavailable" }))).toBe(
+      "You're offline right now. Reconnect to the internet, then try joining the circle again.",
+    );
+  });
 });

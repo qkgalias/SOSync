@@ -64,6 +64,7 @@ const buildProfile = (userId = "user-1"): UserProfile => ({
 });
 
 const permissionDenied = () => Object.assign(new Error("permission denied"), { code: "firestore/permission-denied" });
+const timedOut = () => new Error("Firestore did not respond in time. Confirm this Firebase project has a default Cloud Firestore database and that the app has network access.");
 
 describe("firestoreService.saveProfile", () => {
   beforeEach(() => {
@@ -107,5 +108,14 @@ describe("firestoreService.saveProfile", () => {
 
     expect(mockSetDoc).toHaveBeenCalledTimes(1);
     expect(mockGetIdToken).not.toHaveBeenCalled();
+  });
+
+  it("maps profile-save timeouts to clear non-technical copy", async () => {
+    const { firestoreService } = require("@/services/firestoreService");
+    mockSetDoc.mockRejectedValueOnce(timedOut());
+
+    await expect(firestoreService.saveProfile(buildProfile("user-1"))).rejects.toThrow(
+      "We couldn't save your profile right now. Check your internet connection and try again.",
+    );
   });
 });

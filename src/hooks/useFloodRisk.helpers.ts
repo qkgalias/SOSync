@@ -3,6 +3,7 @@ import axios from "axios";
 
 import type { FloodLevel, MapCoordinate } from "@/types";
 import { locationService } from "@/services/locationService";
+import { toFriendlyBackendErrorMessage } from "@/utils/backendErrors";
 
 export const FLOOD_RISK_CACHE_TTL_MS = 30 * 60 * 1000;
 export const FLOOD_RISK_DISTANCE_REFRESH_METERS = 2_000;
@@ -121,5 +122,11 @@ export const getFloodRiskErrorMessage = (error: unknown) => {
     }
   }
 
-  return error instanceof Error ? error.message : "We couldn't load local conditions right now. Try again in a moment.";
+  return toFriendlyBackendErrorMessage(error, {
+    authMessage: "Sign in again to check local conditions near you.",
+    genericMessage: "We couldn't load local conditions right now. Try again in a moment.",
+    offlineMessage: "We couldn't load flood information because you're offline. Reconnect to the internet and try again.",
+    rateLimitMessage: "You've refreshed flood outlook too often. Please wait a bit before trying again.",
+    timeoutMessage: "Checking local conditions took too long. Try again in a moment.",
+  });
 };

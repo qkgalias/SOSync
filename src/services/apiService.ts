@@ -6,6 +6,7 @@ import { normalizeFloodRiskOverviewResponse } from "@/modules/map/floodOverviewA
 import { buildMockFloodRiskOverview } from "@/modules/map/mockFloodRiskScenarios";
 import type { DisasterAlert, EvacuationCenter, EvacuationTravelMode, FloodRiskOverview, RouteSummary } from "@/types";
 import { firebaseAuth, hasFirebaseApp } from "@/services/firebase";
+import { toFriendlyBackendErrorMessage } from "@/utils/backendErrors";
 
 const getClientMode = () => resolveActiveFirebaseClientMode(hasFirebaseApp());
 const API_TIMEOUT_MS = 12_000;
@@ -221,14 +222,26 @@ export const apiService = {
     }
 
     const headers = await getAuthenticatedHeaders();
-    const response = await axios.post<unknown>(
-      `${requireFunctionsBaseUrl()}/getFloodRiskOverview`,
-      { latitude, longitude },
-      {
-        headers,
-        timeout: API_TIMEOUT_MS,
-      },
-    );
-    return normalizeFloodRiskOverviewResponse(response.data);
+    try {
+      const response = await axios.post<unknown>(
+        `${requireFunctionsBaseUrl()}/getFloodRiskOverview`,
+        { latitude, longitude },
+        {
+          headers,
+          timeout: API_TIMEOUT_MS,
+        },
+      );
+      return normalizeFloodRiskOverviewResponse(response.data);
+    } catch (error) {
+      throw new Error(
+        toFriendlyBackendErrorMessage(error, {
+          authMessage: "Sign in again to check local conditions near you.",
+          genericMessage: "We couldn't load flood information right now. Try again in a moment.",
+          offlineMessage: "We couldn't load flood information because you're offline. Reconnect to the internet and try again.",
+          rateLimitMessage: "You've refreshed flood outlook too often. Please wait a bit before trying again.",
+          timeoutMessage: "Checking flood outlook took too long. Check your connection and try again.",
+        }),
+      );
+    }
   },
 };

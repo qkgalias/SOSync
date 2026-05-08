@@ -5,6 +5,8 @@ import type { Group, GroupRole } from "@/types";
 import { resolveActiveFirebaseClientMode } from "@/config/backendRuntime";
 import { hasFirebaseApp } from "@/services/firebase";
 import { firebaseFunctions } from "@/services/firebase";
+import { toFriendlyBackendErrorMessage } from "@/utils/backendErrors";
+import { toFriendlyJoinCircleError } from "@/utils/circleErrors";
 import { normalizeDisplayName, normalizeGroupName, sanitizeInviteCode } from "@/utils/input";
 
 const getClientMode = () => resolveActiveFirebaseClientMode(hasFirebaseApp());
@@ -36,7 +38,18 @@ export const circleService = {
       } satisfies Group;
     }
 
-    return callCircleFunction<typeof normalizedInput, Group>("createCircle", normalizedInput);
+    try {
+      return await callCircleFunction<typeof normalizedInput, Group>("createCircle", normalizedInput);
+    } catch (error) {
+      throw new Error(
+        toFriendlyBackendErrorMessage(error, {
+          authMessage: "Your session expired. Sign in again before creating a circle.",
+          genericMessage: "We couldn't create your trusted circle right now. Try again in a moment.",
+          offlineMessage: "You're offline right now. Reconnect to the internet, then try creating the circle again.",
+          timeoutMessage: "Creating the circle took too long. Check your connection and try again.",
+        }),
+      );
+    }
   },
 
   async joinCircleByCode(input: { inviteCode: string; displayName?: string }) {
@@ -62,10 +75,14 @@ export const circleService = {
       };
     }
 
-    return callCircleFunction<typeof normalizedInput, { alreadyMember: boolean; group: Group }>(
-      "joinCircleByCode",
-      normalizedInput,
-    );
+    try {
+      return await callCircleFunction<typeof normalizedInput, { alreadyMember: boolean; group: Group }>(
+        "joinCircleByCode",
+        normalizedInput,
+      );
+    } catch (error) {
+      throw new Error(toFriendlyJoinCircleError(error));
+    }
   },
 
   async updateMemberRole(input: { groupId: string; targetUserId: string; nextRole: GroupRole }) {
