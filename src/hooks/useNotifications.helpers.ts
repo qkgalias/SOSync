@@ -20,6 +20,23 @@ export const toVisibleNotificationFeed = (items: NotificationFeedItem[], nowMs =
   };
 };
 
+export const isFeedItemVisibleForMembership = (createdAt: string, joinedAt?: string | null) => {
+  if (!joinedAt) {
+    return true;
+  }
+
+  const createdAtMs = Date.parse(createdAt);
+  const joinedAtMs = Date.parse(joinedAt);
+  if (!Number.isFinite(createdAtMs) || !Number.isFinite(joinedAtMs)) {
+    return true;
+  }
+
+  return createdAtMs >= joinedAtMs;
+};
+
+export const filterFeedItemsByJoinedAt = (items: NotificationFeedItem[], joinedAt?: string | null) =>
+  items.filter((item) => isFeedItemVisibleForMembership(item.createdAt, joinedAt));
+
 export const toSosNotificationItems = (
   events: SosEvent[],
   blockedUserIds: string[] = [],

@@ -1,6 +1,12 @@
 /** Purpose: Verify notification-feed retention and unread partitioning rules. */
 import type { NotificationFeedItem, SosEvent } from "@/types";
-import { NOTIFICATION_RETENTION_DAYS, toSosNotificationItems, toVisibleNotificationFeed } from "@/hooks/useNotifications.helpers";
+import {
+  filterFeedItemsByJoinedAt,
+  isFeedItemVisibleForMembership,
+  NOTIFICATION_RETENTION_DAYS,
+  toSosNotificationItems,
+  toVisibleNotificationFeed,
+} from "@/hooks/useNotifications.helpers";
 
 const NOW_MS = Date.parse("2026-03-28T12:00:00.000Z");
 
@@ -84,5 +90,60 @@ describe("toSosNotificationItems", () => {
     );
 
     expect(items.map((item) => item.id)).toEqual(["sos:allowed"]);
+  });
+});
+
+describe("membership notification cutoff", () => {
+  const joinedAt = "2026-03-28T10:00:00.000Z";
+
+  it("hides disaster and SOS feed items created before the user joined", () => {
+    const items = filterFeedItemsByJoinedAt(
+      [
+        buildItem({
+          id: "alert:old",
+          kind: "disaster",
+          createdAt: "2026-03-28T09:59:59.000Z",
+        }),
+        buildItem({
+          id: "sos:old",
+          kind: "sos",
+          createdAt: "2026-03-28T09:30:00.000Z",
+        }),
+        buildItem({
+          id: "alert:new",
+          kind: "disaster",
+          createdAt: "2026-03-28T10:00:00.000Z",
+        }),
+        buildItem({
+          id: "sos:new",
+          kind: "sos",
+          createdAt: "2026-03-28T10:05:00.000Z",
+        }),
+      ],
+      joinedAt,
+    );
+
+    expect(items.map((item) => item.id)).toEqual(["alert:new", "sos:new"]);
+  });
+
+  it("keeps legacy feed behavior when joinedAt is missing or invalid", () => {
+    expect(isFeedItemVisibleForMembership("2026-03-28T09:00:00.000Z", null)).toBe(true);
+    expect(isFeedItemVisibleForMembership("2026-03-28T09:00:00.000Z", "")).toBe(true);
+    expect(isFeedItemVisibleForMembership("2026-03-28T09:00:00.000Z", "not-a-date")).toBe(true);
+  });
+
+  it("filters before unread counts are derived", () => {
+    const visibleItems = filterFeedItemsByJoinedAt(
+      [
+        buildItem({ id: "old-unread", createdAt: "2026-03-28T09:00:00.000Z" }),
+        buildItem({ id: "new-unread", createdAt: "2026-03-28T10:01:00.000Z" }),
+      ],
+      joinedAt,
+    );
+
+    const { allItems, unreadItems } = toVisibleNotificationFeed(visibleItems, NOW_MS);
+
+    expect(allItems.map((item) => item.id)).toEqual(["new-unread"]);
+    expect(unreadItems.map((item) => item.id)).toEqual(["new-unread"]);
   });
 });

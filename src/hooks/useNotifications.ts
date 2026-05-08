@@ -2,14 +2,20 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { NotificationFeedItem } from "@/types";
-import { toSosNotificationItems, toVisibleNotificationFeed } from "@/hooks/useNotifications.helpers";
+import {
+  filterFeedItemsByJoinedAt,
+  toSosNotificationItems,
+  toVisibleNotificationFeed,
+} from "@/hooks/useNotifications.helpers";
 import { firestoreService } from "@/services/firestoreService";
 import { buildNotificationFeedId } from "@/utils/helpers";
+
+const DEFAULT_BLOCKED_USER_IDS: string[] = [];
 
 export const useNotifications = (
   groupId: string | null,
   userId: string | undefined,
-  blockedUserIds: string[] = [],
+  blockedUserIds: string[] = DEFAULT_BLOCKED_USER_IDS,
 ) => {
   const [items, setItems] = useState<NotificationFeedItem[]>([]);
 
@@ -22,17 +28,31 @@ export const useNotifications = (
     let alerts: NotificationFeedItem[] = [];
     let sos: NotificationFeedItem[] = [];
     let readLookup: Record<string, string> = {};
+    let membershipJoinedAt: string | null | undefined;
 
     const sync = () => {
+      if (membershipJoinedAt === undefined || membershipJoinedAt === null) {
+        setItems([]);
+        return;
+      }
+
       const { allItems } = toVisibleNotificationFeed(
-        [...alerts, ...sos].map((item) => ({
-          ...item,
-          readAt: readLookup[item.id] ?? null,
-        })),
+        filterFeedItemsByJoinedAt(
+          [...alerts, ...sos].map((item) => ({
+            ...item,
+            readAt: readLookup[item.id] ?? null,
+          })),
+          membershipJoinedAt,
+        ),
       );
 
       setItems(allItems);
     };
+
+    const unsubscribeMembership = firestoreService.listenToGroupMember(groupId, userId, (member) => {
+      membershipJoinedAt = member ? member.joinedAt ?? "" : null;
+      sync();
+    });
 
     const unsubscribeAlerts = firestoreService.listenToAlerts(groupId, (nextAlerts) => {
       alerts = nextAlerts.map((alert) => ({
@@ -61,6 +81,7 @@ export const useNotifications = (
     });
 
     return () => {
+      unsubscribeMembership();
       unsubscribeAlerts();
       unsubscribeSos();
       unsubscribeReads();

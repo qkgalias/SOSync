@@ -3,6 +3,7 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 
 import { adminDb, adminMessaging } from "./admin.js";
 import { functionsRegion } from "./config.js";
+import { memberJoinedBeforeNotification } from "./notificationEligibility.js";
 
 type StoredPushToken = {
   platform?: "android" | "ios";
@@ -23,11 +24,17 @@ const usersAreBlocked = async (leftUserId: string, rightUserId: string) => {
   return leftBlocksRight.exists || rightBlocksLeft.exists;
 };
 
-const getGroupTokens = async (groupId: string, excludeUserId?: string, actorUserId?: string) => {
+const getGroupTokens = async (
+  groupId: string,
+  excludeUserId?: string,
+  actorUserId?: string,
+  notificationCreatedAt?: string,
+) => {
   const members = await adminDb.collection("groups").doc(groupId).collection("members").get();
   const tokenGroups = await Promise.all(
     members.docs
       .filter((member) => member.id !== excludeUserId)
+      .filter((member) => memberJoinedBeforeNotification(member.data().joinedAt, notificationCreatedAt))
       .map(async (member) => {
         if (actorUserId && member.id !== actorUserId && await usersAreBlocked(actorUserId, member.id)) {
           return [];
@@ -52,7 +59,7 @@ const sendGroupNotification = async (
   excludeUserId?: string,
   actorUserId?: string,
 ) => {
-  const tokens = await getGroupTokens(groupId, excludeUserId, actorUserId);
+  const tokens = await getGroupTokens(groupId, excludeUserId, actorUserId, payload.data.createdAt);
   const androidTokens = tokens.filter((entry) => entry.platform === "android");
   const deferredIosCount = tokens.length - androidTokens.length;
 

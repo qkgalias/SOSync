@@ -492,6 +492,32 @@ export const firestoreService = {
     );
   },
 
+  listenToGroupMember(groupId: string, userId: string, callback: (member: GroupMember | null) => void) {
+    if (getClientMode() === "demo") {
+      return withFallback(
+        {
+          displayName: USER_SEED.name,
+          groupId,
+          joinedAt: USER_SEED.createdAt,
+          role: "admin",
+          userId,
+        },
+        callback,
+      );
+    }
+
+    return onSnapshot(
+      doc(db(), "groups", groupId, "members", userId),
+      (snapshot) => {
+        callback(snapshot?.exists() ? ({ ...(snapshot.data() as GroupMember), groupId, userId }) : null);
+      },
+      (error) => {
+        console.warn("listenToGroupMember failed.", error);
+        callback(null);
+      },
+    );
+  },
+
   async blockUser(userId: string, blockedUserId: string) {
     const entry: BlockedUser = {
       blockedUserId,
