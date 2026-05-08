@@ -528,6 +528,7 @@ export default function HomeMapScreen() {
           floodRisk={floodRisk}
           isRefreshing={isFloodRiskRefreshing}
           isLocationSharingEnabled={isSharingLive}
+          mapTheme={appearance}
           onChange={handleFloodRiskSheetChange}
           onDismiss={handleDismissFloodRisk}
           onOpenSettings={() => {

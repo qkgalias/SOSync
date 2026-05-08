@@ -20,13 +20,14 @@ import {
   shouldRenderFloodHeroTitle,
 } from "@/modules/map/floodPresentation";
 import { useAppTheme } from "@/providers/AppThemeProvider";
-import type { FloodGaugeSummary, FloodRiskOverview } from "@/types";
+import type { FloodGaugeSummary, FloodRiskOverview, HomeMapAppearance } from "@/types";
 
 type FloodRiskBottomSheetProps = {
   error: string | null;
   floodRisk: FloodRiskOverview | null;
   isRefreshing: boolean;
   isLocationSharingEnabled: boolean;
+  mapTheme: HomeMapAppearance;
   onChange?: (index: number) => void;
   onDismiss: () => void;
   onOpenSettings: () => void;
@@ -293,6 +294,7 @@ export const FloodRiskBottomSheet = forwardRef(function FloodRiskBottomSheet(
     floodRisk,
     isRefreshing,
     isLocationSharingEnabled,
+    mapTheme,
     onChange,
     onDismiss,
     onOpenSettings,
@@ -630,10 +632,10 @@ export const FloodRiskBottomSheet = forwardRef(function FloodRiskBottomSheet(
                   <View className="mt-6">
                     <Text className="text-[18px] font-semibold text-ink">Area preview</Text>
                     <Text className="mt-1 text-[13px] leading-5 text-secondary">
-                      Your location, nearby monitoring points, and affected areas when Google provides them.
+                      Your location and the nearest flood monitoring point. Affected areas appear when Google provides them.
                     </Text>
                     <View className="mt-3">
-                      <FloodMiniMap level={flood.level} map={flood.map} />
+                      <FloodMiniMap level={flood.level} map={flood.map} mapTheme={mapTheme} />
                     </View>
                   </View>
                 ) : null}

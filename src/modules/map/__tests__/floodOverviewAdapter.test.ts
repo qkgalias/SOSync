@@ -15,7 +15,24 @@ describe("floodOverviewAdapter", () => {
           trendLabel: "Stable",
         },
         level: "SAFE" as const,
-        map: null,
+        map: {
+          gauges: [
+            {
+              gaugeId: "current-gauge",
+              isPrimary: true,
+              label: "Monitoring point near Talisay",
+              latitude: 10.2447,
+              level: "SAFE" as const,
+              longitude: 123.8494,
+            },
+          ],
+          hasRenderableData: true,
+          polygons: [],
+          userLocation: {
+            latitude: 10.2635,
+            longitude: 123.8395,
+          },
+        },
         measurement: null,
         nearbyPoints: [],
         primaryPoint: null,
