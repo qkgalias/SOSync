@@ -98,6 +98,7 @@ What to verify:
 - email sign-up with redesigned first/last name UI, required phone capture, verification-email dispatch, and first-load full-page layout without vertical scrolling
 - new account setup should continue to verification without showing raw Firestore `permission-denied` text; if profile setup cannot finish on the first try, the app should show recovery copy and resume profile setup after sign-in/verification
 - email OTP verification, resend cooldown behavior, and verified-email resume routing
+- with network disabled in live mode, OTP, circle create/join, flood refresh, SOS, and profile save should all show clear non-technical retry/reconnect messaging; no visible error should mention Firebase, Firestore, Cloud Firestore, project setup, or raw backend codes like `INTERNAL`
 - email sign-in for both verified and still-unverified accounts, with the footer account-switch link visible on first render
 - profile setup, including avatar upload
 - combined create/join circle hub immediately after profile setup
