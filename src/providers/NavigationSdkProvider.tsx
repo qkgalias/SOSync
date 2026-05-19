@@ -36,7 +36,7 @@ export const NavigationSdkProvider = ({ children }: PropsWithChildren) => {
         title: "Navigation Terms",
         uiParams: {
           backgroundColor: "#FFFFFF",
-          titleColor: "#5C1515",
+          titleColor: "#7C2C2C",
         },
       }}
     >

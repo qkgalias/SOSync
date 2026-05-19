@@ -2,12 +2,16 @@
 import {
   buildHomeMapMarkers,
   buildHomeMarkerRenderSignature,
+  formatLastSeenLabel,
+  getLastSeenMinutes,
   buildGoogleMapsDirectionsUrls,
   HOME_SHEET_SNAP_POINTS,
+  MEMBER_OFFLINE_THRESHOLD_MS,
   NEARBY_SAFETY_HUB_MAX_DISTANCE_METERS,
   resolveHomeMarkerDisplayName,
   resolveHomeAddressLabel,
   resolveHomeMapAppearance,
+  resolveMemberPresenceStatus,
   sortNearbySafetyHubs,
   sanitizeHomeMarkerPhotoURL,
 } from "@/modules/map/homeUtils";
@@ -70,17 +74,20 @@ describe("homeUtils", () => {
       ],
       blockedUserIds: ["user-3"],
       primaryContactIds: ["user-2"],
+      nowMs: Date.parse("2026-03-22T00:09:00.000Z"),
     });
 
     expect(markers).toEqual([
       expect.objectContaining({
         userId: "user-1",
         isCurrentUser: true,
+        presenceStatus: "live",
       }),
       expect.objectContaining({
         userId: "user-2",
         isPrimaryContact: true,
         isCurrentUser: false,
+        presenceStatus: "live",
       }),
     ]);
   });
@@ -185,10 +192,70 @@ describe("homeUtils", () => {
   it("builds a stable marker render signature from marker ids and avatar urls", () => {
     expect(
       buildHomeMarkerRenderSignature([
-        { markerId: "user-1", photoURL: "https://example.com/a.jpg" },
-        { markerId: "user-2", photoURL: " " },
+        { markerId: "user-1", photoURL: "https://example.com/a.jpg", presenceStatus: "live" },
+        { markerId: "user-2", photoURL: " ", presenceStatus: "offline" },
       ]),
-    ).toBe("user-1:https://example.com/a.jpg|user-2:initials");
+    ).toBe("user-1:https://example.com/a.jpg:live|user-2:initials:offline");
+  });
+
+  it("marks stale live member locations as offline with last-seen minutes", () => {
+    const updatedAt = "2026-03-22T00:00:00.000Z";
+    const nowMs = Date.parse("2026-03-22T00:12:00.000Z");
+    const markers = buildHomeMapMarkers({
+      currentUser: {
+        userId: "user-1",
+        displayName: "Karlos Galias",
+      },
+      currentLocation: { latitude: 10.3, longitude: 123.9 },
+      members: [
+        {
+          userId: "user-2",
+          groupId: "group-1",
+          displayName: "Aaron Sabado",
+          role: "member",
+          joinedAt: "2026-03-22T00:00:00.000Z",
+        },
+      ],
+      groupLocations: [
+        {
+          locationId: "group-1_user-2",
+          userId: "user-2",
+          groupId: "group-1",
+          latitude: 10.31,
+          longitude: 123.91,
+          updatedAt,
+          sharingState: "live",
+        },
+      ],
+      nowMs,
+    });
+
+    expect(markers.find((marker) => marker.userId === "user-2")).toEqual(
+      expect.objectContaining({
+        lastSeenAt: updatedAt,
+        lastSeenMinutes: 12,
+        presenceStatus: "offline",
+      }),
+    );
+  });
+
+  it("resolves member presence from sharing state and last location age", () => {
+    const nowMs = Date.parse("2026-03-22T00:12:00.000Z");
+    const freshUpdatedAt = new Date(nowMs - MEMBER_OFFLINE_THRESHOLD_MS).toISOString();
+    const staleUpdatedAt = new Date(nowMs - MEMBER_OFFLINE_THRESHOLD_MS - 1).toISOString();
+
+    expect(resolveMemberPresenceStatus({ sharingState: "live", updatedAt: freshUpdatedAt }, nowMs)).toBe("live");
+    expect(resolveMemberPresenceStatus({ sharingState: "live", updatedAt: staleUpdatedAt }, nowMs)).toBe("offline");
+    expect(resolveMemberPresenceStatus({ sharingState: "paused", updatedAt: staleUpdatedAt }, nowMs)).toBe("live");
+    expect(resolveMemberPresenceStatus({ sharingState: "live", updatedAt: "not-a-date" }, nowMs)).toBe("offline");
+  });
+
+  it("formats last-seen labels for member offline states", () => {
+    expect(getLastSeenMinutes("2026-03-22T00:00:00.000Z", Date.parse("2026-03-22T00:12:00.000Z"))).toBe(12);
+    expect(formatLastSeenLabel(null)).toBe("last seen recently");
+    expect(formatLastSeenLabel(0)).toBe("last seen just now");
+    expect(formatLastSeenLabel(12)).toBe("last seen 12m ago");
+    expect(formatLastSeenLabel(65)).toBe("last seen 1h ago");
   });
 
   it("sanitizes empty marker photo urls", () => {

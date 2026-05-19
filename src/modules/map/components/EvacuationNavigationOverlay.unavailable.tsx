@@ -29,7 +29,7 @@ export const EvacuationNavigationOverlay = ({
           style={styles.closeButton}
           onPress={onClose}
         >
-          <MaterialCommunityIcons color="#5C1515" name="chevron-left" size={26} />
+          <MaterialCommunityIcons color="#7C2C2C" name="chevron-left" size={26} />
         </Pressable>
         <Text style={styles.title}>Rebuild Android dev build</Text>
         <Text style={styles.body}>

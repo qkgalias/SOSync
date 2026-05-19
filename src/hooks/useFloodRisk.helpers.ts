@@ -47,7 +47,7 @@ export const getFloodLevelColors = (level: FloodLevel) => {
   switch (level) {
     case "EXTREME_DANGER":
       return {
-        accent: "#5C1515",
+        accent: "#7C2C2C",
         badgeBackground: "#7B1E1B",
         badgeText: "#FFFFFF",
         heroBackground: "#8B231E",

@@ -21,6 +21,7 @@ import {
 } from "@/modules/map/homeMapTheme";
 import {
   buildHomeMapMarkers,
+  formatLastSeenLabel,
   HOME_SHEET_SNAP_POINTS,
   resolveHomeMarkerDisplayName,
   resolveHomeAddressLabel,
@@ -106,6 +107,7 @@ export const useHomeMapController = () => {
   const [sheetIndex, setSheetIndex] = useState(0);
   const [selectedCenterId, setSelectedCenterId] = useState<string | null>(null);
   const [selectedTravelMode, setSelectedTravelMode] = useState<EvacuationTravelMode>("four_wheeler");
+  const [presenceNowMs, setPresenceNowMs] = useState(Date.now());
   const sheetAnimatedIndex = useSharedValue(0);
   const focusTokenRef = useRef(0);
   const hasFocusedCurrentUserRef = useRef(false);
@@ -115,6 +117,16 @@ export const useHomeMapController = () => {
   useEffect(() => {
     setSharingOverride(null);
   }, [privacy.locationSharingEnabled]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPresenceNowMs(Date.now());
+    }, 60_000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedGroupId) {
@@ -174,9 +186,10 @@ export const useHomeMapController = () => {
         currentUser,
         groupLocations,
         members,
+        nowMs: presenceNowMs,
         primaryContactIds,
       }),
-    [blockedUserIds, currentLocation, currentUser, groupLocations, members, primaryContactIds],
+    [blockedUserIds, currentLocation, currentUser, groupLocations, members, presenceNowMs, primaryContactIds],
   );
   const stableAlerts = useStableValueBySignature(
     alerts,
@@ -211,7 +224,7 @@ export const useHomeMapController = () => {
         homeMarkers
           .map(
             (marker) =>
-              `${marker.markerId}:${marker.latitude}:${marker.longitude}:${marker.photoURL ?? ""}:${marker.sharingState}:${marker.isCurrentUser ? 1 : 0}:${marker.isPrimaryContact ? 1 : 0}`,
+              `${marker.markerId}:${marker.latitude}:${marker.longitude}:${marker.photoURL ?? ""}:${marker.sharingState}:${marker.presenceStatus}:${marker.lastSeenMinutes ?? ""}:${marker.isCurrentUser ? 1 : 0}:${marker.isPrimaryContact ? 1 : 0}`,
           )
           .join("|"),
       [homeMarkers],
@@ -253,6 +266,10 @@ export const useHomeMapController = () => {
               : marker
                 ? "Live on map"
                 : "Location hidden";
+          const statusLabel =
+            marker?.presenceStatus === "offline"
+              ? `Offline · ${formatLastSeenLabel(marker.lastSeenMinutes)}`
+              : distanceLabel;
 
           return {
             activeSos: activeSosSenderIds.includes(member.userId),
@@ -260,7 +277,7 @@ export const useHomeMapController = () => {
             member,
             subtitle: activeSosSenderIds.includes(member.userId)
               ? "Active SOS"
-              : `${member.role || "Circle member"} | ${distanceLabel}`,
+              : `${member.role || "Circle member"} | ${statusLabel}`,
           };
       }),
     [activeSosSenderIds, currentLocation, currentUser.userId, markerLookup, members],

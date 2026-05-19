@@ -19,7 +19,7 @@ type SignInErrors = {
   general?: string;
 };
 
-const RESET_CONFIRMATION_ACCENT = "#650B11";
+const RESET_CONFIRMATION_ACCENT = "#7C2C2C";
 
 export default function SignInEmailScreen() {
   const router = useRouter();

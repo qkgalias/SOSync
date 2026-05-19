@@ -73,6 +73,7 @@ export const HomeQuickMemberStack = ({
     >
       {markers.slice(0, layout.maxVisible).map((marker, index) => {
         const selected = marker.markerId === selectedMarkerId;
+        const isOffline = marker.presenceStatus === "offline";
         return (
           <Pressable
             key={marker.markerId}
@@ -84,6 +85,7 @@ export const HomeQuickMemberStack = ({
               height: layout.outerSize,
               marginBottom: layout.verticalGap,
               marginRight: index % 2 === 0 ? 0 : layout.offsetX,
+              opacity: isOffline ? 0.55 : 1,
               width: layout.outerSize,
             }}
           >

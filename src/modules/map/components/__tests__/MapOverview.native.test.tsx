@@ -56,6 +56,7 @@ const currentUserMarker: HomeMapMarker = {
   longitude: 123.9,
   markerId: "user-1",
   photoURL: "https://example.com/avatar.jpg",
+  presenceStatus: "live",
   sharingState: "live",
   userId: "user-1",
 };

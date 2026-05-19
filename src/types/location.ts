@@ -1,5 +1,6 @@
 /** Purpose: Location, route, and evacuation center contracts for mapping flows. */
 export type SharingState = "live" | "paused" | "sos";
+export type MemberPresenceStatus = "live" | "offline";
 export type MapCoordinate = { latitude: number; longitude: number };
 export type HomeMapAppearance = "light" | "dark";
 export type EvacuationTravelMode = "walk" | "two_wheeler" | "four_wheeler";
@@ -58,6 +59,9 @@ export type HomeMapMarker = {
   latitude: number;
   longitude: number;
   sharingState: SharingState;
+  presenceStatus: MemberPresenceStatus;
+  lastSeenAt?: string;
+  lastSeenMinutes?: number;
   isCurrentUser: boolean;
   isPrimaryContact: boolean;
 };

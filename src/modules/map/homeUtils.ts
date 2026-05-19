@@ -15,8 +15,11 @@ type BuildHomeMapMarkersInput = {
   };
   groupLocations: GroupLocation[];
   members: GroupMember[];
+  nowMs?: number;
   primaryContactIds?: string[];
 };
+
+export const MEMBER_OFFLINE_THRESHOLD_MS = 10 * 60 * 1000;
 
 export const resolveHomeMapAppearance = (colorScheme: ColorSchemeName | null): HomeMapAppearance =>
   colorScheme === "dark" ? "dark" : "light";
@@ -44,11 +47,50 @@ export const resolveHomeMarkerDisplayName = (displayName?: string | null, fallba
 };
 
 export const buildHomeMarkerRenderSignature = (
-  markers: Array<Pick<HomeMapMarker, "markerId" | "photoURL">>,
+  markers: Array<Pick<HomeMapMarker, "markerId" | "photoURL" | "presenceStatus">>,
 ) =>
   markers
-    .map((marker) => `${marker.markerId}:${sanitizeHomeMarkerPhotoURL(marker.photoURL) ?? "initials"}`)
+    .map((marker) => `${marker.markerId}:${sanitizeHomeMarkerPhotoURL(marker.photoURL) ?? "initials"}:${marker.presenceStatus}`)
     .join("|");
+
+export const getLastSeenMinutes = (updatedAt: string, nowMs = Date.now()) => {
+  const updatedAtMs = Date.parse(updatedAt);
+  if (!Number.isFinite(updatedAtMs)) {
+    return null;
+  }
+
+  return Math.max(0, Math.floor((nowMs - updatedAtMs) / 60_000));
+};
+
+export const resolveMemberPresenceStatus = (location: Pick<GroupLocation, "sharingState" | "updatedAt">, nowMs = Date.now()) => {
+  if (location.sharingState !== "live") {
+    return "live" as const;
+  }
+
+  const updatedAtMs = Date.parse(location.updatedAt);
+  if (!Number.isFinite(updatedAtMs)) {
+    return "offline" as const;
+  }
+
+  return nowMs - updatedAtMs > MEMBER_OFFLINE_THRESHOLD_MS ? "offline" as const : "live" as const;
+};
+
+export const formatLastSeenLabel = (minutes: number | null | undefined) => {
+  if (minutes === null || minutes === undefined) {
+    return "last seen recently";
+  }
+
+  if (minutes < 1) {
+    return "last seen just now";
+  }
+
+  if (minutes < 60) {
+    return `last seen ${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  return `last seen ${hours}h ago`;
+};
 
 export const NEARBY_SAFETY_HUB_MAX_DISTANCE_METERS = 2_000;
 
@@ -99,6 +141,7 @@ export const buildHomeMapMarkers = ({
   currentUser,
   groupLocations,
   members,
+  nowMs = Date.now(),
   primaryContactIds = [],
 }: BuildHomeMapMarkersInput): HomeMapMarker[] => {
   const blockedLookup = new Set(blockedUserIds);
@@ -119,6 +162,7 @@ export const buildHomeMapMarkers = ({
       latitude: currentLocation.latitude,
       longitude: currentLocation.longitude,
       sharingState: "live",
+      presenceStatus: "live",
       isCurrentUser: true,
       isPrimaryContact: primaryLookup.has(currentUser.userId),
     });
@@ -137,6 +181,8 @@ export const buildHomeMapMarkers = ({
     if (!member) {
       return;
     }
+    const presenceStatus = resolveMemberPresenceStatus(location, nowMs);
+    const lastSeenMinutes = getLastSeenMinutes(location.updatedAt, nowMs);
 
     markers.set(location.userId, {
       markerId: location.userId,
@@ -147,6 +193,9 @@ export const buildHomeMapMarkers = ({
       latitude: location.latitude,
       longitude: location.longitude,
       sharingState: location.sharingState,
+      presenceStatus,
+      lastSeenAt: location.updatedAt,
+      lastSeenMinutes: presenceStatus === "offline" ? lastSeenMinutes ?? undefined : undefined,
       isCurrentUser: false,
       isPrimaryContact: primaryLookup.has(location.userId),
     });

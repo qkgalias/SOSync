@@ -114,6 +114,7 @@ What to verify:
 - Home sheet header shows a compact, non-tappable current-weather preview beside `Share Live` / `Pause Live`, and the row stays stable through loading, permission-denied, unavailable, and ready states on smaller Android screens
 - Home `Share live` toggle updates the UI and map visibility state immediately
 - when Home `Share live` is paused, the weather preview should show `Location is off`, the Flood risk and Weather sheets should show location-off messaging, and no cached temperature, locality, or flood outlook data should remain visible
+- if another circle member's live location has not updated for more than 10 minutes, Home should keep their last known marker visible but label them `Offline · last seen Xm ago`; if that member pauses sharing, their location should remain hidden instead
 - Home action icons stay semantically distinct: contact focus is not reused for share-live or safety-hub routing
 - Home top pill, floating `Flood risk` / `Weather` buttons, `Pause Live`, circle chips, and the bottom sheet should use soft shadow/elevation instead of visible outline-heavy borders
 - the Home top address pill should keep its full-height feel, be narrower in width than before, and fade away only when the sheet reaches the top snap point
@@ -178,6 +179,7 @@ What to verify:
 - `Navigate` from the nearest-hub card starts guidance for the currently active hub: the selected center when one is tapped, otherwise the nearest center
 - navigation errors should stay inside the full-screen SOSync navigation surface with retry copy instead of opening Maps
 - hotline row rendering, including `911`, `Philippine Red Cross`, `NDRRMC`, `PNP`, `BFP`, `Talisay City DRRMO Rescue`, and `Barangay Tabunok Hall`
+- with network disabled, the Hotlines tab should still show the bundled Philippines/Talisay emergency contacts and allow the normal call-confirmation flow instead of showing an empty list
 - hotline tap -> confirm -> system dialer handoff
 - SOS countdown, send, and trusted-circle alerting without automatic hotline dialing
 - SOS should refuse to start countdown or send when live location sharing is off or Auto-share location on SOS is off, showing clear location-sharing copy instead of creating a stale-coordinate SOS event

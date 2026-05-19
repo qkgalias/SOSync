@@ -22,6 +22,7 @@ import {
 
 import { appConfig } from "@/config/appConfig";
 import { buildLocalMarkerIcon, hasNativeMarkerIconSupport } from "@/modules/map/markerIconService";
+import { formatLastSeenLabel } from "@/modules/map/homeUtils";
 import { getHomeMapStyleJson } from "@/modules/map/homeMapStyle";
 import { getThemeTokens } from "@/theme/appTheme";
 import type {
@@ -123,7 +124,10 @@ const getCenterIconId = (center: EvacuationCenter) => `center:${center.centerId}
 const getMemberMarkerOptions = (marker: HomeMapMarker) => ({
   id: `member:${marker.markerId}`,
   position: toLatLng(marker),
-  title: marker.displayName.trim() || "Circle member",
+  title:
+    marker.presenceStatus === "offline"
+      ? `${marker.displayName.trim() || "Circle member"} · ${formatLastSeenLabel(marker.lastSeenMinutes)}`
+      : marker.displayName.trim() || "Circle member",
 });
 
 const MapOverviewComponent = (
