@@ -332,18 +332,21 @@ export const firestoreService = {
   },
 
   listenToHotlines(region: string, callback: (hotlines: Hotline[]) => void) {
+    const fallbackHotlines = PHILIPPINE_HOTLINE_SEED.filter((hotline) => hotline.region === region);
+
     if (getClientMode() === "demo") {
-      return withFallback(PHILIPPINE_HOTLINE_SEED.filter((hotline) => hotline.region === region), callback);
+      return withFallback(fallbackHotlines, callback);
     }
 
     return onSnapshot(
       query(collection(db(), "emergency_hotlines"), where("region", "==", region), orderBy("name", "asc")),
       (snapshot) => {
-        callback(snapshot ? snapshot.docs.map((doc: any) => ({ hotlineId: doc.id, ...doc.data() }) as Hotline) : []);
+        const hotlines = snapshot ? snapshot.docs.map((doc: any) => ({ hotlineId: doc.id, ...doc.data() }) as Hotline) : [];
+        callback(hotlines.length ? hotlines : fallbackHotlines);
       },
       (error) => {
         console.warn("listenToHotlines failed.", error);
-        callback([]);
+        callback(fallbackHotlines);
       },
     );
   },
