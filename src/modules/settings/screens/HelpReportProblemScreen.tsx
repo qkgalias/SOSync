@@ -11,6 +11,7 @@ import {
   REPORT_PROBLEM_CATEGORIES,
   type ReportProblemCategory,
 } from "@/modules/settings/helpAboutContent";
+import { HelpSubmissionSuccessModal } from "@/modules/settings/components/HelpSubmissionSuccessModal";
 import {
   SUPPORT_EMAIL,
   buildMailtoUrl,
@@ -18,6 +19,10 @@ import {
   getResolvedBuildLabel,
   getSelectedMediaLabel,
 } from "@/modules/settings/helpAboutUtils";
+import {
+  PROBLEM_REPORT_FALLBACK_MESSAGE,
+  toProblemReportErrorMessage,
+} from "@/modules/settings/helpRequestErrors";
 import { Screen } from "@/components/Screen";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useAppTheme } from "@/providers/AppThemeProvider";
@@ -41,7 +46,8 @@ export default function HelpReportProblemScreen() {
   const [deviceModel, setDeviceModel] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia | null>(null);
   const [error, setError] = useState("");
-  const [feedback, setFeedback] = useState("");
+  const [fallbackMessage, setFallbackMessage] = useState("");
+  const [successReportId, setSuccessReportId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const needsOtherReason = category === "Other";
@@ -98,7 +104,8 @@ export default function HelpReportProblemScreen() {
     }
 
     setError("");
-    setFeedback("");
+    setFallbackMessage("");
+    setSuccessReportId(null);
     setSubmitting(true);
     const reportId = supportService.createReportId();
     const resolvedDeviceModel = deviceModel.trim() || Device.modelName || "Unknown device";
@@ -132,13 +139,14 @@ export default function HelpReportProblemScreen() {
         reportId,
       });
 
-      setFeedback(`Problem report submitted. Reference: ${result.reportId}`);
+      setSuccessReportId(result.reportId);
       setDescription("");
       setOtherReason("");
       setDeviceModel("");
       setSelectedMedia(null);
     } catch (submitError) {
       console.warn("Problem report backend submission failed; opening email fallback.", submitError);
+      setError(toProblemReportErrorMessage(submitError));
       await Linking.openURL(
         buildMailtoUrl({
           to: SUPPORT_EMAIL,
@@ -146,7 +154,7 @@ export default function HelpReportProblemScreen() {
           body: detailLines.join("\n"),
         }),
       );
-      setFeedback("We opened an email draft as a fallback because in-app report submission is unavailable.");
+      setFallbackMessage(PROBLEM_REPORT_FALLBACK_MESSAGE);
     } finally {
       setSubmitting(false);
     }
@@ -270,7 +278,7 @@ export default function HelpReportProblemScreen() {
         </View>
 
         {error ? <Text className="mt-3 text-[12px] leading-5 text-dangerText">{error}</Text> : null}
-        {feedback ? <Text className="mt-3 text-[12px] leading-5 text-accent">{feedback}</Text> : null}
+        {fallbackMessage ? <Text className="mt-3 text-[12px] leading-5 text-accent">{fallbackMessage}</Text> : null}
 
         <Button
           className="mt-8 min-h-12 self-center rounded-full px-8"
@@ -281,6 +289,13 @@ export default function HelpReportProblemScreen() {
           }}
         />
       </View>
+
+      <HelpSubmissionSuccessModal
+        bodyPrefix="Thanks for sending that in. Your report reference is"
+        onClose={() => setSuccessReportId(null)}
+        referenceId={successReportId}
+        title="Report submitted"
+      />
     </Screen>
   );
 }

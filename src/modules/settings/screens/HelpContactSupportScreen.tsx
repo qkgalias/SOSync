@@ -6,7 +6,9 @@ import { Linking, Text, TextInput, View } from "react-native";
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/Button";
 import { Screen } from "@/components/Screen";
+import { HelpSubmissionSuccessModal } from "@/modules/settings/components/HelpSubmissionSuccessModal";
 import { SUPPORT_EMAIL, buildMailtoUrl, getResolvedAppVersion, getResolvedBuildLabel } from "@/modules/settings/helpAboutUtils";
+import { SUPPORT_REQUEST_FALLBACK_MESSAGE, toSupportRequestErrorMessage } from "@/modules/settings/helpRequestErrors";
 import { useAppTheme } from "@/providers/AppThemeProvider";
 import { supportService } from "@/services/supportService";
 import { goBackOrReplace } from "@/utils/helpers";
@@ -16,7 +18,8 @@ export default function HelpContactSupportScreen() {
   const { themeTokens } = useAppTheme();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [feedback, setFeedback] = useState("");
+  const [fallbackMessage, setFallbackMessage] = useState("");
+  const [successRequestId, setSuccessRequestId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -27,7 +30,8 @@ export default function HelpContactSupportScreen() {
     }
 
     setError("");
-    setFeedback("");
+    setFallbackMessage("");
+    setSuccessRequestId(null);
     const body = [
       "Support Request",
       "",
@@ -46,10 +50,11 @@ export default function HelpContactSupportScreen() {
         deviceModel: Device.modelName ?? "Unknown device",
         message: trimmedMessage,
       });
-      setFeedback(`Support request received. Reference: ${result.requestId}`);
+      setSuccessRequestId(result.requestId);
       setMessage("");
     } catch (submitError) {
       console.warn("Support backend submission failed; opening email fallback.", submitError);
+      setError(toSupportRequestErrorMessage(submitError));
       await Linking.openURL(
         buildMailtoUrl({
           to: SUPPORT_EMAIL,
@@ -57,7 +62,7 @@ export default function HelpContactSupportScreen() {
           body,
         }),
       );
-      setFeedback("We opened an email draft as a fallback because in-app support submission is unavailable.");
+      setFallbackMessage(SUPPORT_REQUEST_FALLBACK_MESSAGE);
     } finally {
       setSubmitting(false);
     }
@@ -87,7 +92,7 @@ export default function HelpContactSupportScreen() {
           value={message}
         />
         {error ? <Text className="mt-2 text-[12px] leading-5 text-dangerText">{error}</Text> : null}
-        {feedback ? <Text className="mt-2 text-[12px] leading-5 text-accent">{feedback}</Text> : null}
+        {fallbackMessage ? <Text className="mt-2 text-[12px] leading-5 text-accent">{fallbackMessage}</Text> : null}
 
         <Button
           className="mt-8 min-h-12 self-center rounded-full px-8"
@@ -98,6 +103,12 @@ export default function HelpContactSupportScreen() {
           }}
         />
       </View>
+      <HelpSubmissionSuccessModal
+        bodyPrefix="Thanks for reaching out. Your support reference is"
+        onClose={() => setSuccessRequestId(null)}
+        referenceId={successRequestId}
+        title="Support request sent"
+      />
     </Screen>
   );
 }
