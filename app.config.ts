@@ -9,7 +9,7 @@ const useFirebaseEmulators = process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 
 const firebaseEmulatorHost = process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST ?? "";
 const googleMapsAndroidApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY ?? "";
 const googleMapsIosApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY ?? "";
-const easProjectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? "";
+const easProjectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID || "5b72c1ce-e882-4a8b-afe4-7096a839b31a";
 const androidGoogleServicesFile = process.env.ANDROID_GOOGLE_SERVICES_FILE;
 const iosGoogleServicesFile = process.env.IOS_GOOGLE_SERVICES_FILE;
 
@@ -64,6 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     "expo-router",
     "./plugins/withAndroidNeutralLaunchSplash",
+    "./plugins/withAndroidCoreLibraryDesugaring",
     "expo-font",
     [
       "expo-image-picker",
@@ -99,7 +100,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         icon: "./assets/notification-icon.png",
         color: "#D6524E",
-        defaultChannel: "sosync-alerts",
       },
     ],
     "@react-native-firebase/app",
