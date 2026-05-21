@@ -39,7 +39,7 @@ type SelectedMedia = {
 export default function HelpReportProblemScreen() {
   const router = useRouter();
   const { authUser } = useAuthSession();
-  const { themeTokens } = useAppTheme();
+  const { resolvedTheme, themeTokens } = useAppTheme();
   const [category, setCategory] = useState<ReportProblemCategory | null>(REPORT_PROBLEM_CATEGORIES[0] ?? null);
   const [otherReason, setOtherReason] = useState("");
   const [description, setDescription] = useState("");
@@ -54,6 +54,7 @@ export default function HelpReportProblemScreen() {
   const versionLabel = getResolvedAppVersion();
   const buildLabel = getResolvedBuildLabel();
   const technicalData = useMemo(() => `App Version: ${versionLabel} · Build: ${buildLabel}`, [buildLabel, versionLabel]);
+  const placeholderColor = resolvedTheme === "dark" ? "#6F7785" : "#A8A3A3";
 
   const handlePickMedia = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -168,7 +169,7 @@ export default function HelpReportProblemScreen() {
       title="Report a Problem"
     >
       <View className="mt-6">
-        <Text className="mb-3 text-[13px] font-medium text-ink">Issue Category:</Text>
+        <Text className="mb-3 text-[16px] font-semibold text-ink">Issue Category:</Text>
         <View>
           {REPORT_PROBLEM_CATEGORIES.map((item) => {
             const selected = item === category;
@@ -194,7 +195,7 @@ export default function HelpReportProblemScreen() {
                   name={selected ? "check-circle" : "radiobox-blank"}
                   size={18}
                 />
-                <Text className="ml-3 text-[14px] text-ink">{item}</Text>
+                <Text className="ml-3 text-[16px] text-ink">{item}</Text>
               </Pressable>
             );
           })}
@@ -202,7 +203,7 @@ export default function HelpReportProblemScreen() {
 
         {needsOtherReason ? (
           <View className="mt-4">
-            <Text className="mb-3 text-[13px] font-medium text-ink">Please specify the other reason (required):</Text>
+            <Text className="mb-3 text-[16px] font-semibold text-ink">Please specify the other reason (required):</Text>
             <TextInput
               multiline
               className="min-h-[94px] rounded-[16px] border border-line bg-input px-4 py-4 text-[15px] leading-6 text-ink"
@@ -213,7 +214,7 @@ export default function HelpReportProblemScreen() {
                 }
               }}
               placeholder="Write what the reason here. (Be specific and detailed.)"
-              placeholderTextColor={themeTokens.textMuted}
+              placeholderTextColor={placeholderColor}
               textAlignVertical="top"
               value={otherReason}
             />
@@ -221,7 +222,7 @@ export default function HelpReportProblemScreen() {
         ) : null}
 
         <View className="mt-4">
-          <Text className="mb-3 text-[13px] font-medium text-ink">What happened? (required)</Text>
+          <Text className="mb-3 text-[16px] font-semibold text-ink">What happened? (required)</Text>
           <TextInput
             multiline
             className="min-h-[118px] rounded-[16px] border border-line bg-input px-4 py-4 text-[15px] leading-6 text-ink"
@@ -232,7 +233,7 @@ export default function HelpReportProblemScreen() {
               }
             }}
             placeholder="Describe what you expected, what happened, and where you were in the app."
-            placeholderTextColor={themeTokens.textMuted}
+            placeholderTextColor={placeholderColor}
             textAlignVertical="top"
             value={description}
           />
@@ -240,7 +241,7 @@ export default function HelpReportProblemScreen() {
 
         <View className="mt-4">
           <View className="flex-row items-center justify-between">
-            <Text className="text-[13px] font-medium text-ink">Attach Screenshot (optional)</Text>
+            <Text className="text-[16px] font-semibold text-ink">Attach Screenshot (optional)</Text>
             <MaterialCommunityIcons color={themeTokens.textMuted} name="paperclip" size={18} />
           </View>
           <Pressable
@@ -262,12 +263,12 @@ export default function HelpReportProblemScreen() {
         </View>
 
         <View className="mt-4">
-          <Text className="mb-2 text-[13px] font-medium text-ink">Device:</Text>
+          <Text className="mb-2 text-[16px] font-semibold text-ink">Device:</Text>
           <TextInput
             className="rounded-[14px] border border-line bg-input px-4 py-3 text-[14px] text-ink"
             onChangeText={(value) => setDeviceModel(value)}
             placeholder="Enter your device model"
-            placeholderTextColor={themeTokens.textMuted}
+            placeholderTextColor={placeholderColor}
             value={deviceModel}
           />
         </View>
