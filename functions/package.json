@@ -10,6 +10,7 @@
     "deploy": "firebase deploy --only functions",
     "audit:circle-data": "node scripts/auditCircleData.mjs",
     "backfill:circle-data": "node scripts/backfillCircleInviteCodes.mjs",
+    "set:admin-claim": "node scripts/setAdminClaim.mjs",
     "seed:test-data": "node scripts/seedLiveTestData.mjs",
     "seed:manual-alert": "node scripts/createManualAlert.mjs"
   },

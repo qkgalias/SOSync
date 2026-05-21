@@ -26,6 +26,8 @@
     "firebase:deploy:backend": "firebase deploy --only functions,firestore:rules,firestore:indexes,storage",
     "functions:build": "npm --prefix functions run build",
     "functions:serve": "npm --prefix functions run serve",
+    "admin:web:build": "npm --prefix admin-web run build",
+    "admin:web:dev": "npm --prefix admin-web run dev",
     "eas:build:android:preview": "eas build --platform android --profile preview",
     "eas:build:android:production": "eas build --platform android --profile production",
     "eas:submit:android:production": "eas submit --platform android --profile production"

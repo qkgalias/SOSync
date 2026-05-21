@@ -12,6 +12,9 @@
   - package: `com.sosync.mobile`
 - iOS app:
   - bundle ID: `com.sosync.mobile`
+- Web app:
+  - used by the `admin-web/` Firebase Hosting portal
+  - configured locally through `admin-web/.env.local`
 
 ## Auth Providers
 
@@ -35,6 +38,18 @@ Client-side env names:
 - `EXPO_PUBLIC_EAS_PROJECT_ID`
 - `ANDROID_GOOGLE_SERVICES_FILE`
 - `IOS_GOOGLE_SERVICES_FILE`
+
+Admin web env names:
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+- `VITE_GOOGLE_MAPS_BROWSER_API_KEY`
+- `VITE_FUNCTIONS_REGION`
+- `VITE_USE_FUNCTIONS_EMULATOR`
+- `VITE_FUNCTIONS_EMULATOR_HOST`
 
 Functions secrets:
 - `GOOGLE_MAPS_DIRECTIONS_API_KEY`
@@ -82,6 +97,14 @@ Live Firestore seed scripts require one of:
 - `gcloud auth application-default login`
 - `GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json`
 
+The first admin portal account also needs a Firebase Auth custom claim:
+
+```bash
+npm --prefix functions run set:admin-claim -- --email=<admin-email>
+```
+
+Supported `sosyncRole` values are `super_admin`, `content_admin`, and `support_admin`. The admin must sign out and sign back in before the new claim appears in their ID token.
+
 ## Firestore Collections In Use
 
 - `users`
@@ -91,11 +114,21 @@ Live Firestore seed scripts require one of:
 - `groups/{groupId}/statuses`
 - `email_verifications`
 - `password_reset_requests`
+- `support_reports`
 - `locations`
 - `alerts`
 - `sos_events`
 - `evacuation_centers`
 - `emergency_hotlines`
+
+## Admin Back Office
+
+- Hosted from `admin-web/dist` through Firebase Hosting.
+- Calls custom-claim protected callable Functions in `asia-southeast1`.
+- `content_admin` can manage emergency hotlines and evacuation centers.
+- `support_admin` can review support/problem reports and update report status.
+- `super_admin` can access both content and support workflows.
+- Mobile Firestore rules stay locked down; admin operations go through Cloud Functions.
 
 ## Current Push Posture
 
@@ -107,5 +140,6 @@ Live Firestore seed scripts require one of:
 - Production builds should keep `EXPO_PUBLIC_USE_FIREBASE_EMULATORS=false`.
 - Production builds should target the same Firebase project ID: `sosync-3276e`.
 - Native Firebase app files stay out of git and should be injected through secure EAS build configuration.
-- Backend deploys should update Functions, Firestore rules, and Firestore indexes together.
+- Backend deploys should update Functions, Firestore rules, Firestore indexes, Storage rules, and Hosting together for Android V1.
 - Deploy the public `branding/brand-mark-transparent.png` asset to Firebase Storage if `RESEND_BRAND_LOGO_URL` is not set explicitly.
+- Run `npm run backfill:circle-codes` and `npm run audit:circle-data` after backend deploy before final Android EAS smoke testing.

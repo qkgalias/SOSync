@@ -11,9 +11,10 @@ npm run doctor:backend-release
 npm run typecheck
 npx jest --runInBand --watchman=false
 npm --prefix functions run build
+npm run admin:web:build
 ```
 
-These checks confirm that the backend release files are present, app TypeScript compiles, the current Jest suite passes, and Functions TypeScript builds cleanly.
+These checks confirm that the backend release files are present, app TypeScript compiles, the current Jest suite passes, Functions TypeScript builds cleanly, and the admin web portal compiles for Firebase Hosting.
 `npm test` may still try to use Watchman on some machines; prefer `npx jest --runInBand --watchman=false` for deterministic local runs.
 
 ## Android Smoke Test
@@ -212,10 +213,12 @@ What to verify:
 - help and about follows separate Figma-style support/legal rows instead of grouped utility panels
 - `Help & About` keeps `Contact Support`, `Report a Problem`, and `About the App` as the signed-in support/about surface and no longer duplicates `Privacy Policy` / `Terms & Conditions`
 - `Help & About` overview routes into dedicated screens for `Emergency Usage Guide`, `FAQs`, `Contact SOSync Support`, `Report a Problem`, and `About the App` instead of opening modal content
+- `Contact SOSync Support` and `Report a Problem` should never surface raw Firebase, Firestore, or `INTERNAL` wording; they should show plain-language failure copy and fall back to an email draft only when the in-app submit path fails
+- successful `Contact SOSync Support` and `Report a Problem` submissions should show explicit confirmation modals with the returned reference number instead of inline default success text
 - `Emergency Usage Guide` uses the three-card instructional layout from the refreshed Figma
 - `FAQs` uses an accordion layout with the first question expanded by default
-- `Contact SOSync Support` validates message input and opens a populated `mailto:` draft to `support@sosync.app`
-- `Report a Problem` validates category selection, shows the extra required field for `Other`, previews locally selected media, and opens a populated `mailto:` draft with category/device/version details
+- `Contact SOSync Support` validates message input, submits through the backend when available, and opens a populated `mailto:` draft to `support@sosync.app` only as fallback
+- `Report a Problem` validates category selection, shows the extra required field for `Other`, previews locally selected media, submits through the backend when available, and opens a populated `mailto:` draft with category/device/version details only as fallback
 - informational and settings modals dismiss from the top `X` control without a redundant bottom `Close` button
 - privacy & safety, help and about, permissions, and appearance routes
 - leave-group and delete-account flows

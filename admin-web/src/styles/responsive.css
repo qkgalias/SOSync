@@ -1,0 +1,284 @@
+@media (max-width: 1080px) {
+  .app-shell,
+  .login-page,
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .login-hero {
+    min-height: 680px;
+  }
+
+  .login-hero__map {
+    left: 50%;
+    top: 52%;
+    width: min(92vw, 660px);
+    transform: translate(-18%, -50%);
+  }
+
+  .login-panel {
+    min-height: auto;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+  }
+
+  .sidebar-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .topbar,
+  .topbar__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .stats-grid,
+  .dashboard-grid,
+  .dashboard-kpis,
+  .dashboard-panels,
+  .hotline-stats-row,
+  .evacuation-workspace,
+  .firebase-services-card,
+  .report-overview,
+  .report-grid,
+  .report-summary-grid,
+  .reports-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .report-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-media-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .hotline-add-button {
+    justify-self: stretch;
+  }
+
+  .center-status-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .status-grid,
+  .firebase-services {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .firebase-services article {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding-inline: 0;
+  }
+
+  .evacuation-side-panel,
+  .evacuation-map-panel {
+    min-height: auto;
+  }
+
+  .evacuation-map-panel .google-map-shell--centers {
+    min-height: 560px;
+  }
+
+  .center-detail-card {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: auto;
+    margin: 12px;
+  }
+}
+
+@media (max-width: 680px) {
+  .login-hero,
+  .workspace {
+    padding: 18px;
+  }
+
+  .login-hero {
+    min-height: 720px;
+  }
+
+  .login-hero .brand-lockup__mark {
+    width: 58px;
+    height: 58px;
+  }
+
+  .login-hero .brand-lockup__wordmark {
+    width: 128px;
+  }
+
+  .login-hero__copy {
+    margin-top: 64px;
+  }
+
+  .login-hero h1 {
+    font-size: 42px;
+  }
+
+  .login-hero p {
+    font-size: 15px;
+  }
+
+  .login-hero__map {
+    left: 50%;
+    top: 54%;
+    width: 580px;
+    opacity: 0.78;
+    transform: translate(-18%, -50%);
+  }
+
+  .login-hero__footer {
+    align-items: flex-start;
+  }
+
+  .login-panel__utilities,
+  .login-panel__footer {
+    padding-inline: 18px;
+  }
+
+  .login-panel__utilities {
+    justify-content: center;
+    min-height: 66px;
+  }
+
+  .login-panel__footer {
+    align-items: center;
+    flex-direction: column;
+    min-height: auto;
+    padding-block: 20px;
+    text-align: center;
+  }
+
+  .topbar {
+    margin: -18px -18px 18px;
+    padding: 16px 18px;
+  }
+
+  .signin-card {
+    width: calc(100% - 28px);
+    margin: 28px 0;
+    padding: 24px 18px;
+  }
+
+  .card,
+  .modal-card {
+    padding: 16px;
+  }
+
+  .sidebar-nav,
+  .form-disclosure__grid,
+  .modal-form--grid,
+  .dashboard-kpis,
+  .dashboard-panels,
+  .hotline-stats-row,
+  .evacuation-stats,
+  .report-overview,
+  .report-meta,
+  .report-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-copy-row,
+  .report-detail-actions,
+  .report-row-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .report-detail-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .report-detail-actions select,
+  .report-row-actions select {
+    width: 100%;
+  }
+
+  .hotlines-toolbar,
+  .hotlines-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hotline-search,
+  .hotline-filter,
+  .hotline-filter select {
+    width: 100%;
+  }
+
+  .evacuation-map-toolbar,
+  .evacuation-map-tools {
+    left: 16px;
+    right: 16px;
+  }
+
+  .evacuation-island-filter {
+    grid-template-columns: 1fr;
+  }
+
+  .evacuation-map-tools {
+    top: 74px;
+    justify-content: flex-start;
+  }
+
+  .evacuation-map-panel .google-map-shell--centers {
+    min-height: 500px;
+  }
+
+  .evacuation-list-item {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .evacuation-list-item .status-badge {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .evacuation-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-kpi {
+    min-height: auto;
+    padding: 18px;
+  }
+
+  .status-hero-card,
+  .card-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .status-grid,
+  .firebase-services {
+    grid-template-columns: 1fr;
+  }
+
+  .status-metric-card {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .dashboard-action {
+    width: 100%;
+  }
+
+  .center-map {
+    min-height: 190px;
+  }
+
+  .breakdown-row,
+  .status-summary > div {
+    gap: 10px;
+  }
+}

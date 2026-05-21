@@ -437,6 +437,16 @@
   - Email-only handoff made reports hard to track and gave users no durable in-app submission reference.
   - A backend queue gives the team a minimal review surface without blocking the mobile release on a full admin console.
 
+## 2026-05 Android V1 Includes Minimum Ops
+
+- Decision:
+  - Treat V1 as Android mobile plus the minimum operator surface needed to run it safely.
+  - Include the `admin-web/` Firebase Hosting portal, custom-claim protected admin callable Functions, and `sosyncRole` assignment script in the Android V1 closeout.
+  - Keep iOS native validation, APNs, and full messaging/chat as explicit post-V1 deferrals.
+- Why:
+  - The Android app can build and smoke test, but V1 still needs a controlled way to manage hotlines, evacuation centers, and support/problem reports without relaxing mobile Firestore rules.
+  - Shipping the operator layer with Android V1 keeps safety data and user reports maintainable while avoiding scope creep into iOS or messaging.
+
 ## 2026-03 Home Map Uses A Soft Pastel Palette And Stays Mounted Across Tabs
 
 - Decision:

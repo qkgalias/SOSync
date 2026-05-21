@@ -10,6 +10,9 @@
 - New account setup now waits for the fresh Firebase Auth session before first profile persistence, retries safe self-profile writes on transient Firestore permission races, and keeps users moving into verification with recovery copy if profile setup needs to resume.
 - Shared input normalization for email, phone, invite code, OTP code, circle names, password-reset requests, and password-change validation across the current onboarding and account-management flows.
 - Firestore service layer for users, groups, permanent circle codes, locations, alerts, SOS events, hotlines, push tokens, blocked users, and notification read receipts.
+- Separate `admin-web/` React + Vite back-office MVP for custom-claim protected operations: admin login, dashboard counts, hotline management, evacuation-center management, and support/problem-report review.
+- Cloud Functions now expose a custom-claim protected admin back-office surface for hotlines, evacuation centers, and support reports without relaxing mobile Firestore rules.
+- Operator script support for assigning `sosyncRole` custom claims (`super_admin`, `content_admin`, or `support_admin`) to Firebase Auth users before admin portal use.
 - Live and fallback hotline seeds now include the expanded Philippines/Talisay set: `911`, `Philippine Red Cross`, `NDRRMC`, `PNP`, `BFP`, `Talisay City DRRMO Rescue`, and `Barangay Tabunok Hall`; the Hotlines tab keeps those bundled emergency contacts available when live Firestore data is empty or unreachable.
 - Firebase Storage-backed avatar upload for real profile photos.
 - Firebase Storage rules now cover owner-scoped avatar uploads under `avatars/{userId}/...`.
@@ -33,6 +36,7 @@
 - Signed-in settings flow now includes dedicated `General`, `Permissions`, `Account`, `Joined Circles`, per-circle detail screens, `Privacy & Safety`, `Help and About`, `Appearance`, an `Edit Profile` hub, a focused contact-details screen, and a focused password screen.
 - `Privacy & Safety` now follows the refreshed Figma structure: a signed-in overview screen with sharing controls, dedicated `Data Security Overview` and `Managed Circle Access` detail screens, and standalone `Privacy Policy` / `Terms & Conditions` legal screens behind one segmented switcher. Signed-in `Help & About` no longer duplicates the legal rows.
 - `Help and About` now follows the refreshed Figma structure too: a signed-in overview with route-based `Emergency Usage Guide`, `FAQs`, `Contact SOSync Support`, `Report a Problem`, and `About the App` screens instead of the older modal-only flow. Support and problem reporting now use structured email-draft handoff, and report media selection stays local-preview only for now.
+- `Contact SOSync Support` and `Report a Problem` now hide raw Firebase/Firestore/network wording from users, fall back to a friendly email draft only when the in-app submit path fails, and show explicit success modals with returned reference numbers after backend submission.
 - Signed-in profile/account/settings screens now use a Figma-aligned light surface system: separate rounded gray rows/cards, tighter spacing, reduced nested white-card usage, and a shared `#5C1515` accent across icons, buttons, outlines, and modal controls.
 - Modal dismiss patterns are now simplified so informational and account-management modals rely on the top dismiss control instead of duplicating a second bottom `Close` action.
 - Home and Help icon semantics were cleaned up so distinct actions no longer reuse the same icon for different meanings, especially around map focus, live sharing, routing, support, and legal rows.
@@ -79,8 +83,9 @@
   - `npm run typecheck`
   - `npx jest --runInBand --watchman=false`
   - `npm run functions:build`
+  - `npm run admin:web:build`
 
-## Blocked
+## V1 Closeout
 
 - Full Android device-level smoke validation of the current core app flow is now mostly completed; remaining Android validation should be focused regression around live backend readiness, map reliability, flood/weather correctness, support/report submission, and theme consistency.
 - Resend email delivery still depends on live Functions config and a deployed public brand asset.
@@ -92,15 +97,18 @@
 - Older circles created before the permanent-code migration may still need `ownerId` and `inviteCode` backfilled.
   - Run `npm run backfill:circle-codes` once against live Firebase after deploying the new backend surface.
 - Legacy circle data should be audited after backfill with `npm run audit:circle-data`.
+- The new personal flood-risk sheet still needs live Android smoke validation against real Google Flood Forecasting coverage.
+
+## Accepted Post-V1 Deferrals
+
 - iOS remote push is unavailable because APNs is not configured.
 - The generated `ios/` folder was intentionally removed after the iOS Google Maps / CocoaPods issue, so iOS native validation is deferred.
 - Message notifications are deferred and inactive for release; unsupported `message` payloads should not surface in the app.
-- The new personal flood-risk sheet still needs live Android smoke validation against real Google Flood Forecasting coverage.
 ## Next 3 Priorities
 
 1. Deploy the updated backend surface end to end: Firestore rules, Storage rules, Cloud Functions, Resend secrets, and the public branding asset used by verification emails.
-2. Run backend and data readiness checks with `npm run doctor:backend-release`, `npm run backfill:circle-codes`, and `npm run audit:circle-data`.
-3. Validate alert geography, flood/weather correctness, Home map reliability on weaker Android hardware, support/report submission, and Light/Dark/System visual consistency.
+2. Assign the first admin custom claim, deploy the admin web portal to Firebase Hosting, and verify hotline, safety-hub, and report operations before EAS user testing.
+3. Run backend and data readiness checks with `npm run doctor:backend-release`, `npm run backfill:circle-codes`, and `npm run audit:circle-data`.
 
 ## Recent Platform Decisions
 

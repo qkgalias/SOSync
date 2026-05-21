@@ -46,6 +46,12 @@ if (firebaseJson?.functions && firebaseJson?.firestore && firebaseJson?.storage)
   addFailure("firebase.json must include Functions, Firestore, and Storage config before backend deploy.");
 }
 
+if (firebaseJson?.hosting?.public === "admin-web/dist") {
+  addPass("firebase.json includes Firebase Hosting config for admin-web/dist.");
+} else {
+  addFailure("firebase.json must include Firebase Hosting config for the admin web portal.");
+}
+
 const indexes = readJson("firestore.indexes.json");
 const hasMembersUserIdIndex = indexes?.fieldOverrides?.some(
   (index) =>
@@ -85,9 +91,16 @@ if (envExample.includes("EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY")) {
   addWarning(".env.example should document EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY.");
 }
 
+if (exists("admin-web/.env.example")) {
+  addPass("admin-web/.env.example documents the Firebase Web app config.");
+} else {
+  addWarning("admin-web/.env.example should document the Firebase Web app config.");
+}
+
 addWarning("Verify in Firebase Console: default Storage bucket exists and Email/Password auth is enabled.");
 addWarning("Verify Functions config/secrets: RESEND_API_KEY, RESEND_FROM_EMAIL, optional RESEND_BRAND_LOGO_URL, GOOGLE_FLOOD_FORECASTING_API_KEY, and GOOGLE_MAPS_DIRECTIONS_API_KEY.");
 addWarning("Verify Google Cloud Console: Android Maps key allows com.sosync.mobile for debug and release SHA1 fingerprints.");
+addWarning("Verify admin access: assign sosyncRole custom claims and have admins sign out/sign in before testing the portal.");
 addWarning("After deploy, run live smoke checks for OTP email, avatar upload, support report submission, flood lookup, and push token registration.");
 
 console.log("SOSync Backend Release Readiness Check\n");

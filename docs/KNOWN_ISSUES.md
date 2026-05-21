@@ -1,6 +1,6 @@
 # Known Issues
 
-## Runtime And Platform Blockers
+## Android V1 Closeout
 
 - Full Android device-level smoke validation against live Firebase is now mostly completed for the current core app flow.
   - Keep focused Android regression passes for backend-dependent flows, Home map reliability, flood/weather accuracy, support/report submission, and theme consistency.
@@ -14,10 +14,6 @@
   - Firestore rules were fixed and the `members.userId` collection-group index was deployed, but Firebase index availability may lag behind deploy time.
 - Older live circles may still be missing `ownerId` or permanent `inviteCode` fields until the migration script is run.
   - Run `npm run backfill:circle-codes` after deploying the new backend surface so legacy circles resume on the permanent-code model.
-- The generated `ios/` folder was intentionally removed.
-  - iOS native testing is deferred.
-- A previous iOS prebuild hit a `react-native-google-maps` / CocoaPods integration problem.
-  - This is historical context for why iOS was deferred rather than a resolved issue.
 - The Home map and draggable bottom sheet experience is native-build only.
   - Web still shows a placeholder fallback instead of the draggable native map scene.
 - Android Home map/navigation will stay blank or fail to start guidance if the Android Google API key is not authorized for package `com.sosync.mobile` and the current debug SHA1 from `android/app/debug.keystore`.
@@ -36,17 +32,24 @@
 ## Push Notifications
 
 - Remote push is Android-first only.
-- iOS remote push is not operational because APNs is not configured.
-- The code supports iOS notification permissions and in-app handling, but not real remote delivery.
 
 ## Alerts And Geography
 
 - `functions/src/alerts.ts` currently writes alerts using shared Manila-area coordinates and PH-first assumptions.
 - Alert generation is not yet tailored to each group’s actual geography.
 
-## Feature Gaps
+## Accepted Post-V1 Deferrals
 
 - Full in-app messaging remains deferred; unsupported `message` notification payloads are now ignored for release instead of appearing as a partial feature.
+- iOS remote push is not operational because APNs is not configured.
+- The generated `ios/` folder was intentionally removed.
+  - iOS native testing is deferred.
+- A previous iOS prebuild hit a `react-native-google-maps` / CocoaPods integration problem.
+  - This is historical context for why iOS was deferred rather than a resolved issue.
+- The code supports iOS notification permissions and in-app handling, but not real remote delivery.
+
+## Feature Gaps
+
 - Disaster sync is active, and alert generation now uses group/member location context when available instead of a shared Manila-only coordinate.
 - The Home `Flood risk` sheet is personal and on-demand in v1.
   - It does not create Firestore `alerts`, does not notify the circle, depends on nearby Google modeled gauge coverage for richer flood output, and still needs live validation of the simplified alert-first sheet, nearby-point popup modal, and Google polygon availability across real Philippines locations.
@@ -57,7 +60,9 @@
 - Legal/privacy/terms content is still local summary copy in-app.
   - The signed-in legal screens now link to the intended hosted policy URLs, but the hosted pages still need to be published and reviewed before release.
 - Signed-in support and problem-report flows now submit to a backend review queue first and fall back to structured email-draft handoff when submission is unavailable.
-  - The refreshed report screen can upload locally selected media to owner-scoped Storage paths, but admin review tooling is still minimal.
+  - The refreshed report screen can upload locally selected media to owner-scoped Storage paths, and the new admin-web MVP can review and status reports after custom-claim setup.
+- Admin web deployment depends on creating a Firebase Web app config and assigning at least one `sosyncRole` custom claim.
+  - Admins must sign out and sign back in after claim assignment before the portal can read the updated ID token.
 - Appearance now surfaces `Dark`, `Light`, and `System` selections in the signed-in settings flow.
   - Broader screen-by-screen dark rendering beyond the current saved preference still needs deeper validation before it should be treated as a finished app-wide theme rollout.
 

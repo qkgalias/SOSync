@@ -28,7 +28,7 @@ These points are important because they affect how you should understand the pro
 - iOS code exists, but iOS remote push is not finished because APNs is not configured.
 - The generated `ios/` native folder was intentionally removed and is currently not the source of truth.
 - Notification payloads include a possible `message` type, but a full messaging/chat feature is not implemented end-to-end.
-- The project is a strong working foundation, but it is not yet a fully finished production app.
+- The Android app is now treated as a V1 release candidate; remaining V1 work is operational validation, backend/data readiness, and EAS artifact verification.
 
 ## 2. Tech Stack
 
@@ -45,9 +45,9 @@ This is the mobile app that users interact with.
 - Backend client services: Firebase Auth, Firestore, Functions, Messaging, Storage
 - Device features: location, notifications, image picking, maps
 
-### Backend workspace
+### Backend and ops workspaces
 
-This is the Firebase Cloud Functions code under `functions/`.
+Firebase Cloud Functions live under `functions/`, and the minimum operator portal lives under `admin-web/`.
 
 - Runtime: Firebase Cloud Functions v2
 - Language: TypeScript
@@ -58,6 +58,7 @@ This is the Firebase Cloud Functions code under `functions/`.
   - proxy evacuation route requests
   - sync disaster alerts
   - fan out Android push notifications for alerts and SOS events
+  - expose custom-claim protected admin tools for hotlines, evacuation centers, and support/problem-report review
 
 ## 3. Folder Structure
 
@@ -77,6 +78,7 @@ SOSync/
 │   ├── src/              Cloud Functions source code
 │   ├── scripts/          Backend helper scripts
 │   └── lib/              Compiled output
+├── admin-web/            Firebase Hosting admin portal source
 ├── scripts/              Local setup and Android QA helper scripts
 ├── src/
 │   ├── components/       Reusable UI pieces
@@ -731,15 +733,17 @@ This does not necessarily mean they are wrong to keep. Some help Expo, web suppo
 
 These are the most important current gaps and caution points.
 
+- Android V1 still needs operational sign-off: backend deploy, data backfill/audit, admin claim setup, live smoke testing, and EAS preview artifact verification.
 - iOS native validation is deferred because the generated `ios/` folder was intentionally removed.
 - iOS remote push is not working because APNs is not configured.
 - The message payload shape exists, but a full messaging feature does not.
 - Alert geography is still coarse and Philippines-first instead of truly group-specific.
 - Web uses a fallback Home map preview, not the real native map experience.
-- Some live end-to-end validation is still pending, especially deeper Android smoke testing and some circle edge cases.
+- Some live end-to-end validation is still pending, especially Android backend-dependent flows, Home map reliability, support/report review, and some circle edge cases.
 - Older circles may still need backfill work for `ownerId` or permanent invite code fields.
 - Email OTP verification depends on live Functions + Resend configuration being set correctly.
 - Avatar upload depends on Firebase Storage being provisioned for the live project.
+- Admin operations depend on a Firebase Web app config, deployed Hosting, and at least one `sosyncRole` custom claim.
 
 ### Be careful not to assume
 

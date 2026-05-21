@@ -136,6 +136,17 @@ This deploys:
 - Firestore rules
 - Firestore indexes
 
+Admin back-office path:
+
+```bash
+npm --prefix functions run set:admin-claim -- --email=<admin-email>
+npm --prefix admin-web install
+npm run admin:web:build
+firebase deploy --only hosting
+```
+
+The admin portal lives in `admin-web/`, deploys to Firebase Hosting from `admin-web/dist`, and calls custom-claim protected Cloud Functions for hotlines, evacuation centers, and support reports. Use `sosyncRole=super_admin`, `content_admin`, or `support_admin`; mobile Firestore rules remain locked down for system data.
+
 `firebase.json` now builds the Functions workspace automatically before deploy, so production deploys do not depend on remembering a separate manual Functions build step.
 
 Canonical Android release path:
@@ -169,6 +180,8 @@ Release-readiness checklist:
 - default Cloud Firestore database created
 - deployed Cloud Functions current
 - Firestore rules and indexes current
+- admin web Firebase config available in `admin-web/.env.local`
+- first admin custom claim assigned and verified after sign-out/sign-in
 - native Firebase config files available to EAS securely
 - Android signing and Play Store delivery configured
 - APNs deferred until iOS remote push work resumes
