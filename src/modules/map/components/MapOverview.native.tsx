@@ -603,11 +603,10 @@ const MapOverviewComponent = (
       {showStaleNativeBuildHint ? (
         <View pointerEvents="none" style={styles.nativeHintWrapper}>
           <View style={[styles.hintCard, { backgroundColor: palette.surface }]}>
-            <Text style={[styles.hintTitle, { color: palette.title }]}>Rebuild Android dev build</Text>
+            <Text style={[styles.hintTitle, { color: palette.title }]}>App build is missing map marker support</Text>
             <Text style={[styles.hintBody, { color: palette.body }]}>
-              SOSyncMarkerIcon is missing, so circular map avatars cannot render. Run{" "}
-              <Text style={styles.hintCode}>npm run android</Text>
-              {" "}once, then keep using the dev build.
+              SOSyncMarkerIcon is missing, so circular map avatars cannot render. Install the latest
+              Android tester build.
             </Text>
           </View>
         </View>

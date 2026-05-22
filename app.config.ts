@@ -65,6 +65,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-router",
     "./plugins/withAndroidNeutralLaunchSplash",
     "./plugins/withAndroidCoreLibraryDesugaring",
+    "./plugins/withAndroidMarkerIconModule",
     "expo-font",
     [
       "expo-image-picker",
