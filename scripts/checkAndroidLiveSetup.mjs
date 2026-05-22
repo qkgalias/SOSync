@@ -6,6 +6,7 @@ const projectRoot = process.cwd();
 const expectedNodeVersion = "v24.14.0";
 const expectedProjectId = "sosync-3276e";
 const expectedAndroidPackage = "com.sosync.mobile";
+const latestKnownEasPreviewSha1 = "36:12:0E:32:63:5B:FE:8C:3A:03:42:FC:59:A3:E3:2A:CD:A1:66:EC";
 
 const failures = [];
 const warnings = [];
@@ -22,6 +23,8 @@ const readFileIfExists = (filePath) => {
 
   return fs.readFileSync(filePath, "utf8");
 };
+
+const normalizeSha1 = (value) => value.toUpperCase().replace(/[^A-F0-9]/g, "").match(/.{1,2}/g)?.join(":") ?? value;
 
 const parseDotEnv = (content) => {
   const values = {};
@@ -94,6 +97,139 @@ const resolveDebugFingerprint = () => {
   }
 };
 
+const resolveApkFingerprint = () => {
+  const apkPath = process.env.SOSYNC_ANDROID_APK_PATH;
+  if (!apkPath) {
+    addPass(`Latest known EAS preview signing SHA1: ${latestKnownEasPreviewSha1}.`);
+    addWarning(
+      `Google Maps Android API key restrictions must allow package ${expectedAndroidPackage} with EAS preview SHA1 ${latestKnownEasPreviewSha1}.`,
+    );
+    addWarning("Set SOSYNC_ANDROID_APK_PATH=/path/to/app.apk to verify the APK signing certificate directly.");
+    return;
+  }
+
+  const resolvedApkPath = path.resolve(projectRoot, apkPath);
+  if (!fs.existsSync(resolvedApkPath)) {
+    addWarning(`SOSYNC_ANDROID_APK_PATH points to a missing APK: ${resolvedApkPath}`);
+    return;
+  }
+
+  const buildToolsRoot = path.join(process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT ?? "", "build-tools");
+  const buildToolsVersion = fs.existsSync(buildToolsRoot)
+    ? fs.readdirSync(buildToolsRoot).sort().at(-1)
+    : null;
+  const apksignerPath = buildToolsVersion ? path.join(buildToolsRoot, buildToolsVersion, "apksigner") : "apksigner";
+
+  try {
+    const output = execFileSync(apksignerPath, ["verify", "--print-certs", resolvedApkPath], { encoding: "utf8" });
+    const fingerprintMatch = output.match(/SHA-1 digest:\s*([a-f0-9]+)/i);
+    if (!fingerprintMatch?.[1]) {
+      addWarning(`Unable to parse APK signing SHA1 from ${resolvedApkPath}.`);
+      return;
+    }
+
+    const sha1 = normalizeSha1(fingerprintMatch[1]);
+    addPass(`APK signing fingerprint resolved: ${sha1}.`);
+    addWarning(
+      `Google Maps Android API key restrictions must allow package ${expectedAndroidPackage} with APK SHA1 ${sha1}.`,
+    );
+  } catch (error) {
+    addWarning(
+      `Unable to inspect APK signing certificate with apksigner: ${error instanceof Error ? error.message : "unknown error"}.`,
+    );
+  }
+};
+
+const verifyGeneratedAndroidRequirement = (label, condition, failureMessage) => {
+  if (condition) {
+    addPass(label);
+  } else {
+    addFailure(failureMessage);
+  }
+};
+
+const verifyNavigationSdkRequirements = () => {
+  const gradleProperties = readFileIfExists(resolveFromProject("android/gradle.properties"));
+  const appBuildGradle = readFileIfExists(resolveFromProject("android/app/build.gradle"));
+  const androidManifest = readFileIfExists(resolveFromProject("android/app/src/main/AndroidManifest.xml"));
+  const packageJson = readFileIfExists(resolveFromProject("package.json"));
+
+  if (!gradleProperties) {
+    addWarning("android/gradle.properties is missing; run a clean Android prebuild before inspecting Navigation SDK requirements.");
+  } else {
+    verifyGeneratedAndroidRequirement(
+      "React Native new architecture is enabled for Android.",
+      /newArchEnabled\s*=\s*true/.test(gradleProperties),
+      "android/gradle.properties must set newArchEnabled=true for Google Navigation SDK.",
+    );
+    verifyGeneratedAndroidRequirement(
+      "AndroidX Jetifier is enabled for Navigation SDK compatibility.",
+      /android\.enableJetifier\s*=\s*true/.test(gradleProperties),
+      "android/gradle.properties must set android.enableJetifier=true for Google Navigation SDK.",
+    );
+  }
+
+  if (!appBuildGradle) {
+    addWarning("android/app/build.gradle is missing; run a clean Android prebuild before inspecting Gradle requirements.");
+  } else {
+    const minSdkMatch = appBuildGradle.match(/minSdkVersion\s+rootProject\.ext\.minSdkVersion|minSdk\s+rootProject\.ext\.minSdkVersion|minSdkVersion\s+(\d+)|minSdk\s+(\d+)/);
+    const targetSdkMatch = appBuildGradle.match(/targetSdkVersion\s+rootProject\.ext\.targetSdkVersion|targetSdk\s+rootProject\.ext\.targetSdkVersion|targetSdkVersion\s+(\d+)|targetSdk\s+(\d+)/);
+    const minSdk = Number(gradleProperties?.match(/android\.minSdkVersion\s*=\s*(\d+)/)?.[1] ?? minSdkMatch?.[1] ?? minSdkMatch?.[2] ?? 0);
+    const targetSdk = Number(gradleProperties?.match(/android\.targetSdkVersion\s*=\s*(\d+)/)?.[1] ?? targetSdkMatch?.[1] ?? targetSdkMatch?.[2] ?? 0);
+
+    verifyGeneratedAndroidRequirement(
+      `Android minSdkVersion satisfies Navigation SDK (${minSdk}).`,
+      minSdk >= 24,
+      `Android minSdkVersion must be 24 or higher for Navigation SDK; found ${minSdk || "unknown"}.`,
+    );
+    verifyGeneratedAndroidRequirement(
+      `Android targetSdkVersion satisfies Navigation SDK (${targetSdk}).`,
+      targetSdk >= 36,
+      `Android targetSdkVersion must be 36 or higher for Navigation SDK 7.x; found ${targetSdk || "unknown"}.`,
+    );
+    verifyGeneratedAndroidRequirement(
+      "Core library desugaring is enabled in android/app/build.gradle.",
+      /coreLibraryDesugaringEnabled\s+true/.test(appBuildGradle) &&
+        /coreLibraryDesugaring\s*\(?["']com\.android\.tools:desugar_jdk_libs_nio:2\.0\.4["']\)?/.test(appBuildGradle),
+      "android/app/build.gradle must enable core library desugaring and include desugar_jdk_libs_nio 2.0.4.",
+    );
+  }
+
+  if (!androidManifest) {
+    addWarning("android/app/src/main/AndroidManifest.xml is missing; run a clean Android prebuild before inspecting the manifest.");
+  } else {
+    verifyGeneratedAndroidRequirement(
+      "Android manifest contains com.google.android.geo.API_KEY metadata.",
+      /com\.google\.android\.geo\.API_KEY/.test(androidManifest),
+      "Android manifest must contain com.google.android.geo.API_KEY metadata for Maps/Navigation SDK.",
+    );
+  }
+
+  if (!packageJson) {
+    addWarning("package.json is missing; dependency checks were skipped.");
+  } else {
+    try {
+      const parsedPackage = JSON.parse(packageJson);
+      const allDependencies = {
+        ...(parsedPackage.dependencies ?? {}),
+        ...(parsedPackage.devDependencies ?? {}),
+      };
+      verifyGeneratedAndroidRequirement(
+        "react-native-maps is not installed alongside Google Navigation SDK.",
+        !allDependencies["react-native-maps"],
+        "Remove react-native-maps before using Google Navigation SDK; the SDK replaces Maps SDK surfaces.",
+      );
+      verifyGeneratedAndroidRequirement(
+        "Google React Native Navigation SDK dependency is installed.",
+        Boolean(allDependencies["@googlemaps/react-native-navigation-sdk"]),
+        "@googlemaps/react-native-navigation-sdk must be installed for Home map and in-app navigation.",
+      );
+    } catch (error) {
+      addWarning(`Unable to parse package.json for dependency checks: ${error instanceof Error ? error.message : "unknown error"}.`);
+    }
+  }
+};
+
 const envPath = resolveFromProject(".env");
 const envContent = readFileIfExists(envPath);
 if (!envContent) {
@@ -109,6 +245,7 @@ if (process.version === expectedNodeVersion) {
 }
 
 resolveDebugFingerprint();
+resolveApkFingerprint();
 
 const requiredEnvKeys = [
   "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
@@ -117,6 +254,8 @@ const requiredEnvKeys = [
   "EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY",
   "ANDROID_GOOGLE_SERVICES_FILE",
 ];
+
+verifyNavigationSdkRequirements();
 
 for (const key of requiredEnvKeys) {
   if (env[key]) {

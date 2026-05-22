@@ -21,6 +21,7 @@ import {
 } from "@googlemaps/react-native-navigation-sdk";
 
 import { appConfig } from "@/config/appConfig";
+import { env } from "@/config/env";
 import { buildLocalMarkerIcon, hasNativeMarkerIconSupport } from "@/modules/map/markerIconService";
 import { formatLastSeenLabel } from "@/modules/map/homeUtils";
 import { getHomeMapStyleJson } from "@/modules/map/homeMapStyle";
@@ -66,6 +67,15 @@ const alertRadius: Record<string, number> = {
 const maxMapCommandRetries = 8;
 const homeMapDefaultZoom = 15.5;
 const normalBaseMapType = MapType.NORMAL as unknown as ComponentProps<typeof MapView>["mapType"];
+const shouldEmitMapDiagnostics = env.appEnv === "preview";
+
+const logHomeMapDiagnostic = (event: string, details?: Record<string, unknown>) => {
+  if (!shouldEmitMapDiagnostics) {
+    return;
+  }
+
+  console.log(`[SOSync:HomeMap] ${event}`, details ?? {});
+};
 
 const isMapNotInitializedError = (error: unknown) =>
   String(error instanceof Error ? error.message : error)
@@ -189,11 +199,16 @@ const MapOverviewComponent = (
 
     const hasSupport = hasNativeMarkerIconSupport();
     setShowStaleNativeBuildHint(!hasSupport);
+    logHomeMapDiagnostic("marker-module-check", {
+      appEnv: env.appEnv,
+      hasNativeMarkerIconSupport: hasSupport,
+      mapTheme,
+    });
 
     if (!hasSupport) {
-      console.warn("Rebuild Android dev build: SOSyncMarkerIcon native module is missing.");
+      console.warn("App build is missing SOSyncMarkerIcon native marker support.");
     }
-  }, []);
+  }, [mapTheme]);
 
   useEffect(() => {
     if (!hasLoadedMapRef.current || !mapControllerRef.current) {
@@ -469,12 +484,22 @@ const MapOverviewComponent = (
         if (hasInitializationRace) {
           canRunMapCommandsRef.current = false;
           setShowDiagnosticHint(true);
-          console.warn("Home map commands failed after Navigation SDK map initialization retries.");
+          console.warn("Home map commands failed after Navigation SDK map initialization retries.", {
+            attempts: mapCommandRetryCountRef.current,
+            hasLoadedMap: hasLoadedMapRef.current,
+            markerCount: markers.length,
+            centerCount: centers.length,
+          });
           return;
         }
 
         mapCommandRetryCountRef.current = 0;
         canRunMapCommandsRef.current = true;
+        logHomeMapDiagnostic("commands-applied", {
+          alertCount: alerts.length,
+          centerCount: centers.length,
+          markerCount: markers.length,
+        });
         setMapCommandReadyToken((currentValue) => currentValue + 1);
       });
     }, retryDelayMs);
@@ -510,7 +535,7 @@ const MapOverviewComponent = (
   }, [applyFocusTarget, focusTarget, mapCommandReadyToken, mapCommandRetryToken, mapControllerReadyToken]);
 
   useEffect(() => {
-    if (Platform.OS !== "android") {
+    if (Platform.OS !== "android" || !shouldEmitMapDiagnostics) {
       return;
     }
 
@@ -520,6 +545,11 @@ const MapOverviewComponent = (
     }
 
     const timer = setTimeout(() => {
+      logHomeMapDiagnostic("map-ready-timeout", {
+        hasController: Boolean(mapControllerRef.current),
+        hasLoadedMap: hasLoadedMapRef.current,
+        markerModule: hasNativeMarkerIconSupport(),
+      });
       setShowDiagnosticHint(true);
     }, 6000);
 
@@ -548,6 +578,10 @@ const MapOverviewComponent = (
         onMapReady={() => {
           hasLoadedMapRef.current = true;
           setShowDiagnosticHint(false);
+          logHomeMapDiagnostic("map-ready", {
+            mapTheme,
+            markerModule: hasNativeMarkerIconSupport(),
+          });
           setMapControllerReadyToken((currentValue) => currentValue + 1);
           setTimeout(() => {
             setShouldApplyMapStyle(true);
@@ -555,6 +589,10 @@ const MapOverviewComponent = (
         }}
         onMapViewControllerCreated={(controller) => {
           mapControllerRef.current = controller;
+          logHomeMapDiagnostic("controller-created", {
+            mapTheme,
+            markerModule: hasNativeMarkerIconSupport(),
+          });
           setMapControllerReadyToken((currentValue) => currentValue + 1);
         }}
         onMarkerClick={(marker) => {
@@ -592,7 +630,7 @@ const MapOverviewComponent = (
           <View style={[styles.hintCard, { backgroundColor: palette.surface }]}>
             <Text style={[styles.hintTitle, { color: palette.title }]}>Map failed to load</Text>
             <Text style={[styles.hintBody, { color: palette.body }]}>
-              Check that the Android API key is enabled for Maps SDK and Navigation SDK for package
+              Check that the Android API key allows this APK signing SHA1, Maps SDK, and Navigation SDK for package
               {" "}
               <Text style={styles.hintCode}>com.sosync.mobile</Text>
               .

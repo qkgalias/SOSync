@@ -29,7 +29,6 @@ import com.facebook.react.bridge.ReadableMap
 import java.io.File
 import java.net.URL
 import java.security.MessageDigest
-import kotlin.math.max
 
 class SOSyncMarkerIconModule(private val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {

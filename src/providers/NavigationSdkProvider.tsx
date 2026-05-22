@@ -18,7 +18,7 @@ export const NavigationSdkProvider = ({ children }: PropsWithChildren) => {
     taskRemovedBehavior = navigationSdk?.TaskRemovedBehavior?.QUIT_SERVICE;
   } catch (error) {
     console.warn(
-      "Rebuild Android dev build: Google Navigation SDK native module is missing.",
+      "App build is missing Google Navigation SDK native module support.",
       error,
     );
   }

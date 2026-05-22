@@ -38,7 +38,7 @@ export const buildMarkerIconCacheKey = (request: MarkerIconRequest) =>
 export const buildLocalMarkerIcon = async (request: MarkerIconRequest) => {
   if (Platform.OS !== "android" || !nativeMarkerIconModule?.buildMarkerIcon) {
     if (Platform.OS === "android") {
-      console.warn("Rebuild Android dev build: SOSyncMarkerIcon native module is missing.");
+      console.warn("App build is missing SOSyncMarkerIcon native marker support.");
     }
     return undefined;
   }

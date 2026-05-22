@@ -31,13 +31,10 @@ export const EvacuationNavigationOverlay = ({
         >
           <MaterialCommunityIcons color="#7C2C2C" name="chevron-left" size={26} />
         </Pressable>
-        <Text style={styles.title}>Rebuild Android dev build</Text>
+        <Text style={styles.title}>App build is missing navigation support</Text>
         <Text style={styles.body}>
-          This installed app does not include Google Navigation SDK yet. Run{" "}
-          <Text style={styles.code}>npm run android</Text>
-          {" "}once on this phone, then keep using{" "}
-          <Text style={styles.code}>npm run start:clear</Text>
-          {" "}for JS updates.
+          This installed app does not include Google Navigation SDK support. Install the latest
+          Android tester build, then try the route again.
         </Text>
       </View>
     </View>

@@ -1,4 +1,4 @@
-const { withAppBuildGradle } = require("@expo/config-plugins");
+const { withAppBuildGradle, withGradleProperties } = require("@expo/config-plugins");
 
 const DESUGARING_FLAG = "coreLibraryDesugaringEnabled true";
 const DESUGARING_DEPENDENCY = 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.0.4")';
@@ -27,7 +27,7 @@ function addCoreLibraryDesugaringDependency(buildGradle) {
 }
 
 module.exports = function withAndroidCoreLibraryDesugaring(config) {
-  return withAppBuildGradle(config, (nextConfig) => {
+  const withDesugaring = withAppBuildGradle(config, (nextConfig) => {
     if (nextConfig.modResults.language !== "groovy") {
       return nextConfig;
     }
@@ -37,6 +37,26 @@ module.exports = function withAndroidCoreLibraryDesugaring(config) {
     contents = addCoreLibraryDesugaringDependency(contents);
 
     nextConfig.modResults.contents = contents;
+    return nextConfig;
+  });
+
+  return withGradleProperties(withDesugaring, (nextConfig) => {
+    const properties = nextConfig.modResults;
+    const setProperty = (name, value) => {
+      const existingProperty = properties.find((property) => property.type === "property" && property.key === name);
+      if (existingProperty) {
+        existingProperty.value = value;
+        return;
+      }
+
+      properties.push({
+        type: "property",
+        key: name,
+        value,
+      });
+    };
+
+    setProperty("android.enableJetifier", "true");
     return nextConfig;
   });
 };

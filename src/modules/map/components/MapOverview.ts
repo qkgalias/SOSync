@@ -12,7 +12,7 @@ const resolveMapOverview = () => {
     return require("./MapOverview.native").MapOverview;
   } catch (error) {
     console.warn(
-      "Rebuild Android dev build: Google Navigation SDK native module is missing.",
+      "App build is missing Google Navigation SDK native module support.",
       error,
     );
     return require("./MapOverview.web").MapOverview;

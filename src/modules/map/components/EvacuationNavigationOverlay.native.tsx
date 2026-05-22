@@ -15,6 +15,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { BackButton } from "@/components/BackButton";
+import { env } from "@/config/env";
 import {
   formatNavigationArrivalTime,
   formatNavigationDistance,
@@ -44,6 +45,15 @@ const travelModes: EvacuationTravelMode[] = ["walk", "two_wheeler", "four_wheele
 const countDownTickMs = 1000;
 const bottomNavigationClearance = 78;
 const previewContentBottomPadding = 28;
+const shouldEmitNavigationDiagnostics = env.appEnv === "preview";
+
+const logNavigationDiagnostic = (event: string, details?: Record<string, unknown>) => {
+  if (!shouldEmitNavigationDiagnostics) {
+    return;
+  }
+
+  console.log(`[SOSync:Navigation] ${event}`, details ?? {});
+};
 
 const travelModeIcons: Record<EvacuationTravelMode, keyof typeof MaterialCommunityIcons.glyphMap> = {
   walk: "walk",
@@ -125,6 +135,8 @@ export const EvacuationNavigationOverlay = ({
   const [timeAndDistance, setTimeAndDistance] = useState<TimeAndDistance | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isGuidanceLoading, setIsGuidanceLoading] = useState(false);
+  const [hasNavigationMapReady, setHasNavigationMapReady] = useState(false);
+  const [showMapDiagnostic, setShowMapDiagnostic] = useState(false);
   const [previewNonce, setPreviewNonce] = useState(0);
   const operationTokenRef = useRef(0);
   const previousTravelModeRef = useRef<EvacuationTravelMode>(selectedTravelMode);
@@ -160,6 +172,11 @@ export const EvacuationNavigationOverlay = ({
     setErrorMessage(null);
     setRetryAfterSeconds(null);
     setStatusLabel("Preparing route...");
+    logNavigationDiagnostic("preview-start", {
+      centerId: center.centerId,
+      travelMode: selectedTravelMode,
+      appEnv: env.appEnv,
+    });
 
     const acceptedTerms = await navigationController.showTermsAndConditionsDialog();
     if (operationToken !== operationTokenRef.current) {
@@ -167,12 +184,18 @@ export const EvacuationNavigationOverlay = ({
     }
 
     if (!acceptedTerms) {
+      logNavigationDiagnostic("terms-declined", { centerId: center.centerId });
       setErrorMessage("Navigation terms must be accepted before route preview can continue.");
       setIsPreviewLoading(false);
       return false;
     }
 
     const initStatus = await navigationController.init();
+    logNavigationDiagnostic("preview-init-status", {
+      centerId: center.centerId,
+      initStatus,
+      travelMode: selectedTravelMode,
+    });
     if (operationToken !== operationTokenRef.current) {
       return false;
     }
@@ -200,6 +223,11 @@ export const EvacuationNavigationOverlay = ({
         },
       },
     );
+    logNavigationDiagnostic("preview-route-status", {
+      centerId: center.centerId,
+      routeStatus,
+      travelMode: selectedTravelMode,
+    });
 
     if (operationToken !== operationTokenRef.current) {
       return false;
@@ -240,9 +268,19 @@ export const EvacuationNavigationOverlay = ({
     setErrorMessage(null);
     setRetryAfterSeconds(null);
     setStatusLabel(phase === "guiding" ? "Switching travel mode..." : "Starting guidance...");
+    logNavigationDiagnostic("guidance-start", {
+      centerId: center.centerId,
+      phase,
+      travelMode: selectedTravelMode,
+    });
 
     try {
       const initStatus = await navigationController.init();
+      logNavigationDiagnostic("guidance-init-status", {
+        centerId: center.centerId,
+        initStatus,
+        travelMode: selectedTravelMode,
+      });
       if (operationToken !== operationTokenRef.current) {
         return;
       }
@@ -287,6 +325,11 @@ export const EvacuationNavigationOverlay = ({
           },
         },
       );
+      logNavigationDiagnostic("guidance-route-status", {
+        centerId: center.centerId,
+        routeStatus,
+        travelMode: selectedTravelMode,
+      });
 
       if (operationToken !== operationTokenRef.current) {
         return;
@@ -306,7 +349,16 @@ export const EvacuationNavigationOverlay = ({
 
       setPhase("guiding");
       setStatusLabel("Navigation active");
+      logNavigationDiagnostic("guidance-active", {
+        centerId: center.centerId,
+        travelMode: selectedTravelMode,
+      });
     } catch (error) {
+      logNavigationDiagnostic("guidance-error", {
+        centerId: center.centerId,
+        error: error instanceof Error ? error.message : String(error),
+        travelMode: selectedTravelMode,
+      });
       if (error instanceof NavigationAuthorizationError) {
         if (error.code === "rate_limited") {
           setRetryAfterSeconds(error.retryAfterSeconds ?? null);
@@ -332,6 +384,8 @@ export const EvacuationNavigationOverlay = ({
     setErrorMessage(null);
     setRetryAfterSeconds(null);
     setTimeAndDistance(null);
+    setHasNavigationMapReady(false);
+    setShowMapDiagnostic(false);
     previousTravelModeRef.current = selectedTravelMode;
   }, [center?.centerId]);
 
@@ -362,6 +416,25 @@ export const EvacuationNavigationOverlay = ({
 
     void prepareRoutePreview();
   }, [center, isGuidanceLoading, phase, prepareRoutePreview, previewNonce]);
+
+  useEffect(() => {
+    if (!center || hasNavigationMapReady || !shouldEmitNavigationDiagnostics) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      logNavigationDiagnostic("map-ready-timeout", {
+        centerId: center.centerId,
+        phase,
+        travelMode: selectedTravelMode,
+      });
+      setShowMapDiagnostic(true);
+    }, 6000);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [center, hasNavigationMapReady, phase, selectedTravelMode]);
 
   useEffect(() => {
     if (!center || phase !== "guiding" || isGuidanceLoading) {
@@ -435,6 +508,15 @@ export const EvacuationNavigationOverlay = ({
         }}
         navigationNightMode={isDark ? NavigationNightMode.FORCE_NIGHT : NavigationNightMode.FORCE_DAY}
         navigationUIEnabledPreference={NavigationUIEnabledPreference.AUTOMATIC}
+        onMapReady={() => {
+          setHasNavigationMapReady(true);
+          setShowMapDiagnostic(false);
+          logNavigationDiagnostic("map-ready", {
+            centerId: center.centerId,
+            phase,
+            travelMode: selectedTravelMode,
+          });
+        }}
         recenterButtonEnabled={phase === "guiding"}
         reportIncidentButtonEnabled={false}
         speedLimitIconEnabled={phase === "guiding"}
@@ -442,6 +524,17 @@ export const EvacuationNavigationOverlay = ({
         style={StyleSheet.absoluteFill}
         tripProgressBarEnabled={false}
       />
+
+      {showMapDiagnostic ? (
+        <View pointerEvents="none" style={styles.mapDiagnosticWrapper}>
+          <View style={styles.mapDiagnosticCard}>
+            <Text style={styles.mapDiagnosticTitle}>Navigation map did not load</Text>
+            <Text style={styles.mapDiagnosticBody}>
+              Check this APK signing SHA1, Navigation SDK, Maps SDK, and Google Play services.
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       <BottomSheet
         ref={bottomSheetRef}
@@ -719,5 +812,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 40,
     paddingHorizontal: 10,
+  },
+  mapDiagnosticBody: {
+    color: "#6A6767",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  mapDiagnosticCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 18,
+    maxWidth: 310,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  mapDiagnosticTitle: {
+    color: "#2E2C2C",
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  mapDiagnosticWrapper: {
+    alignItems: "center",
+    left: 16,
+    position: "absolute",
+    right: 16,
+    top: 96,
+    zIndex: 2,
   },
 });
