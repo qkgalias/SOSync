@@ -85,7 +85,8 @@ const formatForecastWindow = (alert: DisasterAlert) => {
     return `${compactDateTimeFormatter.format(start)} - ${compactDateTimeFormatter.format(end)}`;
   }
 
-  const [fallbackStart, fallbackEnd] = alert.forecastWindow?.split(/\s+to\s+/i) ?? [];
+  const [fallbackStart, fallbackEnd] =
+    alert.forecastWindow?.split(/\s+to\s+/i) ?? [];
   const parsedFallbackStart = toValidDate(fallbackStart);
   const parsedFallbackEnd = toValidDate(fallbackEnd);
   if (parsedFallbackStart && parsedFallbackEnd) {
@@ -125,7 +126,10 @@ const getRiskToneLabel = (severity: DisasterAlert["severity"]) => {
 
 const getAlertRadiusLabel = () => "5 km around your circle";
 
-const formatRangeTime = (startValue?: string | null, endValue?: string | null) => {
+const formatRangeTime = (
+  startValue?: string | null,
+  endValue?: string | null,
+) => {
   const start = toValidDate(startValue);
   const end = toValidDate(endValue);
   if (!start || !end) {
@@ -158,9 +162,11 @@ const getDayPeriodLabel = (value?: string | null) => {
   return "This evening";
 };
 
-const formatTemperature = (value?: number) => (Number.isFinite(value) ? `${Math.round(value as number)}°C` : null);
+const formatTemperature = (value?: number) =>
+  Number.isFinite(value) ? `${Math.round(value as number)}°C` : null;
 
-const formatRainChance = (value?: number) => (Number.isFinite(value) ? `${Math.round(value as number)}%` : null);
+const formatRainChance = (value?: number) =>
+  Number.isFinite(value) ? `${Math.round(value as number)}%` : null;
 
 const formatUvIndex = (value?: number) => {
   if (!Number.isFinite(value)) {
@@ -185,13 +191,30 @@ const formatWind = (speed?: number, gust?: number) => {
     return null;
   }
 
-  if (Number.isFinite(speed) && Number.isFinite(gust) && Math.round(speed as number) !== Math.round(gust as number)) {
+  if (
+    Number.isFinite(speed) &&
+    Number.isFinite(gust) &&
+    Math.round(speed as number) !== Math.round(gust as number)
+  ) {
     return `${Math.round(speed as number)}-${Math.round(gust as number)} km/h`;
   }
 
   const value = Number.isFinite(gust) ? gust : speed;
   return `${Math.round(value as number)} km/h`;
 };
+
+const hasDetailedForecastMetrics = (
+  alert: DisasterAlert,
+  peakRiskLabel: string | null,
+) =>
+  Boolean(
+    formatRainChance(alert.rainChancePercent) ||
+    formatWind(alert.windSpeedKph, alert.windGustKph) ||
+    formatTemperature(alert.temperatureC) ||
+    formatUvIndex(alert.uvIndex) ||
+    typeof alert.peakRainfallMm === "number" ||
+    peakRiskLabel,
+  );
 
 const getDefaultActions = (alert: DisasterAlert) => {
   if (alert.type === "flood") {
@@ -210,14 +233,30 @@ const getDefaultActions = (alert: DisasterAlert) => {
 };
 
 const getPrimaryAction = (actions: string[]) =>
-  actions[0] ?? "Keep notifications on, check your circle, and monitor local updates.";
+  actions[0] ??
+  "Keep notifications on, check your circle, and monitor local updates.";
 
 const safetyTips = [
-  { icon: "home-outline", text: "Stay indoors during strong rain or lightning." },
-  { icon: "car-brake-alert", text: "Avoid walking or driving through flood water." },
-  { icon: "weather-windy", text: "Secure loose outdoor items that may blow away." },
-  { icon: "battery-charging-outline", text: "Charge your phone and power bank." },
-  { icon: "flashlight", text: "Prepare flashlight, water, and important items." },
+  {
+    icon: "home-outline",
+    text: "Stay indoors during strong rain or lightning.",
+  },
+  {
+    icon: "car-brake-alert",
+    text: "Avoid walking or driving through flood water.",
+  },
+  {
+    icon: "weather-windy",
+    text: "Secure loose outdoor items that may blow away.",
+  },
+  {
+    icon: "battery-charging-outline",
+    text: "Charge your phone and power bank.",
+  },
+  {
+    icon: "flashlight",
+    text: "Prepare flashlight, water, and important items.",
+  },
   { icon: "paw-outline", text: "Keep pets inside and stay calm." },
 ] as const;
 
@@ -235,10 +274,16 @@ const ForecastMetric = ({
   return (
     <View className="flex-row items-center justify-between gap-3">
       <View className="min-w-0 flex-1 flex-row items-center gap-2">
-        <MaterialCommunityIcons color={themeTokens.accentPrimary} name={icon} size={18} />
+        <MaterialCommunityIcons
+          color={themeTokens.accentPrimary}
+          name={icon}
+          size={18}
+        />
         <Text className="flex-1 text-[14px] text-ink">{label}</Text>
       </View>
-      <Text className="max-w-[48%] shrink text-right text-[14px] font-semibold text-ink">{value}</Text>
+      <Text className="max-w-[48%] shrink text-right text-[14px] font-semibold text-ink">
+        {value}
+      </Text>
     </View>
   );
 };
@@ -258,10 +303,16 @@ const TimingRow = ({
 
   return (
     <View className="flex-row items-start gap-2">
-      <MaterialCommunityIcons color={themeTokens.accentPrimary} name={icon} size={17} />
+      <MaterialCommunityIcons
+        color={themeTokens.accentPrimary}
+        name={icon}
+        size={17}
+      />
       <View className="min-w-0 flex-1">
         <Text className="text-[12px] leading-4 text-muted">{label}</Text>
-        <Text className={`mt-0.5 text-[13px] font-semibold leading-5 ${tone}`}>{value}</Text>
+        <Text className={`mt-0.5 text-[13px] font-semibold leading-5 ${tone}`}>
+          {value}
+        </Text>
       </View>
     </View>
   );
@@ -276,7 +327,10 @@ const AlertCard = ({
   className?: string;
   style?: StyleProp<ViewStyle>;
 }) => (
-  <View className={`rounded-[20px] border border-line bg-card p-4 ${className}`} style={style}>
+  <View
+    className={`rounded-[20px] border border-line bg-card p-4 ${className}`}
+    style={style}
+  >
     {children}
   </View>
 );
@@ -289,17 +343,34 @@ export default function AlertDetailScreen() {
   const { selectedGroupId } = useAuthSession();
   const alerts = useAlerts(selectedGroupId);
   const alert = alerts.find((entry) => entry.alertId === params.alertId);
-  const [resolvedAreaLabel, setResolvedAreaLabel] = useState<string | null>(null);
-  const recommendedActions = alert?.recommendedActions?.length ? alert.recommendedActions : alert ? getDefaultActions(alert) : [];
+  const [resolvedAreaLabel, setResolvedAreaLabel] = useState<string | null>(
+    null,
+  );
+  const recommendedActions = alert?.recommendedActions?.length
+    ? alert.recommendedActions
+    : alert
+      ? getDefaultActions(alert)
+      : [];
   const handleBack = () => goBackOrReplace(router, "/(tabs)/notifications");
   const lastCheckedDate = formatAlertDate(alert?.lastEvaluatedAt);
-  const placeLabel = alert ? resolvedAreaLabel ?? alert.areaLabel ?? "Near your trusted circle" : "";
-  const peakRiskLabel = alert ? formatRangeTime(alert.peakRiskStart, alert.peakRiskEnd) : null;
+  const placeLabel = alert
+    ? (resolvedAreaLabel ?? alert.areaLabel ?? "Near your trusted circle")
+    : "";
+  const peakRiskLabel = alert
+    ? formatRangeTime(alert.peakRiskStart, alert.peakRiskEnd)
+    : null;
+  const hasDetailedForecast = alert
+    ? hasDetailedForecastMetrics(alert, peakRiskLabel)
+    : false;
   const contentWidth = Math.max(0, windowWidth - 40);
   const cardGap = 12;
   const useTwoColumnCards = contentWidth >= 340;
-  const forecastCardWidth = useTwoColumnCards ? Math.floor((contentWidth - cardGap) * 0.52) : contentWidth;
-  const timingColumnWidth = useTwoColumnCards ? contentWidth - cardGap - forecastCardWidth : contentWidth;
+  const forecastCardWidth = useTwoColumnCards
+    ? Math.floor((contentWidth - cardGap) * 0.52)
+    : contentWidth;
+  const timingColumnWidth = useTwoColumnCards
+    ? contentWidth - cardGap - forecastCardWidth
+    : contentWidth;
 
   useEffect(() => {
     if (!alert) {
@@ -310,13 +381,18 @@ export default function AlertDetailScreen() {
     let active = true;
     setResolvedAreaLabel(null);
     locationService
-      .reverseGeocodeDetails({ latitude: alert.latitude, longitude: alert.longitude })
+      .reverseGeocodeDetails({
+        latitude: alert.latitude,
+        longitude: alert.longitude,
+      })
       .then(({ addressLabel, localityLabel }) => {
         if (!active) {
           return;
         }
 
-        setResolvedAreaLabel(addressLabel?.trim() || localityLabel?.trim() || null);
+        setResolvedAreaLabel(
+          addressLabel?.trim() || localityLabel?.trim() || null,
+        );
       })
       .catch((error) => {
         console.warn("Alert location reverse geocode failed.", error);
@@ -339,7 +415,11 @@ export default function AlertDetailScreen() {
           <View className="overflow-hidden rounded-[24px] border border-line bg-card">
             <View className="flex-row gap-4 bg-dangerSurface/40 p-4">
               <View className="h-16 w-16 items-center justify-center rounded-full bg-page">
-                <MaterialCommunityIcons color={themeTokens.accentPrimary} name="weather-lightning-rainy" size={34} />
+                <MaterialCommunityIcons
+                  color={themeTokens.accentPrimary}
+                  name="weather-lightning-rainy"
+                  size={34}
+                />
               </View>
               <View className="flex-1">
                 <View className="flex-row items-start justify-between gap-3">
@@ -352,71 +432,150 @@ export default function AlertDetailScreen() {
                   {formatAlertType(alert.type)}
                 </Text>
                 <Text className="mt-2 text-[14px] leading-6 text-ink">
-                  <Text className="font-semibold">Level: {getSeverityLevelLabel(alert.severity)}</Text>
+                  <Text className="font-semibold">
+                    Level: {getSeverityLevelLabel(alert.severity)}
+                  </Text>
                   {"  ·  "}
                   <Text className="font-semibold">Status: Active</Text>
                 </Text>
-                <Text className="mt-4 text-[15px] leading-6 text-ink">{alert.message}</Text>
+                <Text className="mt-4 text-[15px] leading-6 text-ink">
+                  {alert.message}
+                </Text>
               </View>
             </View>
 
-            <View className="border-t border-line px-4 py-3">
-              <View className="flex-row flex-wrap items-center gap-x-4 gap-y-2">
+            <View
+              className="border-t border-line px-4 py-3"
+              testID="alert-hero-footer"
+            >
+              <View className="flex-row flex-wrap items-center gap-x-3 gap-y-2">
                 <View className="flex-row items-center gap-1.5">
-                  <MaterialCommunityIcons color={themeTokens.textPrimary} name="calendar-month-outline" size={16} />
-                  <Text className="text-[13px] text-muted">Issued: {formatAlertTime(alert.createdAt)}</Text>
-                </View>
-                <View className="flex-row items-center gap-1.5">
-                  <MaterialCommunityIcons color={themeTokens.textPrimary} name="sync" size={16} />
+                  <MaterialCommunityIcons
+                    color={themeTokens.textPrimary}
+                    name="calendar-month-outline"
+                    size={16}
+                  />
                   <Text className="text-[13px] text-muted">
-                    Updated: {lastCheckedDate ? formatTimestampLabel(alert.lastEvaluatedAt ?? alert.createdAt) : "Recently"}
+                    Issued: {formatAlertTime(alert.createdAt)}
                   </Text>
                 </View>
-                <Text className="text-[13px] text-muted">|</Text>
-                <Text className="text-[13px] text-muted">Source: {formatSourceLabel(alert.source)}</Text>
-              </View>
-            </View>
-            <View className="border-t border-line px-4 py-3">
-              <View className="flex-row flex-wrap items-center gap-x-3 gap-y-2">
-                <View className="min-w-0 flex-row items-center gap-1.5">
-                  <MaterialCommunityIcons color={themeTokens.textPrimary} name="map-marker-outline" size={17} />
-                  <Text className="text-[13px] leading-5 text-muted">{placeLabel}</Text>
+                <Text className="text-[13px] text-muted">·</Text>
+                <View className="flex-row items-center gap-1.5">
+                  <MaterialCommunityIcons
+                    color={themeTokens.textPrimary}
+                    name="sync"
+                    size={16}
+                  />
+                  <Text className="text-[13px] text-muted">
+                    Updated:{" "}
+                    {lastCheckedDate
+                      ? formatTimestampLabel(
+                          alert.lastEvaluatedAt ?? alert.createdAt,
+                        )
+                      : "Recently"}
+                  </Text>
                 </View>
                 <Text className="text-[13px] text-muted">·</Text>
-                <Text className="text-[13px] leading-5 text-muted">Radius: {getAlertRadiusLabel()}</Text>
+                <Text className="text-[13px] text-muted">
+                  Source: {formatSourceLabel(alert.source)}
+                </Text>
+                <Text className="text-[13px] text-muted">·</Text>
+                <View className="min-w-0 flex-row items-center gap-1.5">
+                  <MaterialCommunityIcons
+                    color={themeTokens.textPrimary}
+                    name="map-marker-outline"
+                    size={17}
+                  />
+                  <Text className="text-[13px] leading-5 text-muted">
+                    {placeLabel}
+                  </Text>
+                </View>
+                <Text className="text-[13px] text-muted">·</Text>
+                <Text className="text-[13px] leading-5 text-muted">
+                  Radius: {getAlertRadiusLabel()}
+                </Text>
               </View>
             </View>
           </View>
 
-          <View className={useTwoColumnCards ? "flex-row items-start gap-3" : "gap-3"}>
+          <View
+            className={
+              useTwoColumnCards ? "flex-row items-start gap-3" : "gap-3"
+            }
+          >
             <AlertCard className="p-3" style={{ width: forecastCardWidth }}>
               <View className="mb-4 flex-row items-center gap-3">
                 <View className="h-10 w-10 items-center justify-center rounded-full bg-infoSurface">
-                  <MaterialCommunityIcons color="#1F66D1" name="weather-pouring" size={22} />
+                  <MaterialCommunityIcons
+                    color="#1F66D1"
+                    name="weather-pouring"
+                    size={22}
+                  />
                 </View>
-                <Text className="flex-1 text-[15px] font-bold leading-5 text-ink">Today's Forecast</Text>
+                <Text className="flex-1 text-[15px] font-bold leading-5 text-ink">
+                  Today's Forecast
+                </Text>
               </View>
               <View className="gap-3">
                 {formatRainChance(alert.rainChancePercent) ? (
-                  <ForecastMetric icon="weather-rainy" label="Rain chance" value={formatRainChance(alert.rainChancePercent) as string} />
+                  <ForecastMetric
+                    icon="weather-rainy"
+                    label="Rain chance"
+                    value={formatRainChance(alert.rainChancePercent) as string}
+                  />
                 ) : null}
                 {formatWind(alert.windSpeedKph, alert.windGustKph) ? (
-                  <ForecastMetric icon="weather-windy" label="Wind" value={formatWind(alert.windSpeedKph, alert.windGustKph) as string} />
+                  <ForecastMetric
+                    icon="weather-windy"
+                    label="Wind"
+                    value={
+                      formatWind(
+                        alert.windSpeedKph,
+                        alert.windGustKph,
+                      ) as string
+                    }
+                  />
                 ) : null}
                 {formatTemperature(alert.temperatureC) ? (
-                  <ForecastMetric icon="thermometer" label="Temperature" value={formatTemperature(alert.temperatureC) as string} />
+                  <ForecastMetric
+                    icon="thermometer"
+                    label="Temperature"
+                    value={formatTemperature(alert.temperatureC) as string}
+                  />
                 ) : null}
-                <ForecastMetric icon="weather-lightning" label="Storm risk" value={getRiskToneLabel(alert.severity)} />
+                <ForecastMetric
+                  icon="weather-lightning"
+                  label="Storm risk"
+                  value={getRiskToneLabel(alert.severity)}
+                />
                 {formatUvIndex(alert.uvIndex) ? (
-                  <ForecastMetric icon="white-balance-sunny" label="UV Index" value={formatUvIndex(alert.uvIndex) as string} />
+                  <ForecastMetric
+                    icon="white-balance-sunny"
+                    label="UV Index"
+                    value={formatUvIndex(alert.uvIndex) as string}
+                  />
                 ) : null}
                 {typeof alert.peakRainfallMm === "number" ? (
-                  <ForecastMetric icon="water-percent" label="Peak rainfall" value={`${alert.peakRainfallMm} mm`} />
+                  <ForecastMetric
+                    icon="water-percent"
+                    label="Peak rainfall"
+                    value={`${alert.peakRainfallMm} mm`}
+                  />
                 ) : null}
                 {peakRiskLabel ? (
                   <View className="border-t border-line pt-3">
-                    <ForecastMetric icon="clock-outline" label="Expected peak" value={peakRiskLabel} />
+                    <ForecastMetric
+                      icon="clock-outline"
+                      label="Expected peak"
+                      value={peakRiskLabel}
+                    />
                   </View>
+                ) : null}
+                {!hasDetailedForecast ? (
+                  <Text className="text-[12px] leading-5 text-muted">
+                    Detailed forecast metrics will appear after the advisory
+                    refreshes.
+                  </Text>
                 ) : null}
               </View>
             </AlertCard>
@@ -425,25 +584,53 @@ export default function AlertDetailScreen() {
               <AlertCard className="p-3">
                 <View className="mb-4 flex-row items-center gap-3">
                   <View className="h-10 w-10 items-center justify-center rounded-full bg-soft">
-                    <MaterialCommunityIcons color={themeTokens.accentPrimary} name="clock-outline" size={22} />
+                    <MaterialCommunityIcons
+                      color={themeTokens.accentPrimary}
+                      name="clock-outline"
+                      size={22}
+                    />
                   </View>
-                  <Text className="flex-1 text-[15px] font-bold leading-5 text-ink">Expected Timing</Text>
+                  <Text className="flex-1 text-[15px] font-bold leading-5 text-ink">
+                    Expected Timing
+                  </Text>
                 </View>
                 <View className="gap-3">
-                  <TimingRow icon="calendar-start" label="Start" value={getDayPeriodLabel(alert.forecastStart)} />
-                  <TimingRow icon="alert-circle-outline" label="Highest risk" tone="text-accent" value={peakRiskLabel ?? "Monitor updates"} />
-                  <TimingRow icon="check-circle-outline" label="Expected to improve" tone="text-successText" value="Monitor updates" />
+                  <TimingRow
+                    icon="calendar-start"
+                    label="Start"
+                    value={getDayPeriodLabel(alert.forecastStart)}
+                  />
+                  <TimingRow
+                    icon="alert-circle-outline"
+                    label="Highest risk"
+                    tone="text-accent"
+                    value={peakRiskLabel ?? "Monitor updates"}
+                  />
+                  <TimingRow
+                    icon="check-circle-outline"
+                    label="Expected to improve"
+                    tone="text-successText"
+                    value="Monitor updates"
+                  />
                 </View>
               </AlertCard>
 
               <AlertCard className="p-3">
                 <View className="flex-row items-start gap-3">
                   <View className="h-9 w-9 items-center justify-center rounded-full bg-soft">
-                    <MaterialCommunityIcons color={themeTokens.accentPrimary} name="shield-check-outline" size={21} />
+                    <MaterialCommunityIcons
+                      color={themeTokens.accentPrimary}
+                      name="shield-check-outline"
+                      size={21}
+                    />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-[15px] font-bold leading-5 text-ink">Recommended Action</Text>
-                    <Text className="mt-2 text-[12px] leading-5 text-muted">{getPrimaryAction(recommendedActions)}</Text>
+                    <Text className="text-[15px] font-bold leading-5 text-ink">
+                      Recommended Action
+                    </Text>
+                    <Text className="mt-2 text-[12px] leading-5 text-muted">
+                      {getPrimaryAction(recommendedActions)}
+                    </Text>
                   </View>
                 </View>
               </AlertCard>
@@ -453,11 +640,19 @@ export default function AlertDetailScreen() {
           <AlertCard className="p-3">
             <View className="flex-row items-start gap-3">
               <View className="h-9 w-9 items-center justify-center rounded-full bg-infoSurface">
-                <MaterialCommunityIcons color="#1F66D1" name="clock-outline" size={20} />
+                <MaterialCommunityIcons
+                  color="#1F66D1"
+                  name="clock-outline"
+                  size={20}
+                />
               </View>
               <View className="flex-1">
-                <Text className="text-[14px] font-bold text-ink">Forecast window</Text>
-                <Text className="mt-1 text-[14px] font-semibold leading-5 text-accent">{formatForecastWindow(alert)}</Text>
+                <Text className="text-[14px] font-bold text-ink">
+                  Forecast window
+                </Text>
+                <Text className="mt-1 text-[14px] font-semibold leading-5 text-accent">
+                  {formatForecastWindow(alert)}
+                </Text>
               </View>
             </View>
           </AlertCard>
@@ -465,18 +660,30 @@ export default function AlertDetailScreen() {
           <AlertCard>
             <View className="mb-4 flex-row items-center gap-3">
               <View className="h-10 w-10 items-center justify-center rounded-full bg-successSurface">
-                <MaterialCommunityIcons color="#1E7F38" name="shield-check" size={24} />
+                <MaterialCommunityIcons
+                  color="#1E7F38"
+                  name="shield-check"
+                  size={24}
+                />
               </View>
-              <Text className="text-[18px] font-bold text-successText">Safety Tips</Text>
+              <Text className="text-[18px] font-bold text-successText">
+                Safety Tips
+              </Text>
             </View>
             <View className="flex-row gap-5">
               <View className="flex-1 gap-4">
                 {safetyTips.slice(0, 3).map((tip) => (
                   <View key={tip.text} className="flex-row items-center gap-3">
                     <View className="h-10 w-10 items-center justify-center rounded-full bg-successSurface/60">
-                      <MaterialCommunityIcons color="#1E7F38" name={tip.icon} size={22} />
+                      <MaterialCommunityIcons
+                        color="#1E7F38"
+                        name={tip.icon}
+                        size={22}
+                      />
                     </View>
-                    <Text className="flex-1 text-[14px] leading-5 text-ink">{tip.text}</Text>
+                    <Text className="flex-1 text-[14px] leading-5 text-ink">
+                      {tip.text}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -484,9 +691,15 @@ export default function AlertDetailScreen() {
                 {safetyTips.slice(3).map((tip) => (
                   <View key={tip.text} className="flex-row items-center gap-3">
                     <View className="h-10 w-10 items-center justify-center rounded-full bg-successSurface/60">
-                      <MaterialCommunityIcons color="#1E7F38" name={tip.icon} size={22} />
+                      <MaterialCommunityIcons
+                        color="#1E7F38"
+                        name={tip.icon}
+                        size={22}
+                      />
                     </View>
-                    <Text className="flex-1 text-[14px] leading-5 text-ink">{tip.text}</Text>
+                    <Text className="flex-1 text-[14px] leading-5 text-ink">
+                      {tip.text}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -495,7 +708,11 @@ export default function AlertDetailScreen() {
 
           <View className="rounded-[18px] border border-infoBorder bg-infoSurface px-4 py-3">
             <View className="flex-row items-center gap-3">
-              <MaterialCommunityIcons color="#1F66D1" name="information-outline" size={22} />
+              <MaterialCommunityIcons
+                color="#1F66D1"
+                name="information-outline"
+                size={22}
+              />
               <Text className="flex-1 text-[14px] leading-5 text-infoText">
                 Conditions can change quickly. We'll keep you updated.
               </Text>
@@ -505,9 +722,14 @@ export default function AlertDetailScreen() {
       ) : (
         <InfoCard title="Alert unavailable" eyebrow="Missing data">
           <Text className="text-sm leading-6 text-muted">
-            The requested alert could not be found in the currently selected group feed.
+            The requested alert could not be found in the currently selected
+            group feed.
           </Text>
-          <Button className="mt-5 self-start rounded-full px-6" label="Back to Alerts" onPress={handleBack} />
+          <Button
+            className="mt-5 self-start rounded-full px-6"
+            label="Back to Alerts"
+            onPress={handleBack}
+          />
         </InfoCard>
       )}
     </Screen>

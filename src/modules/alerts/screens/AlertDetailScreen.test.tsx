@@ -1,5 +1,10 @@
 /** Purpose: Verify disaster alert details stay useful, minimal, and navigable. */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import type { ReactNode } from "react";
 
 import AlertDetailScreen from "@/modules/alerts/screens/AlertDetailScreen";
@@ -28,7 +33,17 @@ jest.mock("@expo/vector-icons", () => ({
 }));
 
 jest.mock("@/components/Screen", () => ({
-  Screen: ({ children, leftSlot, subtitle, title }: { children: ReactNode; leftSlot?: ReactNode; subtitle?: string; title?: string }) => {
+  Screen: ({
+    children,
+    leftSlot,
+    subtitle,
+    title,
+  }: {
+    children: ReactNode;
+    leftSlot?: ReactNode;
+    subtitle?: string;
+    title?: string;
+  }) => {
     const { Text, View } = jest.requireActual("react-native");
     return (
       <View>
@@ -61,7 +76,8 @@ jest.mock("@/hooks/useAlerts", () => ({
 
 jest.mock("@/services/locationService", () => ({
   locationService: {
-    reverseGeocodeDetails: (...args: unknown[]) => mockReverseGeocodeDetails(...args),
+    reverseGeocodeDetails: (...args: unknown[]) =>
+      mockReverseGeocodeDetails(...args),
   },
 }));
 
@@ -82,7 +98,10 @@ const buildAlert = (overrides: Partial<DisasterAlert> = {}): DisasterAlert => ({
   peakRiskEnd: "2026-05-24T09:00:00.000Z",
   peakRiskStart: "2026-05-24T08:00:00.000Z",
   rainChancePercent: 75,
-  recommendedActions: ["Keep notifications on.", "Confirm important contacts are reachable."],
+  recommendedActions: [
+    "Keep notifications on.",
+    "Confirm important contacts are reachable.",
+  ],
   severity: "watch",
   source: "open-meteo",
   temperatureC: 27,
@@ -121,27 +140,46 @@ describe("AlertDetailScreen", () => {
     expect(screen.getByText("Recommended Action")).toBeTruthy();
     expect(screen.getByText("Safety Tips")).toBeTruthy();
     expect(screen.getByText("Keep notifications on.")).toBeTruthy();
-    expect(screen.getByText("05/24/26, 4:00 PM - 05/25/26, 3:00 PM")).toBeTruthy();
+    expect(
+      screen.getByText("05/24/26, 4:00 PM - 05/25/26, 3:00 PM"),
+    ).toBeTruthy();
     expect(screen.getByText("Rain chance")).toBeTruthy();
     expect(screen.getByText("75%")).toBeTruthy();
     expect(screen.getByText("Wind")).toBeTruthy();
     expect(screen.getByText("25-40 km/h")).toBeTruthy();
     expect(screen.getByText("Temperature")).toBeTruthy();
     expect(screen.getByText("27°C")).toBeTruthy();
+    expect(screen.getByText("UV Index")).toBeTruthy();
+    expect(screen.getByText("Low")).toBeTruthy();
     expect(screen.getByText("Peak rainfall")).toBeTruthy();
     expect(screen.getByText("14.2 mm")).toBeTruthy();
+    expect(screen.getByText("Expected peak")).toBeTruthy();
+    expect(screen.getAllByText("4:00 PM - 5:00 PM").length).toBeGreaterThan(0);
     expect(screen.getByText(/Updated:/)).toBeTruthy();
     expect(screen.getByText("Source: open-meteo")).toBeTruthy();
     expect(screen.getByText("Radius: 5 km around your circle")).toBeTruthy();
-    expect(screen.getByText("Conditions can change quickly. We'll keep you updated.")).toBeTruthy();
+    expect(screen.getAllByTestId("alert-hero-footer")).toHaveLength(1);
+    expect(
+      screen.getByText(
+        "Conditions can change quickly. We'll keep you updated.",
+      ),
+    ).toBeTruthy();
 
     expect(screen.queryByText(/10\.2576|123\.8512/)).toBeNull();
     expect(screen.queryByText("Not available")).toBeNull();
+    expect(
+      screen.queryByText(
+        "Detailed forecast metrics will appear after the advisory refreshes.",
+      ),
+    ).toBeNull();
   });
 
-  it("hides optional forecast metrics when alert data does not include them", async () => {
+  it("renders a refresh note when old alert data only has storm risk", async () => {
     mockAlerts = [
       buildAlert({
+        peakRainfallMm: undefined,
+        peakRiskEnd: undefined,
+        peakRiskStart: undefined,
         rainChancePercent: undefined,
         temperatureC: undefined,
         uvIndex: undefined,
@@ -161,10 +199,19 @@ describe("AlertDetailScreen", () => {
     expect(screen.queryByText("Temperature")).toBeNull();
     expect(screen.queryByText("UV Index")).toBeNull();
     expect(screen.queryByText("Not available")).toBeNull();
+    expect(screen.getByText("Storm risk")).toBeTruthy();
+    expect(screen.getByText("Moderate")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Detailed forecast metrics will appear after the advisory refreshes.",
+      ),
+    ).toBeTruthy();
   });
 
   it("falls back to the alert area label when reverse geocoding fails", async () => {
-    mockReverseGeocodeDetails.mockRejectedValueOnce(new Error("geocode failed"));
+    mockReverseGeocodeDetails.mockRejectedValueOnce(
+      new Error("geocode failed"),
+    );
 
     render(<AlertDetailScreen />);
 
