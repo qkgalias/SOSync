@@ -6,7 +6,7 @@ import { logger } from "firebase-functions";
 
 import { adminDb } from "./admin.js";
 import { functionsRegion, openMeteoForecastUrl } from "./config.js";
-import { buildAlertId, nowIso, toAlertSeverity, toAlertType } from "./helpers.js";
+import { buildActiveAlertId, extractOpenMeteoAlertMetrics, nowIso, toAlertSeverity, toAlertType } from "./helpers.js";
 import {
   ensurePostRequest,
   handleCorsPreflight,
@@ -37,6 +37,39 @@ type GroupLocationDoc = {
   sharingState?: string;
   updatedAt?: string;
 };
+type AlertSeverity = "advisory" | "watch" | "warning" | "critical";
+type AlertType = "flood" | "storm";
+type GeneratedAlert = {
+  alertId: string;
+  areaLabel: string;
+  createdAt: string;
+  dedupeKey: string;
+  forecastEnd?: string;
+  forecastStart?: string;
+  forecastWindow: string;
+  generatedAt: string;
+  groupId: string;
+  lastEvaluatedAt: string;
+  latitude: number;
+  locationBasis: AlertLocationBasis;
+  locationConfidence: AlertLocation["confidence"];
+  longitude: number;
+  message: string;
+  peakRiskEnd?: string;
+  peakRiskStart?: string;
+  peakRainfallMm: number;
+  rainChancePercent?: number;
+  recommendedActions: string[];
+  severity: AlertSeverity;
+  source: "open-meteo";
+  sourceProvider: "open-meteo";
+  temperatureC?: number;
+  title: string;
+  type: AlertType;
+  uvIndex?: number;
+  windGustKph?: number;
+  windSpeedKph?: number;
+};
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const PH_DEFAULT_LOCATION: AlertLocation = {
   basis: "philippines_default",
@@ -50,6 +83,9 @@ const isValidCoordinatePair = (latitude?: number, longitude?: number) =>
   Number.isFinite(longitude) &&
   Math.abs(latitude as number) <= 90 &&
   Math.abs(longitude as number) <= 180;
+
+const withoutUndefined = <T extends Record<string, unknown>>(value: T) =>
+  Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 
 const resolveGroupAlertLocation = async (group: GroupDoc): Promise<AlertLocation> => {
   const locationsSnapshot = await adminDb.collection("locations").where("groupId", "==", group.groupId).get();
@@ -90,6 +126,78 @@ const resolveGroupAlertLocation = async (group: GroupDoc): Promise<AlertLocation
   return PH_DEFAULT_LOCATION;
 };
 
+const getAreaLabel = (basis: AlertLocationBasis) => {
+  switch (basis) {
+    case "group_locations":
+      return "Near shared circle locations";
+    case "group_default":
+      return "Near your circle's saved area";
+    case "philippines_default":
+      return "Philippines default monitoring area";
+  }
+};
+
+const buildAlertCopy = (input: { peakRainfall: number; severity: AlertSeverity; type: AlertType }) => {
+  if (input.type === "flood") {
+    switch (input.severity) {
+      case "critical":
+        return {
+          title: "Severe flood risk near your circle",
+          message: "Very heavy rainfall is forecast near your circle. Check on members and follow official evacuation guidance.",
+          recommendedActions: [
+            "Confirm everyone in your circle is reachable.",
+            "Prepare to move away from flood-prone roads and low-lying areas.",
+            "Follow local government and emergency advisories.",
+          ],
+        };
+      case "warning":
+        return {
+          title: "Flood risk rising near your circle",
+          message: "Heavy rainfall is forecast near your circle. Keep members reachable and avoid flood-prone routes.",
+          recommendedActions: [
+            "Check on members who may need help moving.",
+            "Avoid low-lying roads if rain intensifies.",
+            "Keep phone batteries charged and notifications on.",
+          ],
+        };
+      default:
+        return {
+          title: "Flood conditions possible near your circle",
+          message: "Rainfall may increase flood risk near your circle. Stay aware and keep your trusted circle updated.",
+          recommendedActions: [
+            "Monitor local rainfall and official advisories.",
+            "Review your safest route before conditions worsen.",
+            "Keep your trusted circle contact details current.",
+          ],
+        };
+    }
+  }
+
+  switch (input.severity) {
+    case "watch":
+      return {
+        title: "Storm watch near your circle",
+        message: "Rain and storm conditions may strengthen near your circle. Stay aware and keep members updated.",
+        recommendedActions: [
+          "Keep notifications on for your trusted circle.",
+          "Confirm important contacts are reachable.",
+          "Plan around possible heavy rain and slower travel.",
+        ],
+      };
+    case "advisory":
+    default:
+      return {
+        title: "Storm conditions expected near your circle",
+        message: "Weather conditions may become unsettled near your circle. Stay aware and keep your circle up to date.",
+        recommendedActions: [
+          "Keep notifications on.",
+          "Check that your circle details are current.",
+          "Watch for official local weather updates.",
+        ],
+      };
+  }
+};
+
 const syncAlertsForGroups = async (groups: GroupDoc[]) => {
   const alertBatches = await Promise.all(
     groups.map(async (group) => {
@@ -98,7 +206,8 @@ const syncAlertsForGroups = async (groups: GroupDoc[]) => {
         params: {
           latitude: alertLocation.latitude,
           longitude: alertLocation.longitude,
-          hourly: "precipitation_probability,precipitation",
+          current: "temperature_2m,wind_speed_10m,wind_gusts_10m",
+          hourly: "precipitation_probability,precipitation,temperature_2m,wind_speed_10m,wind_gusts_10m,uv_index",
           timezone: "Asia/Manila",
           forecast_days: 1,
         },
@@ -109,31 +218,49 @@ const syncAlertsForGroups = async (groups: GroupDoc[]) => {
       if (peakRainfall <= 4) {
         return [];
       }
+      const metrics = extractOpenMeteoAlertMetrics(forecast.data);
 
       const createdAt = nowIso();
       const forecastTimes = forecast.data.hourly?.time ?? [];
+      const forecastStart = Array.isArray(forecastTimes) ? forecastTimes[0] : undefined;
+      const forecastEnd = Array.isArray(forecastTimes) ? forecastTimes[forecastTimes.length - 1] : undefined;
       const forecastWindow =
-        Array.isArray(forecastTimes) && forecastTimes.length
-          ? `${forecastTimes[0]} to ${forecastTimes[forecastTimes.length - 1]}`
+        forecastStart && forecastEnd
+          ? `${forecastStart} to ${forecastEnd}`
           : "next 24 hours";
+      const type = toAlertType(peakRainfall) as AlertType;
+      const severity = toAlertSeverity(peakRainfall);
+      const alertId = buildActiveAlertId(group.groupId, type, severity, forecastStart ?? createdAt);
+      const copy = buildAlertCopy({ peakRainfall, severity, type });
 
       return [
         {
-          alertId: buildAlertId(group.groupId, toAlertType(peakRainfall), createdAt),
+          alertId,
+          areaLabel: getAreaLabel(alertLocation.basis),
+          dedupeKey: alertId,
+          forecastEnd,
+          forecastStart,
           groupId: group.groupId,
-          type: toAlertType(peakRainfall),
-          severity: toAlertSeverity(peakRainfall),
-          source: "open-meteo",
-          sourceProvider: "open-meteo",
-          title: peakRainfall >= 20 ? "Flood risk rising near your circle" : "Storm conditions expected near your circle",
-          message:
-            peakRainfall >= 20
-              ? "Heavy rainfall is building near your circle. Use official local alerts and keep members reachable."
-              : "Weather volatility is increasing near your circle. Keep notifications enabled and confirm your circle is up to date.",
+          type,
+          severity,
+          source: "open-meteo" as const,
+          sourceProvider: "open-meteo" as const,
+          title: copy.title,
+          message: copy.message,
           latitude: alertLocation.latitude,
           longitude: alertLocation.longitude,
           forecastWindow,
+          peakRiskEnd: metrics.peakRiskEnd,
+          peakRiskStart: metrics.peakRiskStart,
+          peakRainfallMm: Number(peakRainfall.toFixed(1)),
+          rainChancePercent: metrics.rainChancePercent,
+          temperatureC: metrics.temperatureC,
+          uvIndex: metrics.uvIndex,
+          windGustKph: metrics.windGustKph,
+          windSpeedKph: metrics.windSpeedKph,
+          recommendedActions: copy.recommendedActions,
           generatedAt: createdAt,
+          lastEvaluatedAt: createdAt,
           locationBasis: alertLocation.basis,
           locationConfidence: alertLocation.confidence,
           createdAt,
@@ -148,8 +275,14 @@ const syncAlertsForGroups = async (groups: GroupDoc[]) => {
   }
 
   const batch = adminDb.batch();
-  alerts.forEach((alert) => {
-    batch.set(adminDb.collection("alerts").doc(alert.alertId), alert, { merge: true });
+  const existingSnapshots = await Promise.all(alerts.map((alert) => adminDb.collection("alerts").doc(alert.alertId).get()));
+  alerts.forEach((alert, index) => {
+    const existingCreatedAt = existingSnapshots[index]?.data()?.createdAt;
+    const nextAlert: GeneratedAlert = {
+      ...alert,
+      createdAt: typeof existingCreatedAt === "string" ? existingCreatedAt : alert.createdAt,
+    };
+    batch.set(adminDb.collection("alerts").doc(alert.alertId), withoutUndefined(nextAlert), { merge: true });
   });
   await batch.commit();
   return alerts;

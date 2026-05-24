@@ -1,4 +1,3 @@
-import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { Text, View } from "react-native";
 
@@ -6,13 +5,11 @@ import { BackButton } from "@/components/BackButton";
 import { Screen } from "@/components/Screen";
 import { HelpInfoCard } from "@/modules/settings/components/HelpInfoCard";
 import { ABOUT_APP_CONTENT } from "@/modules/settings/helpAboutContent";
-import { getResolvedAppVersion, getResolvedBuildLabel } from "@/modules/settings/helpAboutUtils";
+import { getResolvedAppVersion, getResolvedBuildLabel, getResolvedRuntimeLabel } from "@/modules/settings/helpAboutUtils";
 import { goBackOrReplace } from "@/utils/helpers";
 
 export default function HelpAboutAppScreen() {
   const router = useRouter();
-  const runtimeLabel =
-    typeof Constants.executionEnvironment === "string" ? Constants.executionEnvironment : "Standalone";
 
   return (
     <Screen
@@ -40,7 +37,7 @@ export default function HelpAboutAppScreen() {
             </View>
             <View className="mt-3">
               <Text className="text-[12px] uppercase tracking-[0.08em] text-muted">Runtime:</Text>
-              <Text className="mt-1 text-[14px] text-ink">{runtimeLabel}</Text>
+              <Text className="mt-1 text-[14px] text-ink">{getResolvedRuntimeLabel()}</Text>
             </View>
           </View>
         </View>

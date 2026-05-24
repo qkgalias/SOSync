@@ -1,7 +1,7 @@
 /** Purpose: Keep Home map marker, Maps handoff, address, theme, and sheet snap points deterministic and testable. */
 import { Platform, type ColorSchemeName } from "react-native";
 
-import type { GroupLocation, GroupMember, HomeMapAppearance, HomeMapMarker, MapCoordinate } from "@/types";
+import type { GroupLocation, GroupMember, HomeMapAppearance, HomeMapMarker, MapCoordinate, SosEvent } from "@/types";
 import { locationService } from "@/services/locationService";
 
 type BuildHomeMapMarkersInput = {
@@ -20,6 +20,7 @@ type BuildHomeMapMarkersInput = {
 };
 
 export const MEMBER_OFFLINE_THRESHOLD_MS = 10 * 60 * 1000;
+export const ACTIVE_SOS_CONTACT_WINDOW_MS = 60 * 60 * 1000;
 
 export const resolveHomeMapAppearance = (colorScheme: ColorSchemeName | null): HomeMapAppearance =>
   colorScheme === "dark" ? "dark" : "light";
@@ -90,6 +91,48 @@ export const formatLastSeenLabel = (minutes: number | null | undefined) => {
 
   const hours = Math.floor(minutes / 60);
   return `last seen ${hours}h ago`;
+};
+
+export const isSosEventActiveForHomeContacts = (
+  event: Pick<SosEvent, "createdAt" | "status">,
+  nowMs = Date.now(),
+) => {
+  if (event.status !== "active") {
+    return false;
+  }
+
+  const createdAtMs = Date.parse(event.createdAt);
+  if (!Number.isFinite(createdAtMs)) {
+    return false;
+  }
+
+  return nowMs - createdAtMs <= ACTIVE_SOS_CONTACT_WINDOW_MS;
+};
+
+export const buildHomeContactSubtitle = ({
+  activeSos,
+  distanceLabel,
+  lastSeenMinutes,
+  markerVisible,
+  presenceStatus,
+}: {
+  activeSos: boolean;
+  distanceLabel?: string | null;
+  lastSeenMinutes?: number | null;
+  markerVisible: boolean;
+  presenceStatus?: HomeMapMarker["presenceStatus"] | null;
+}) => {
+  if (!markerVisible) {
+    return "Location hidden";
+  }
+
+  const parts = [
+    activeSos ? "Active SOS" : presenceStatus === "offline" ? "Offline" : "Live",
+    distanceLabel,
+    formatLastSeenLabel(lastSeenMinutes),
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join(" · ");
 };
 
 export const NEARBY_SAFETY_HUB_MAX_DISTANCE_METERS = 2_000;
@@ -195,7 +238,7 @@ export const buildHomeMapMarkers = ({
       sharingState: location.sharingState,
       presenceStatus,
       lastSeenAt: location.updatedAt,
-      lastSeenMinutes: presenceStatus === "offline" ? lastSeenMinutes ?? undefined : undefined,
+      lastSeenMinutes: lastSeenMinutes ?? undefined,
       isCurrentUser: false,
       isPrimaryContact: primaryLookup.has(location.userId),
     });

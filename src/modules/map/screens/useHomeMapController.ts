@@ -20,9 +20,10 @@ import {
   type HomeContactItem,
 } from "@/modules/map/homeMapTheme";
 import {
+  buildHomeContactSubtitle,
   buildHomeMapMarkers,
-  formatLastSeenLabel,
   HOME_SHEET_SNAP_POINTS,
+  isSosEventActiveForHomeContacts,
   resolveHomeMarkerDisplayName,
   resolveHomeAddressLabel,
   resolveHomeMapAppearance,
@@ -31,7 +32,7 @@ import {
 import { firestoreService } from "@/services/firestoreService";
 import { locationService } from "@/services/locationService";
 import { useAppTheme } from "@/providers/AppThemeProvider";
-import type { EvacuationTravelMode, HomeMapFocusTarget } from "@/types";
+import type { EvacuationTravelMode, HomeMapFocusTarget, SosEvent } from "@/types";
 import { USER_SEED } from "@/utils/constants";
 import { toDistanceLabel } from "@/utils/helpers";
 
@@ -95,7 +96,7 @@ export const useHomeMapController = () => {
     [activeGroup?.memberRole, activeGroup?.ownerId, authUser?.displayName, authUser?.photoURL, authUser?.uid, profile?.name, profile?.photoURL],
   );
   const primaryContactIds = preferences?.primaryContactIds ?? [];
-  const [activeSosSenderIds, setActiveSosSenderIds] = useState<string[]>([]);
+  const [sosEvents, setSosEvents] = useState<SosEvent[]>([]);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(currentUser.userId);
   const [selectedMarkerBubbleId, setSelectedMarkerBubbleId] = useState<string | null>(null);
   const [focusTarget, setFocusTarget] = useState<HomeMapFocusTarget | null>(null);
@@ -130,18 +131,14 @@ export const useHomeMapController = () => {
 
   useEffect(() => {
     if (!selectedGroupId) {
-      setActiveSosSenderIds([]);
+      setSosEvents([]);
       return;
     }
 
     return firestoreService.listenToSosEvents(selectedGroupId, (events) => {
-      setActiveSosSenderIds(
-        events
-          .filter((event) => event.status === "active" && !blockedUserIds.includes(event.senderId))
-          .map((event) => event.senderId),
-      );
+      setSosEvents(events);
     });
-  }, [blockedUserIds, selectedGroupId]);
+  }, [selectedGroupId]);
 
   useEffect(() => {
     if (!currentLocation) {
@@ -254,6 +251,21 @@ export const useHomeMapController = () => {
     () => stableHomeMarkers.filter((marker) => !marker.isCurrentUser),
     [stableHomeMarkers],
   );
+  const activeSosSenderIds = useMemo(
+    () =>
+      [
+        ...new Set(
+          sosEvents
+            .filter(
+              (event) =>
+                isSosEventActiveForHomeContacts(event, presenceNowMs) &&
+                !blockedUserIds.includes(event.senderId),
+            )
+            .map((event) => event.senderId),
+        ),
+      ],
+    [blockedUserIds, presenceNowMs, sosEvents],
+  );
   const contactItems = useMemo<HomeContactItem[]>(
     () =>
       members
@@ -263,21 +275,20 @@ export const useHomeMapController = () => {
           const distanceLabel =
             currentLocation && marker
               ? `${toDistanceLabel(locationService.distanceBetween(currentLocation, marker))} away`
-              : marker
-                ? "Live on map"
-                : "Location hidden";
-          const statusLabel =
-            marker?.presenceStatus === "offline"
-              ? `Offline · ${formatLastSeenLabel(marker.lastSeenMinutes)}`
-              : distanceLabel;
+              : null;
+          const activeSos = activeSosSenderIds.includes(member.userId);
 
           return {
-            activeSos: activeSosSenderIds.includes(member.userId),
+            activeSos,
             marker,
             member,
-            subtitle: activeSosSenderIds.includes(member.userId)
-              ? "Active SOS"
-              : `${member.role || "Circle member"} | ${statusLabel}`,
+            subtitle: buildHomeContactSubtitle({
+              activeSos,
+              distanceLabel,
+              lastSeenMinutes: marker?.lastSeenMinutes,
+              markerVisible: Boolean(marker),
+              presenceStatus: marker?.presenceStatus,
+            }),
           };
       }),
     [activeSosSenderIds, currentLocation, currentUser.userId, markerLookup, members],

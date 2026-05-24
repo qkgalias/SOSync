@@ -388,6 +388,16 @@
 - Why:
   - The top Home header row had enough space after removing shared-status controls, and a local weather glance is more useful there than another action.
   - Keeping the preview informational avoids creating two competing ways to open weather details from the same screen.
+
+## 2026-05 Weather Alerts Deduplicate Ongoing Advisory Conditions
+
+- Decision:
+  - Use deterministic active alert IDs for scheduled weather alerts based on group, alert type, severity, and forecast day.
+  - Update the existing active alert with richer advisory fields instead of creating a new alert document every scheduled sync.
+  - Keep the alert detail UI minimal and app-native: back navigation, simple sections, restrained cards, and no emoji-heavy treatment.
+- Why:
+  - Firestore create triggers drive push fanout, so hourly timestamp-based alert IDs can notify users repeatedly for the same ongoing weather condition.
+  - Users need practical context on the detail page, but the alert surface should stay calm and lightweight during stressful weather events.
   - Shared weather presentation helpers reduce drift between the compact Home card and the full Weather sheet over time.
 
 ## 2026-03 Icon Reuse Should Stay Within The Same Semantic Family
