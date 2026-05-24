@@ -1,5 +1,7 @@
 /** Purpose: Verify Home map marker composition, snap points, theme selection, and address fallback rules. */
 import {
+  ACTIVE_SOS_CONTACT_WINDOW_MS,
+  buildHomeContactSubtitle,
   buildHomeMapMarkers,
   buildHomeMarkerRenderSignature,
   formatLastSeenLabel,
@@ -11,6 +13,7 @@ import {
   resolveHomeMarkerDisplayName,
   resolveHomeAddressLabel,
   resolveHomeMapAppearance,
+  isSosEventActiveForHomeContacts,
   resolveMemberPresenceStatus,
   sortNearbySafetyHubs,
   sanitizeHomeMarkerPhotoURL,
@@ -239,6 +242,46 @@ describe("homeUtils", () => {
     );
   });
 
+  it("keeps last-seen minutes for live member locations too", () => {
+    const updatedAt = "2026-03-22T00:11:00.000Z";
+    const markers = buildHomeMapMarkers({
+      currentUser: {
+        userId: "user-1",
+        displayName: "Karlos Galias",
+      },
+      currentLocation: { latitude: 10.3, longitude: 123.9 },
+      members: [
+        {
+          userId: "user-2",
+          groupId: "group-1",
+          displayName: "Aaron Sabado",
+          role: "member",
+          joinedAt: "2026-03-22T00:00:00.000Z",
+        },
+      ],
+      groupLocations: [
+        {
+          locationId: "group-1_user-2",
+          userId: "user-2",
+          groupId: "group-1",
+          latitude: 10.31,
+          longitude: 123.91,
+          updatedAt,
+          sharingState: "live",
+        },
+      ],
+      nowMs: Date.parse("2026-03-22T00:12:00.000Z"),
+    });
+
+    expect(markers.find((marker) => marker.userId === "user-2")).toEqual(
+      expect.objectContaining({
+        lastSeenAt: updatedAt,
+        lastSeenMinutes: 1,
+        presenceStatus: "live",
+      }),
+    );
+  });
+
   it("resolves member presence from sharing state and last location age", () => {
     const nowMs = Date.parse("2026-03-22T00:12:00.000Z");
     const freshUpdatedAt = new Date(nowMs - MEMBER_OFFLINE_THRESHOLD_MS).toISOString();
@@ -256,6 +299,79 @@ describe("homeUtils", () => {
     expect(formatLastSeenLabel(0)).toBe("last seen just now");
     expect(formatLastSeenLabel(12)).toBe("last seen 12m ago");
     expect(formatLastSeenLabel(65)).toBe("last seen 1h ago");
+  });
+
+  it("builds compact contact subtitles with SOS, distance, and last seen", () => {
+    expect(
+      buildHomeContactSubtitle({
+        activeSos: true,
+        distanceLabel: "532 m away",
+        lastSeenMinutes: 12,
+        markerVisible: true,
+        presenceStatus: "offline",
+      }),
+    ).toBe("Active SOS · 532 m away · last seen 12m ago");
+
+    expect(
+      buildHomeContactSubtitle({
+        activeSos: false,
+        distanceLabel: "532 m away",
+        lastSeenMinutes: 0,
+        markerVisible: true,
+        presenceStatus: "live",
+      }),
+    ).toBe("Live · 532 m away · last seen just now");
+
+    expect(
+      buildHomeContactSubtitle({
+        activeSos: false,
+        distanceLabel: "532 m away",
+        lastSeenMinutes: 12,
+        markerVisible: true,
+        presenceStatus: "offline",
+      }),
+    ).toBe("Offline · 532 m away · last seen 12m ago");
+
+    expect(
+      buildHomeContactSubtitle({
+        activeSos: true,
+        markerVisible: false,
+      }),
+    ).toBe("Location hidden");
+  });
+
+  it("expires active SOS contact states after one hour", () => {
+    const nowMs = Date.parse("2026-05-25T04:00:00.000Z");
+
+    expect(
+      isSosEventActiveForHomeContacts(
+        {
+          createdAt: new Date(nowMs - ACTIVE_SOS_CONTACT_WINDOW_MS).toISOString(),
+          status: "active",
+        },
+        nowMs,
+      ),
+    ).toBe(true);
+
+    expect(
+      isSosEventActiveForHomeContacts(
+        {
+          createdAt: new Date(nowMs - ACTIVE_SOS_CONTACT_WINDOW_MS - 1).toISOString(),
+          status: "active",
+        },
+        nowMs,
+      ),
+    ).toBe(false);
+
+    expect(
+      isSosEventActiveForHomeContacts(
+        {
+          createdAt: new Date(nowMs).toISOString(),
+          status: "resolved",
+        },
+        nowMs,
+      ),
+    ).toBe(false);
   });
 
   it("sanitizes empty marker photo urls", () => {

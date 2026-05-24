@@ -23,7 +23,6 @@ import {
 import { appConfig } from "@/config/appConfig";
 import { env } from "@/config/env";
 import { buildLocalMarkerIcon, hasNativeMarkerIconSupport } from "@/modules/map/markerIconService";
-import { formatLastSeenLabel } from "@/modules/map/homeUtils";
 import { getHomeMapStyleJson } from "@/modules/map/homeMapStyle";
 import { getThemeTokens } from "@/theme/appTheme";
 import type {
@@ -55,13 +54,6 @@ type MapOverviewProps = {
 
 export type MapOverviewHandle = {
   takeSnapshot: () => Promise<string | null>;
-};
-
-const alertRadius: Record<string, number> = {
-  advisory: 800,
-  watch: 1400,
-  warning: 1800,
-  critical: 2400,
 };
 
 const maxMapCommandRetries = 8;
@@ -134,10 +126,7 @@ const getCenterIconId = (center: EvacuationCenter) => `center:${center.centerId}
 const getMemberMarkerOptions = (marker: HomeMapMarker) => ({
   id: `member:${marker.markerId}`,
   position: toLatLng(marker),
-  title:
-    marker.presenceStatus === "offline"
-      ? `${marker.displayName.trim() || "Circle member"} · ${formatLastSeenLabel(marker.lastSeenMinutes)}`
-      : marker.displayName.trim() || "Circle member",
+  title: marker.displayName.trim() || "Circle member",
 });
 
 const MapOverviewComponent = (
@@ -417,18 +406,6 @@ const MapOverviewComponent = (
     const timer = setTimeout(() => {
       const operations: Array<Promise<unknown>> = [
         Promise.resolve(controller.clearMapView()),
-        ...alerts.map((alert) =>
-          Promise.resolve(
-            controller.addCircle({
-              center: toLatLng(alert),
-              fillColor: toSdkColor(mapTheme === "dark" ? "rgba(255, 94, 94, 0.18)" : "rgba(214, 82, 78, 0.14)"),
-              id: `alert:${alert.alertId}`,
-              radius: alertRadius[alert.severity] ?? 1400,
-              strokeColor: toSdkColor(mapTheme === "dark" ? "rgba(255, 124, 124, 0.52)" : "rgba(214, 82, 78, 0.54)"),
-              strokeWidth: 2,
-            }),
-          ),
-        ),
         ...centers.flatMap((center) => {
           const iconPath = centerIconPaths[getCenterIconId(center)];
 

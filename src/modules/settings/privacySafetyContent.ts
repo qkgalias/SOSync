@@ -94,19 +94,37 @@ export const PRIVACY_POLICY_CONTENT = {
     {
       title: "What we collect",
       body:
-        "SOSync stores the profile, circle membership, location-sharing choices, and emergency activity needed to make the app function.",
+        "SOSync stores account details, profile information, phone and email contact details, trusted-circle memberships, invite-code activity, and app preferences needed to run your safety circle.",
       iconName: "file-document-outline",
+    },
+    {
+      title: "Location, last seen, and offline status",
+      body:
+        "When sharing is on, SOSync uses your location to update the Home map for your selected circle. Last seen and offline labels show when that shared location was last received.",
+      iconName: "map-clock-outline",
+    },
+    {
+      title: "SOS, alerts, and advisories",
+      body:
+        "SOS events, Alerts history, weather advisories, and flood outlook requests may include circle, time, location, status, and message details so members can coordinate safely.",
+      iconName: "bell-alert-outline",
+    },
+    {
+      title: "Notifications and support reports",
+      body:
+        "SOSync stores push tokens for alert delivery and may process support requests, problem reports, device details, and selected media you submit for troubleshooting.",
+      iconName: "message-alert-outline",
     },
     {
       title: "Why we use it",
       body:
-        "This information supports account access, trusted-circle coordination, live map updates, alerts, and SOS communication.",
+        "This information supports account access, trusted-circle coordination, live map updates, emergency notifications, advisory details, support handling, and app reliability.",
       iconName: "account-cog-outline",
     },
     {
       title: "Your control",
       body:
-        "You can manage sharing preferences in Permissions and Privacy & Safety, and delete your account from Edit Profile.",
+        "You can pause live sharing, manage permissions, update profile details, control circle access, and request account deletion from your account settings when available.",
       iconName: "cog-outline",
     },
   ] satisfies PrivacySafetyCardContent[],
@@ -120,13 +138,37 @@ export const TERMS_AND_CONDITIONS_CONTENT = {
     {
       title: "Intended use",
       body:
-        "SOSync is designed for safety coordination and trusted-circle communication. It should not be used to harass others or trigger false emergency activity.",
+        "SOSync is designed for safety coordination with trusted people. Use SOS for real emergencies only and do not harass others, impersonate members, or trigger false emergency activity.",
       iconName: "account-alert-outline",
+    },
+    {
+      title: "Trusted-circle conduct",
+      body:
+        "Invite only people you trust, keep invite codes private, and respect each member's location-sharing choices, privacy settings, and contact information.",
+      iconName: "account-group-outline",
+    },
+    {
+      title: "Emergency response limits",
+      body:
+        "SOSync helps your circle coordinate, but it does not replace 911, local hotlines, public responders, official advisories, or your own judgment during urgent situations.",
+      iconName: "phone-alert-outline",
+    },
+    {
+      title: "Advisory limits",
+      body:
+        "Weather, flood, route, and safety information can change quickly and may be delayed or unavailable. Treat advisory content as guidance, not a guarantee of conditions.",
+      iconName: "weather-lightning-rainy",
+    },
+    {
+      title: "Account security and misuse",
+      body:
+        "Keep your account secure and provide accurate information. SOSync may restrict access if the app is abused or used in ways that put members at risk.",
+      iconName: "shield-account-outline",
     },
     {
       title: "Availability",
       body:
-        "The app is still evolving, and some behaviors may continue to improve as the team validates production-ready flows.",
+        "SOSync is an Android-first live EAS build and is still evolving. Some behavior may change as the team validates release-quality flows and service availability.",
       iconName: "check-decagram-outline",
     },
   ] satisfies PrivacySafetyCardContent[],

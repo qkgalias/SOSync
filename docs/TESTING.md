@@ -251,6 +251,12 @@ npm run seed:live-alert -- --groupId=<your-group-id>
 Use this when you want the Alerts tab and alert detail screen to show real data immediately rather than waiting for the scheduled backend alert sync.
 These seed commands target the live Firebase project and intentionally reject `FIRESTORE_EMULATOR_HOST`.
 
+Alert detail regression checks:
+- opening a weather alert from the Alerts tab shows a back button plus At a glance, Overview, Recommended steps, Forecast window, Area, and Source sections
+- alert detail dates render as readable Philippine-local dates such as `May 24, 2026`, and Area shows a readable place label instead of raw coordinates when reverse geocoding is available
+- repeated scheduled weather syncs for the same group, type, severity, and forecast day update the same alert document and should not send repeated push notifications
+- a genuine severity or type change is allowed to create a new alert and send a new notification
+
 Before a live smoke pass on the redesigned flow, deploy the backend updates:
 
 ```bash

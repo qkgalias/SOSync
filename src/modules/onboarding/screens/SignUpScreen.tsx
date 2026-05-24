@@ -9,6 +9,7 @@ import { AuthScreen } from "@/components/AuthScreen";
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/Button";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { SIGN_UP_LEGAL_MODAL_CONTENT } from "@/modules/onboarding/signUpLegalContent";
 import { useAppTheme } from "@/providers/AppThemeProvider";
 import { cn, goBackOrReplace } from "@/utils/helpers";
 import { formatPhoneDigits } from "@/utils/input";
@@ -78,69 +79,6 @@ type SignUpErrors = {
 
 type LegalModalKey = "terms" | "privacy" | null;
 
-const LEGAL_MODAL_CONTENT = {
-  terms: {
-    title: "Terms of Service",
-    sections: [
-      {
-        title: "Using SOSync",
-        body:
-          "SOSync helps you create a private safety circle, verify your contact details, and coordinate with trusted people during emergencies.",
-      },
-      {
-        title: "Your account",
-        body:
-          "You agree to provide accurate information, keep your login secure, and use SOSync only for lawful and safety-related purposes.",
-      },
-      {
-        title: "Safety reminder",
-        body:
-          "SOSync supports coordination, but it is not a replacement for emergency responders, official alerts, or your own judgment during urgent situations.",
-      },
-      {
-        title: "Account limits",
-        body:
-          "We may suspend or remove access if SOSync is abused, used to harass others, or used in a way that puts other members at risk.",
-      },
-      {
-        title: "Support",
-        body:
-          "For now, SOSync legal and support contact details are managed in-app and may be updated as the product matures.",
-      },
-    ],
-  },
-  privacy: {
-    title: "Privacy Policy",
-    sections: [
-      {
-        title: "What we collect",
-        body:
-          "SOSync stores the account details you provide in the app, including your name, email address, phone number, profile information, and trusted-circle data.",
-      },
-      {
-        title: "Why we use it",
-        body:
-          "We use this information to create your account, verify your email, help you set up your profile, and support safety coordination features inside SOSync.",
-      },
-      {
-        title: "Verification services",
-        body:
-          "Email verification is handled through Firebase Authentication and a transactional email provider so SOSync can send one-time verification codes to your inbox.",
-      },
-      {
-        title: "How your data is stored",
-        body:
-          "Your account and app data are stored in SOSync's backend services. Access is restricted to the app flows and protections currently configured for the project.",
-      },
-      {
-        title: "Your choices",
-        body:
-          "You can update your profile details in the app and request account deletion from the account settings flow when that action is available to your session.",
-      },
-    ],
-  },
-} satisfies Record<Exclude<LegalModalKey, null>, { title: string; sections: Array<{ title: string; body: string }> }>;
-
 const LegalModal = ({
   visible,
   onClose,
@@ -151,7 +89,7 @@ const LegalModal = ({
   modalKey: Exclude<LegalModalKey, null>;
 }) => {
   const { themeTokens } = useAppTheme();
-  const content = LEGAL_MODAL_CONTENT[modalKey];
+  const content = SIGN_UP_LEGAL_MODAL_CONTENT[modalKey];
 
   return (
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>

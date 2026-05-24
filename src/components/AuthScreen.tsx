@@ -54,23 +54,21 @@ export const AuthScreen = ({
   return (
     <View className="flex-1 bg-page">
       <SafeAreaView edges={["top"]} className="flex-1 bg-page">
-        {scrollable ? (
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          testID="auth-screen-keyboard-avoiding-view"
+        >
           <ScrollView
             className="flex-1"
             contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            testID="auth-screen-scroll-view"
           >
             {sheetContent}
           </ScrollView>
-        ) : (
-          <KeyboardAvoidingView
-            className="flex-1"
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-          >
-            {sheetContent}
-          </KeyboardAvoidingView>
-        )}
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );

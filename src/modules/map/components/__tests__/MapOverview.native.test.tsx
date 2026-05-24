@@ -61,6 +61,21 @@ const currentUserMarker: HomeMapMarker = {
   userId: "user-1",
 };
 
+const offlineMemberMarker: HomeMapMarker = {
+  displayName: "Matheo Labandero",
+  isCurrentUser: false,
+  isPrimaryContact: false,
+  lastSeenAt: "2026-05-25T03:45:00.000Z",
+  lastSeenMinutes: 12,
+  latitude: 10.31,
+  longitude: 123.91,
+  markerId: "user-2",
+  photoURL: undefined,
+  presenceStatus: "offline",
+  sharingState: "live",
+  userId: "user-2",
+};
+
 const center: EvacuationCenter = {
   address: "Talisay City, Cebu",
   capacity: 300,
@@ -98,7 +113,7 @@ describe("MapOverview native Navigation SDK map", () => {
     mockGetCameraPosition.mockResolvedValue({ zoom: 16.75 });
   });
 
-  it("adds evacuation centers, alerts, and home markers to the Navigation SDK map", async () => {
+  it("adds evacuation centers and home markers without rendering alert radius circles", async () => {
     render(
       <MapOverview
         alerts={[alert]}
@@ -110,7 +125,6 @@ describe("MapOverview native Navigation SDK map", () => {
 
     await waitFor(() => {
       expect(mockClearMapView).toHaveBeenCalled();
-      expect(mockAddCircle).toHaveBeenCalledWith(expect.objectContaining({ id: "alert:alert-1" }));
       expect(mockAddMarker).toHaveBeenCalledWith(
         expect.objectContaining({ id: "center:center-1", imgPath: "/tmp/center-1-light.png" }),
       );
@@ -122,6 +136,8 @@ describe("MapOverview native Navigation SDK map", () => {
         }),
       );
     });
+
+    expect(mockAddCircle).not.toHaveBeenCalled();
   });
 
   it("uses a clean single-line title bubble for member markers", async () => {
@@ -130,21 +146,23 @@ describe("MapOverview native Navigation SDK map", () => {
         alerts={[]}
         centers={[center]}
         mapTheme="light"
-        markers={[currentUserMarker]}
+        markers={[offlineMemberMarker]}
       />,
     );
 
     await waitFor(() => {
       expect(mockAddMarker).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: "member:user-1",
-          title: "Karlos Galias",
+          id: "member:user-2",
+          title: "Matheo Labandero",
         }),
       );
     });
 
-    const memberCall = mockAddMarker.mock.calls.find(([options]) => options.id === "member:user-1");
+    const memberCall = mockAddMarker.mock.calls.find(([options]) => options.id === "member:user-2");
     expect(memberCall?.[0]).not.toHaveProperty("snippet");
+    expect(memberCall?.[0].title).not.toContain("last seen");
+    expect(memberCall?.[0].title).not.toContain("12m");
   });
 
   it("passes the SOSync custom map style to the Navigation SDK map", async () => {
