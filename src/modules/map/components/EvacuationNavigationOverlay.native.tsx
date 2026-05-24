@@ -1,6 +1,13 @@
 /** Purpose: Run Google Navigation SDK guidance to an evacuation center inside SOSync. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -22,13 +29,24 @@ import {
   formatNavigationDuration,
   formatNavigationRetryAfter,
 } from "@/modules/map/evacuationNavigationHelpers";
-import { getHomeMapPalette, getHomeShadowStyle } from "@/modules/map/homeMapTheme";
+import {
+  getHomeMapPalette,
+  getHomeShadowStyle,
+} from "@/modules/map/homeMapTheme";
 import {
   evacuationTravelModeLabels,
   toGoogleNavigationTravelMode,
 } from "@/modules/map/routeUtils";
-import { NavigationAuthorizationError, apiService } from "@/services/apiService";
-import type { EvacuationCenter, EvacuationTravelMode, HomeMapAppearance, MapCoordinate } from "@/types";
+import {
+  NavigationAuthorizationError,
+  apiService,
+} from "@/services/apiService";
+import type {
+  EvacuationCenter,
+  EvacuationTravelMode,
+  HomeMapAppearance,
+  MapCoordinate,
+} from "@/types";
 
 type EvacuationNavigationOverlayProps = {
   appearance: HomeMapAppearance;
@@ -41,13 +59,20 @@ type EvacuationNavigationOverlayProps = {
 
 type NavigationPhase = "preview" | "guiding";
 
-const travelModes: EvacuationTravelMode[] = ["walk", "two_wheeler", "four_wheeler"];
+const travelModes: EvacuationTravelMode[] = [
+  "walk",
+  "two_wheeler",
+  "four_wheeler",
+];
 const countDownTickMs = 1000;
 const bottomNavigationClearance = 78;
 const previewContentBottomPadding = 28;
 const shouldEmitNavigationDiagnostics = env.appEnv === "preview";
 
-const logNavigationDiagnostic = (event: string, details?: Record<string, unknown>) => {
+const logNavigationDiagnostic = (
+  event: string,
+  details?: Record<string, unknown>,
+) => {
   if (!shouldEmitNavigationDiagnostics) {
     return;
   }
@@ -55,7 +80,10 @@ const logNavigationDiagnostic = (event: string, details?: Record<string, unknown
   console.log(`[SOSync:Navigation] ${event}`, details ?? {});
 };
 
-const travelModeIcons: Record<EvacuationTravelMode, keyof typeof MaterialCommunityIcons.glyphMap> = {
+const travelModeIcons: Record<
+  EvacuationTravelMode,
+  keyof typeof MaterialCommunityIcons.glyphMap
+> = {
   walk: "walk",
   two_wheeler: "motorbike",
   four_wheeler: "car",
@@ -102,7 +130,10 @@ const toRouteErrorMessage = (status: RouteStatus) => {
     return "Navigation quota is unavailable right now. Please try again later.";
   }
 
-  if (status === RouteStatus.LOCATION_DISABLED || status === RouteStatus.LOCATION_UNKNOWN) {
+  if (
+    status === RouteStatus.LOCATION_DISABLED ||
+    status === RouteStatus.LOCATION_UNKNOWN
+  ) {
     return "SOSync could not resolve your current location for navigation.";
   }
 
@@ -129,33 +160,67 @@ export const EvacuationNavigationOverlay = ({
   const insets = useSafeAreaInsets();
   const palette = useMemo(() => getHomeMapPalette(appearance), [appearance]);
   const [phase, setPhase] = useState<NavigationPhase>("preview");
-  const [statusLabel, setStatusLabel] = useState("Preparing route...");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
-  const [timeAndDistance, setTimeAndDistance] = useState<TimeAndDistance | null>(null);
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(
+    null,
+  );
+  const [timeAndDistance, setTimeAndDistance] =
+    useState<TimeAndDistance | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isGuidanceLoading, setIsGuidanceLoading] = useState(false);
   const [hasNavigationMapReady, setHasNavigationMapReady] = useState(false);
   const [showMapDiagnostic, setShowMapDiagnostic] = useState(false);
   const [previewNonce, setPreviewNonce] = useState(0);
+  const [lockedGuidanceTravelMode, setLockedGuidanceTravelMode] =
+    useState<EvacuationTravelMode | null>(null);
   const operationTokenRef = useRef(0);
-  const previousTravelModeRef = useRef<EvacuationTravelMode>(selectedTravelMode);
   const bottomSheetRef = useRef<BottomSheet | null>(null);
   const previewSnapPoints = useMemo(() => ["22%", "72%"], []);
-  const guidanceSnapPoints = useMemo(() => ["18%", "40%"], []);
-  const activeSnapPoints = phase === "guiding" ? guidanceSnapPoints : previewSnapPoints;
+  const guidanceSnapPoints = useMemo(() => ["22%"], []);
+  const activeSnapPoints =
+    phase === "guiding" ? guidanceSnapPoints : previewSnapPoints;
+  const activeSheetIndex = phase === "guiding" ? 0 : 1;
   const expandBottomSheet = useCallback(() => {
-    bottomSheetRef.current?.snapToIndex(1);
-  }, []);
-  const bottomSheetContentBottomPadding = insets.bottom + bottomNavigationClearance + previewContentBottomPadding;
+    bottomSheetRef.current?.snapToIndex(activeSheetIndex);
+  }, [activeSheetIndex]);
+  const bottomSheetContentBottomPadding =
+    insets.bottom + bottomNavigationClearance + previewContentBottomPadding;
 
   const stopGuidance = useCallback(() => {
     void navigationController.stopGuidance().catch(() => undefined);
     void navigationController.clearDestinations().catch(() => undefined);
   }, [navigationController]);
 
+  const closeNavigation = useCallback(() => {
+    if (phase !== "guiding") {
+      onClose();
+      return;
+    }
+
+    Alert.alert(
+      "Exit navigation?",
+      "Navigation to this evacuation center will stop.",
+      [
+        {
+          style: "cancel",
+          text: "Stay",
+        },
+        {
+          onPress: () => {
+            stopGuidance();
+            onClose();
+          },
+          style: "destructive",
+          text: "Exit navigation",
+        },
+      ],
+    );
+  }, [onClose, phase, stopGuidance]);
+
   const syncTimeAndDistance = useCallback(async () => {
-    const nextTimeAndDistance = await navigationController.getCurrentTimeAndDistance().catch(() => null);
+    const nextTimeAndDistance = await navigationController
+      .getCurrentTimeAndDistance()
+      .catch(() => null);
     setTimeAndDistance(nextTimeAndDistance);
     return nextTimeAndDistance;
   }, [navigationController]);
@@ -171,21 +236,23 @@ export const EvacuationNavigationOverlay = ({
     setIsPreviewLoading(true);
     setErrorMessage(null);
     setRetryAfterSeconds(null);
-    setStatusLabel("Preparing route...");
     logNavigationDiagnostic("preview-start", {
       centerId: center.centerId,
       travelMode: selectedTravelMode,
       appEnv: env.appEnv,
     });
 
-    const acceptedTerms = await navigationController.showTermsAndConditionsDialog();
+    const acceptedTerms =
+      await navigationController.showTermsAndConditionsDialog();
     if (operationToken !== operationTokenRef.current) {
       return false;
     }
 
     if (!acceptedTerms) {
       logNavigationDiagnostic("terms-declined", { centerId: center.centerId });
-      setErrorMessage("Navigation terms must be accepted before route preview can continue.");
+      setErrorMessage(
+        "Navigation terms must be accepted before route preview can continue.",
+      );
       setIsPreviewLoading(false);
       return false;
     }
@@ -235,7 +302,6 @@ export const EvacuationNavigationOverlay = ({
 
     if (routeStatus !== RouteStatus.OK) {
       setErrorMessage(toRouteErrorMessage(routeStatus));
-      setStatusLabel("Route unavailable");
       setTimeAndDistance(null);
       setIsPreviewLoading(false);
       return false;
@@ -246,7 +312,6 @@ export const EvacuationNavigationOverlay = ({
       return false;
     }
 
-    setStatusLabel("Ready to start");
     setIsPreviewLoading(false);
     return true;
   }, [center, navigationController, selectedTravelMode, syncTimeAndDistance]);
@@ -257,17 +322,19 @@ export const EvacuationNavigationOverlay = ({
     }
 
     if (!currentLocation) {
-      setErrorMessage("Your current location is required before navigation can start.");
+      setErrorMessage(
+        "Your current location is required before navigation can start.",
+      );
       return;
     }
 
     operationTokenRef.current += 1;
     const operationToken = operationTokenRef.current;
+    const travelModeForGuidance = selectedTravelMode;
 
     setIsGuidanceLoading(true);
     setErrorMessage(null);
     setRetryAfterSeconds(null);
-    setStatusLabel(phase === "guiding" ? "Switching travel mode..." : "Starting guidance...");
     logNavigationDiagnostic("guidance-start", {
       centerId: center.centerId,
       phase,
@@ -301,7 +368,7 @@ export const EvacuationNavigationOverlay = ({
           latitude: currentLocation.latitude,
           longitude: currentLocation.longitude,
         },
-        travelMode: selectedTravelMode,
+        travelMode: travelModeForGuidance,
       });
 
       if (operationToken !== operationTokenRef.current) {
@@ -321,7 +388,7 @@ export const EvacuationNavigationOverlay = ({
             showDestinationMarkers: true,
           },
           routingOptions: {
-            travelMode: toGoogleNavigationTravelMode(selectedTravelMode),
+            travelMode: toGoogleNavigationTravelMode(travelModeForGuidance),
           },
         },
       );
@@ -348,10 +415,10 @@ export const EvacuationNavigationOverlay = ({
       }
 
       setPhase("guiding");
-      setStatusLabel("Navigation active");
+      setLockedGuidanceTravelMode(travelModeForGuidance);
       logNavigationDiagnostic("guidance-active", {
         centerId: center.centerId,
-        travelMode: selectedTravelMode,
+        travelMode: travelModeForGuidance,
       });
     } catch (error) {
       logNavigationDiagnostic("guidance-error", {
@@ -371,33 +438,34 @@ export const EvacuationNavigationOverlay = ({
       }
 
       setPhase("preview");
+      setLockedGuidanceTravelMode(null);
     } finally {
       if (operationToken === operationTokenRef.current) {
         setIsGuidanceLoading(false);
       }
     }
-  }, [center, currentLocation, navigationController, phase, selectedTravelMode, syncTimeAndDistance]);
+  }, [
+    center,
+    currentLocation,
+    navigationController,
+    phase,
+    selectedTravelMode,
+    syncTimeAndDistance,
+  ]);
 
   useEffect(() => {
     setPhase("preview");
-    setStatusLabel("Preparing route...");
     setErrorMessage(null);
     setRetryAfterSeconds(null);
     setTimeAndDistance(null);
+    setLockedGuidanceTravelMode(null);
     setHasNavigationMapReady(false);
     setShowMapDiagnostic(false);
-    previousTravelModeRef.current = selectedTravelMode;
   }, [center?.centerId]);
 
   useEffect(() => {
     expandBottomSheet();
   }, [expandBottomSheet, phase]);
-
-  useEffect(() => {
-    if (phase === "preview") {
-      previousTravelModeRef.current = selectedTravelMode;
-    }
-  }, [phase, selectedTravelMode]);
 
   useEffect(() => {
     setOnRemainingTimeOrDistanceChanged((nextTimeAndDistance) => {
@@ -437,19 +505,6 @@ export const EvacuationNavigationOverlay = ({
   }, [center, hasNavigationMapReady, phase, selectedTravelMode]);
 
   useEffect(() => {
-    if (!center || phase !== "guiding" || isGuidanceLoading) {
-      return;
-    }
-
-    if (previousTravelModeRef.current === selectedTravelMode) {
-      return;
-    }
-
-    previousTravelModeRef.current = selectedTravelMode;
-    void startGuidanceFlow();
-  }, [center, isGuidanceLoading, phase, selectedTravelMode]);
-
-  useEffect(() => {
     if (!retryAfterSeconds || retryAfterSeconds <= 0) {
       return;
     }
@@ -457,7 +512,9 @@ export const EvacuationNavigationOverlay = ({
     const timer = setTimeout(() => {
       setRetryAfterSeconds((currentValue) => {
         if (!currentValue || currentValue <= 1) {
-          setErrorMessage("Navigation authorization is ready again. Try again.");
+          setErrorMessage(
+            "Navigation authorization is ready again. Try again.",
+          );
           return null;
         }
 
@@ -485,13 +542,20 @@ export const EvacuationNavigationOverlay = ({
 
   const isDark = appearance === "dark";
   const isBusy = isPreviewLoading || isGuidanceLoading;
-  const arrivalTimeLabel = formatNavigationArrivalTime(timeAndDistance?.seconds);
+  const arrivalTimeLabel = formatNavigationArrivalTime(
+    timeAndDistance?.seconds,
+  );
   const durationLabel = formatNavigationDuration(timeAndDistance?.seconds);
   const distanceLabel = formatNavigationDistance(timeAndDistance?.meters);
   const routeTraits = getTravelModeRouteTraits(selectedTravelMode);
-  const routeSectionHeading = phase === "guiding" ? "Current route" : "Selected route";
+  const activeGuidanceTravelMode =
+    lockedGuidanceTravelMode ?? selectedTravelMode;
+  const routeSectionHeading =
+    phase === "guiding" ? "Current route" : "Selected route";
   const inlineStatusTone = errorMessage ? "#B42318" : palette.sheetTextMuted;
-  const shouldShowRetryAction = Boolean(errorMessage || (retryAfterSeconds && retryAfterSeconds > 0));
+  const shouldShowRetryAction = Boolean(
+    errorMessage || (retryAfterSeconds && retryAfterSeconds > 0),
+  );
 
   return (
     <View style={styles.container}>
@@ -506,7 +570,11 @@ export const EvacuationNavigationOverlay = ({
           tilt: 45,
           zoom: 16,
         }}
-        navigationNightMode={isDark ? NavigationNightMode.FORCE_NIGHT : NavigationNightMode.FORCE_DAY}
+        navigationNightMode={
+          isDark
+            ? NavigationNightMode.FORCE_NIGHT
+            : NavigationNightMode.FORCE_DAY
+        }
         navigationUIEnabledPreference={NavigationUIEnabledPreference.AUTOMATIC}
         onMapReady={() => {
           setHasNavigationMapReady(true);
@@ -520,7 +588,9 @@ export const EvacuationNavigationOverlay = ({
         recenterButtonEnabled={phase === "guiding"}
         reportIncidentButtonEnabled={false}
         speedLimitIconEnabled={phase === "guiding"}
-        speedometerEnabled={phase === "guiding" && selectedTravelMode !== "walk"}
+        speedometerEnabled={
+          phase === "guiding" && activeGuidanceTravelMode !== "walk"
+        }
         style={StyleSheet.absoluteFill}
         tripProgressBarEnabled={false}
       />
@@ -528,9 +598,12 @@ export const EvacuationNavigationOverlay = ({
       {showMapDiagnostic ? (
         <View pointerEvents="none" style={styles.mapDiagnosticWrapper}>
           <View style={styles.mapDiagnosticCard}>
-            <Text style={styles.mapDiagnosticTitle}>Navigation map did not load</Text>
+            <Text style={styles.mapDiagnosticTitle}>
+              Navigation map did not load
+            </Text>
             <Text style={styles.mapDiagnosticBody}>
-              Check this APK signing SHA1, Navigation SDK, Maps SDK, and Google Play services.
+              Check this APK signing SHA1, Navigation SDK, Maps SDK, and Google
+              Play services.
             </Text>
           </View>
         </View>
@@ -558,223 +631,278 @@ export const EvacuationNavigationOverlay = ({
           paddingBottom: 8,
           paddingTop: 12,
         }}
-        index={1}
+        index={activeSheetIndex}
         snapPoints={activeSnapPoints}
       >
-        <BottomSheetView className="px-5" style={{ paddingBottom: bottomSheetContentBottomPadding }}>
-        <View className="mt-1 flex-row items-start">
-          <View className="mr-4 mt-1">
-            <BackButton
-              onPress={() => {
-                if (phase === "guiding") {
-                  stopGuidance();
-                }
-                onClose();
-              }}
-              testID="navigation-back-button"
-            />
-          </View>
-
-          <View className="flex-1 pr-1">
-            <Text className="text-[26px] font-semibold" style={{ color: palette.sheetText }}>
-              {phase === "guiding" ? "Navigation" : "Route preview"}
-            </Text>
-            <Text className="mt-2 text-[22px] font-semibold" numberOfLines={1} style={{ color: palette.sheetText }}>
-              {center.name}
-            </Text>
-            <Text className="mt-1 text-[14px]" numberOfLines={2} style={{ color: palette.sheetTextMuted }}>
-              {center.address}
-            </Text>
-          </View>
-        </View>
-
-        <View
-          className="mt-4 flex-row overflow-hidden rounded-[16px] border"
-          style={{
-            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
-            borderColor: isDark ? "rgba(255,255,255,0.14)" : "#E9DAD4",
-          }}
+        <BottomSheetView
+          className="px-5"
+          style={{ paddingBottom: bottomSheetContentBottomPadding }}
         >
-          {travelModes.map((travelMode) => {
-            const isSelected = selectedTravelMode === travelMode;
+          <View className="mt-1 flex-row items-start">
+            <View className="mr-4 mt-1">
+              <BackButton
+                onPress={closeNavigation}
+                testID="navigation-back-button"
+              />
+            </View>
 
-            return (
-              <Pressable
-                key={travelMode}
-              onPress={() => {
-                expandBottomSheet();
-                onTravelModeChange(travelMode);
-              }}
-                style={[
-                  styles.travelModeButton,
-                  {
-                    backgroundColor: isSelected
-                      ? isDark
-                        ? "rgba(255,255,255,0.1)"
-                        : "#FAECE8"
-                      : "transparent",
-                    borderRightColor:
-                      travelMode !== "four_wheeler"
-                        ? isDark
-                          ? "rgba(255,255,255,0.08)"
-                          : "#E9DAD4"
-                        : "transparent",
-                    borderRightWidth: travelMode !== "four_wheeler" ? StyleSheet.hairlineWidth : 0,
-                  },
-                ]}
+            <View className="flex-1 pr-1">
+              <Text
+                className="text-[26px] font-semibold"
+                style={{ color: palette.sheetText }}
               >
-                <View className="flex-row items-center justify-center">
+                {phase === "guiding" ? "Navigation" : "Route preview"}
+              </Text>
+              <Text
+                className="mt-2 text-[22px] font-semibold"
+                numberOfLines={1}
+                style={{ color: palette.sheetText }}
+              >
+                {center.name}
+              </Text>
+              <Text
+                className="mt-1 text-[14px]"
+                numberOfLines={2}
+                style={{ color: palette.sheetTextMuted }}
+              >
+                {center.address}
+              </Text>
+            </View>
+          </View>
+
+          {phase === "preview" ? (
+            <>
+              <View
+                className="mt-4 flex-row overflow-hidden rounded-[16px] border"
+                style={{
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.04)"
+                    : "#FFFFFF",
+                  borderColor: isDark ? "rgba(255,255,255,0.14)" : "#E9DAD4",
+                }}
+              >
+                {travelModes.map((travelMode) => {
+                  const isSelected = selectedTravelMode === travelMode;
+
+                  return (
+                    <Pressable
+                      key={travelMode}
+                      onPress={() => {
+                        expandBottomSheet();
+                        onTravelModeChange(travelMode);
+                      }}
+                      style={[
+                        styles.travelModeButton,
+                        {
+                          backgroundColor: isSelected
+                            ? isDark
+                              ? "rgba(255,255,255,0.1)"
+                              : "#FAECE8"
+                            : "transparent",
+                          borderRightColor:
+                            travelMode !== "four_wheeler"
+                              ? isDark
+                                ? "rgba(255,255,255,0.08)"
+                                : "#E9DAD4"
+                              : "transparent",
+                          borderRightWidth:
+                            travelMode !== "four_wheeler"
+                              ? StyleSheet.hairlineWidth
+                              : 0,
+                        },
+                      ]}
+                    >
+                      <View className="flex-row items-center justify-center">
+                        <MaterialCommunityIcons
+                          color={
+                            isSelected ? palette.share : palette.sheetTextMuted
+                          }
+                          name={travelModeIcons[travelMode]}
+                          size={18}
+                        />
+                        <Text
+                          className="ml-2 text-[13px] font-semibold"
+                          style={{
+                            color: isSelected
+                              ? palette.share
+                              : palette.sheetTextMuted,
+                          }}
+                        >
+                          {evacuationTravelModeLabels[travelMode]}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View
+                className="mt-4 rounded-[26px] border px-5 py-5"
+                style={{
+                  backgroundColor: palette.floatingSurface,
+                  borderColor: isDark ? "rgba(255,255,255,0.08)" : "#EFE4DF",
+                }}
+              >
+                <Text
+                  className="text-[15px] font-semibold"
+                  style={{ color: palette.share }}
+                >
+                  {routeSectionHeading}
+                </Text>
+
+                <View className="mt-4 flex-row items-start justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text
+                      className="text-[52px] font-semibold leading-[56px]"
+                      style={{ color: palette.share }}
+                    >
+                      {durationLabel}
+                    </Text>
+                    <View className="mt-3 flex-row flex-wrap items-center">
+                      <MaterialCommunityIcons
+                        color={palette.sheetTextMuted}
+                        name={travelModeIcons[selectedTravelMode]}
+                        size={20}
+                      />
+                      <Text
+                        className="ml-2 text-[15px]"
+                        style={{ color: palette.sheetTextMuted }}
+                      >
+                        {distanceLabel}
+                        {arrivalTimeLabel
+                          ? ` • Arrive ${arrivalTimeLabel}`
+                          : ""}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {isBusy ? (
+                    <ActivityIndicator color={palette.share} size="small" />
+                  ) : null}
+                </View>
+
+                <View className="mt-5 flex-row items-center">
                   <MaterialCommunityIcons
-                    color={isSelected ? palette.share : palette.sheetTextMuted}
-                    name={travelModeIcons[travelMode]}
+                    color={palette.sheetTextMuted}
+                    name="check-circle"
+                    size={20}
+                  />
+                  <Text
+                    className="ml-2 text-[15px] font-medium"
+                    style={{ color: palette.sheetTextMuted }}
+                  >
+                    {routeTraits[0]}
+                  </Text>
+                  <View
+                    className="mx-4 h-6 w-px"
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.12)"
+                        : "#E6D7D0",
+                    }}
+                  />
+                  <MaterialCommunityIcons
+                    color={palette.sheetTextMuted}
+                    name="signal-cellular-2"
                     size={18}
                   />
                   <Text
-                    className="ml-2 text-[13px] font-semibold"
-                    style={{ color: isSelected ? palette.share : palette.sheetTextMuted }}
+                    className="ml-2 text-[15px] font-medium"
+                    style={{ color: palette.sheetTextMuted }}
                   >
-                    {evacuationTravelModeLabels[travelMode]}
+                    {routeTraits[1]}
                   </Text>
                 </View>
-              </Pressable>
-            );
-          })}
-        </View>
 
-        <View
-          className="mt-4 rounded-[26px] border px-5 py-5"
-          style={{
-            backgroundColor: palette.floatingSurface,
-            borderColor: isDark ? "rgba(255,255,255,0.08)" : "#EFE4DF",
-          }}
-        >
-          <Text className="text-[15px] font-semibold" style={{ color: palette.share }}>
-            {routeSectionHeading}
-          </Text>
+                {errorMessage ? (
+                  <Text
+                    className="mt-4 text-[14px] leading-[20px]"
+                    style={{ color: inlineStatusTone }}
+                  >
+                    {errorMessage}
+                  </Text>
+                ) : null}
 
-          <View className="mt-4 flex-row items-start justify-between">
-            <View className="flex-1 pr-3">
-              <Text className="text-[52px] font-semibold leading-[56px]" style={{ color: palette.share }}>
-                {durationLabel}
-              </Text>
-              <View className="mt-3 flex-row flex-wrap items-center">
-                <MaterialCommunityIcons color={palette.sheetTextMuted} name={travelModeIcons[selectedTravelMode]} size={20} />
-                <Text className="ml-2 text-[15px]" style={{ color: palette.sheetTextMuted }}>
-                  {distanceLabel}
-                  {arrivalTimeLabel ? ` • Arrive ${arrivalTimeLabel}` : ""}
-                </Text>
+                <View className="mt-5 flex-row gap-3">
+                  <Pressable
+                    disabled={
+                      isBusy ||
+                      Boolean(retryAfterSeconds && retryAfterSeconds > 0)
+                    }
+                    testID="navigation-start-button"
+                    onPress={() => {
+                      void startGuidanceFlow();
+                    }}
+                    style={[
+                      getHomeShadowStyle(appearance, "primaryButton"),
+                      styles.primaryAction,
+                      {
+                        backgroundColor: palette.share,
+                        opacity:
+                          isBusy || (retryAfterSeconds && retryAfterSeconds > 0)
+                            ? 0.6
+                            : 1,
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      color="#FFFFFF"
+                      name="navigation-variant"
+                      size={18}
+                    />
+                    <Text className="ml-2 text-[16px] font-semibold text-white">
+                      Start
+                    </Text>
+                  </Pressable>
+
+                  {shouldShowRetryAction ? (
+                    <Pressable
+                      disabled={
+                        isBusy ||
+                        Boolean(retryAfterSeconds && retryAfterSeconds > 0)
+                      }
+                      testID="navigation-retry-button"
+                      onPress={() => {
+                        if (retryAfterSeconds && retryAfterSeconds > 0) {
+                          return;
+                        }
+
+                        setPreviewNonce((currentValue) => currentValue + 1);
+                      }}
+                      style={[
+                        getHomeShadowStyle(appearance, "secondaryButton"),
+                        styles.secondaryAction,
+                        {
+                          backgroundColor: palette.chip,
+                          borderColor: palette.share,
+                          borderWidth: 1,
+                          opacity:
+                            isBusy ||
+                            (retryAfterSeconds && retryAfterSeconds > 0)
+                              ? 0.6
+                              : 1,
+                        },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        color={palette.iconTint}
+                        name="refresh"
+                        size={18}
+                      />
+                      <Text
+                        className="ml-2 text-[15px] font-semibold"
+                        style={{ color: palette.sheetText }}
+                      >
+                        {retryAfterSeconds && retryAfterSeconds > 0
+                          ? "Wait to retry"
+                          : "Retry"}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               </View>
-            </View>
-
-            {isBusy ? <ActivityIndicator color={palette.share} size="small" /> : null}
-          </View>
-
-          <View className="mt-5 flex-row items-center">
-            <MaterialCommunityIcons color={palette.sheetTextMuted} name="check-circle" size={20} />
-            <Text className="ml-2 text-[15px] font-medium" style={{ color: palette.sheetTextMuted }}>
-              {routeTraits[0]}
-            </Text>
-            <View
-              className="mx-4 h-6 w-px"
-              style={{ backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "#E6D7D0" }}
-            />
-            <MaterialCommunityIcons color={palette.sheetTextMuted} name="signal-cellular-2" size={18} />
-            <Text className="ml-2 text-[15px] font-medium" style={{ color: palette.sheetTextMuted }}>
-              {routeTraits[1]}
-            </Text>
-          </View>
-
-          {errorMessage || phase === "guiding" ? (
-            <Text className="mt-4 text-[14px] leading-[20px]" style={{ color: inlineStatusTone }}>
-              {errorMessage ?? statusLabel}
-            </Text>
+            </>
           ) : null}
-
-          <View className="mt-5 flex-row gap-3">
-            {phase === "guiding" ? (
-              <Pressable
-                testID="navigation-stop-button"
-                onPress={() => {
-                  stopGuidance();
-                  onClose();
-                }}
-                style={[
-                  getHomeShadowStyle(appearance, "secondaryButton"),
-                  styles.primaryAction,
-                  {
-                    backgroundColor: palette.chip,
-                    borderColor: isDark ? "rgba(255,255,255,0.14)" : "#E7D8D1",
-                    borderWidth: 1,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons color={palette.share} name="stop-circle-outline" size={18} />
-                <Text className="ml-2 text-[16px] font-semibold" style={{ color: palette.share }}>
-                  Stop
-                </Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                disabled={isBusy || Boolean(retryAfterSeconds && retryAfterSeconds > 0)}
-                testID="navigation-start-button"
-                onPress={() => {
-                  void startGuidanceFlow();
-                }}
-                style={[
-                  getHomeShadowStyle(appearance, "primaryButton"),
-                  styles.primaryAction,
-                  {
-                    backgroundColor: palette.share,
-                    opacity: isBusy || (retryAfterSeconds && retryAfterSeconds > 0) ? 0.6 : 1,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons color="#FFFFFF" name="navigation-variant" size={18} />
-                <Text className="ml-2 text-[16px] font-semibold text-white">
-                  Start
-                </Text>
-              </Pressable>
-            )}
-
-            {shouldShowRetryAction ? (
-              <Pressable
-                disabled={isBusy || Boolean(retryAfterSeconds && retryAfterSeconds > 0)}
-                testID="navigation-retry-button"
-                onPress={() => {
-                  if (retryAfterSeconds && retryAfterSeconds > 0) {
-                    return;
-                  }
-
-                  if (phase === "guiding") {
-                    void startGuidanceFlow();
-                    return;
-                  }
-
-                  setPreviewNonce((currentValue) => currentValue + 1);
-                }}
-                style={[
-                  getHomeShadowStyle(appearance, "secondaryButton"),
-                  styles.secondaryAction,
-                  {
-                    backgroundColor: palette.chip,
-                    borderColor: palette.share,
-                    borderWidth: 1,
-                    opacity: isBusy || (retryAfterSeconds && retryAfterSeconds > 0) ? 0.6 : 1,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons color={palette.iconTint} name="refresh" size={18} />
-                <Text className="ml-2 text-[15px] font-semibold" style={{ color: palette.sheetText }}>
-                  {retryAfterSeconds && retryAfterSeconds > 0
-                    ? "Wait to retry"
-                    : phase === "guiding"
-                      ? "Refresh route"
-                      : "Retry"}
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
         </BottomSheetView>
       </BottomSheet>
     </View>
