@@ -1,5 +1,5 @@
-import { Platform } from "react-native";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { Alert, Platform } from "react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import { EvacuationNavigationOverlay } from "@/modules/map/components/EvacuationNavigationOverlay.native";
 import type { EvacuationCenter } from "@/types";
@@ -20,6 +20,16 @@ const mockRemoveAllListeners = jest.fn();
 const mockSetOnRemainingTimeOrDistanceChanged = jest.fn();
 let consoleErrorSpy: jest.SpyInstance | null = null;
 
+const mockNavigationController = {
+  clearDestinations: mockClearDestinations,
+  getCurrentTimeAndDistance: mockGetCurrentTimeAndDistance,
+  init: mockInit,
+  setDestination: mockSetDestination,
+  showTermsAndConditionsDialog: mockShowTermsAndConditionsDialog,
+  startGuidance: mockStartGuidance,
+  stopGuidance: mockStopGuidance,
+};
+
 jest.mock("@expo/vector-icons", () => {
   const React = require("react");
   const { Text } = require("react-native");
@@ -34,7 +44,13 @@ jest.mock("@/components/BackButton", () => {
   const { Pressable, Text } = require("react-native");
 
   return {
-    BackButton: ({ onPress, testID }: { onPress: () => void; testID?: string }) => (
+    BackButton: ({
+      onPress,
+      testID,
+    }: {
+      onPress: () => void;
+      testID?: string;
+    }) => (
       <Pressable onPress={onPress} testID={testID}>
         <Text>Back</Text>
       </Pressable>
@@ -55,7 +71,10 @@ jest.mock("@gorhom/bottom-sheet", () => {
   const React = require("react");
   const { View } = require("react-native");
 
-  const BottomSheet = React.forwardRef(function MockBottomSheet(props: any, ref: any) {
+  const BottomSheet = React.forwardRef(function MockBottomSheet(
+    props: any,
+    ref: any,
+  ) {
     React.useImperativeHandle(ref, () => ({
       snapToIndex: jest.fn(),
     }));
@@ -70,7 +89,9 @@ jest.mock("@gorhom/bottom-sheet", () => {
   return {
     __esModule: true,
     default: BottomSheet,
-    BottomSheetView: ({ children, ...props }: any) => <View {...props}>{children}</View>,
+    BottomSheetView: ({ children, ...props }: any) => (
+      <View {...props}>{children}</View>
+    ),
   };
 });
 
@@ -93,7 +114,9 @@ jest.mock("@googlemaps/react-native-navigation-sdk", () => {
     NavigationUIEnabledPreference: {
       AUTOMATIC: "AUTOMATIC",
     },
-    NavigationView: (props: any) => <View testID="navigation-view" {...props} />,
+    NavigationView: (props: any) => (
+      <View testID="navigation-view" {...props} />
+    ),
     RouteStatus: {
       LOCATION_DISABLED: "LOCATION_DISABLED",
       LOCATION_UNKNOWN: "LOCATION_UNKNOWN",
@@ -103,17 +126,10 @@ jest.mock("@googlemaps/react-native-navigation-sdk", () => {
       QUOTA_CHECK_FAILED: "QUOTA_CHECK_FAILED",
     },
     useNavigation: () => ({
-      navigationController: {
-        clearDestinations: mockClearDestinations,
-        getCurrentTimeAndDistance: mockGetCurrentTimeAndDistance,
-        init: mockInit,
-        setDestination: mockSetDestination,
-        showTermsAndConditionsDialog: mockShowTermsAndConditionsDialog,
-        startGuidance: mockStartGuidance,
-        stopGuidance: mockStopGuidance,
-      },
+      navigationController: mockNavigationController,
       removeAllListeners: mockRemoveAllListeners,
-      setOnRemainingTimeOrDistanceChanged: mockSetOnRemainingTimeOrDistanceChanged,
+      setOnRemainingTimeOrDistanceChanged:
+        mockSetOnRemainingTimeOrDistanceChanged,
     }),
   };
 });
@@ -150,6 +166,21 @@ const center: EvacuationCenter = {
   region: "PH",
 };
 
+const pressNativePressable = async (pressable: {
+  props: Record<string, any>;
+}) => {
+  const pressabilityConfig =
+    pressable.props.onStartShouldSetResponder?.testOnly_pressabilityConfig?.();
+
+  await act(async () => {
+    pressabilityConfig?.onPress?.({
+      currentTarget: {},
+      stopPropagation: jest.fn(),
+      target: {},
+    });
+  });
+};
+
 describe("EvacuationNavigationOverlay native", () => {
   beforeAll(() => {
     Object.defineProperty(Platform, "OS", {
@@ -161,7 +192,9 @@ describe("EvacuationNavigationOverlay native", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthorizeEvacuationNavigationStart.mockResolvedValue({ allowed: true });
-    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -186,16 +219,153 @@ describe("EvacuationNavigationOverlay native", () => {
       expect(mockSetDestination).toHaveBeenCalled();
     });
     await waitFor(() => {
-      expect(screen.getByTestId("navigation-start-button").props.disabled).toBeFalsy();
+      expect(
+        screen.getByTestId("navigation-start-button").props.disabled,
+      ).toBeFalsy();
     });
 
     expect(screen.queryByText("Ready to start")).toBeNull();
     expect(screen.queryByTestId("navigation-retry-button")).toBeNull();
-    expect(screen.getByTestId("navigation-view").props.recenterButtonEnabled).toBe(false);
+    expect(screen.getByText("Walk")).toBeTruthy();
+    expect(screen.getByText("Two-wheel")).toBeTruthy();
+    expect(screen.getByText("Four-wheel")).toBeTruthy();
+    expect(screen.getByTestId("navigation-start-button")).toBeTruthy();
+    expect(
+      screen.getByTestId("navigation-view").props.recenterButtonEnabled,
+    ).toBe(false);
     expect(mockAuthorizeEvacuationNavigationStart).not.toHaveBeenCalled();
     expect(mockStartGuidance).not.toHaveBeenCalled();
 
     fireEvent.press(screen.getByTestId("navigation-back-button"));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("locks the travel mode and keeps the guidance sheet compact after start", async () => {
+    const onClose = jest.fn();
+    const onTravelModeChange = jest.fn();
+    const screen = render(
+      <EvacuationNavigationOverlay
+        appearance="light"
+        center={center}
+        currentLocation={{ latitude: 10.2635, longitude: 123.8395 }}
+        onClose={onClose}
+        onTravelModeChange={onTravelModeChange}
+        selectedTravelMode="two_wheeler"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockGetCurrentTimeAndDistance).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(screen.getByText("11 min")).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("navigation-start-button").props.disabled,
+      ).toBeFalsy();
+    });
+    const previewSetDestinationCalls = mockSetDestination.mock.calls.length;
+
+    await pressNativePressable(screen.getByTestId("navigation-start-button"));
+
+    await waitFor(() => {
+      expect(mockStartGuidance).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("navigation-view").props.recenterButtonEnabled,
+      ).toBe(true);
+    });
+    expect(screen.getByTestId("navigation-view").props.speedometerEnabled).toBe(
+      true,
+    );
+
+    expect(
+      screen.getByTestId("navigation-bottom-sheet").props.snapPoints,
+    ).toEqual(["22%"]);
+    expect(screen.queryByText("Walk")).toBeNull();
+    expect(screen.queryByText("Two-wheel")).toBeNull();
+    expect(screen.queryByText("Four-wheel")).toBeNull();
+    expect(screen.queryByText("Current route")).toBeNull();
+    expect(screen.queryByTestId("navigation-start-button")).toBeNull();
+    expect(screen.queryByTestId("navigation-stop-button")).toBeNull();
+    expect(screen.getByText("Navigation")).toBeTruthy();
+    expect(screen.getByText(center.name)).toBeTruthy();
+    expect(screen.getByText(center.address)).toBeTruthy();
+
+    screen.rerender(
+      <EvacuationNavigationOverlay
+        appearance="light"
+        center={center}
+        currentLocation={{ latitude: 10.2635, longitude: 123.8395 }}
+        onClose={onClose}
+        onTravelModeChange={onTravelModeChange}
+        selectedTravelMode="walk"
+      />,
+    );
+
+    expect(mockSetDestination).toHaveBeenCalledTimes(
+      previewSetDestinationCalls + 1,
+    );
+    expect(screen.getByTestId("navigation-view").props.speedometerEnabled).toBe(
+      true,
+    );
+    expect(onTravelModeChange).not.toHaveBeenCalled();
+  });
+
+  it("confirms before exiting active navigation", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert");
+    const onClose = jest.fn();
+    const screen = render(
+      <EvacuationNavigationOverlay
+        appearance="light"
+        center={center}
+        currentLocation={{ latitude: 10.2635, longitude: 123.8395 }}
+        onClose={onClose}
+        onTravelModeChange={jest.fn()}
+        selectedTravelMode="four_wheeler"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockGetCurrentTimeAndDistance).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(screen.getByText("11 min")).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("navigation-start-button").props.disabled,
+      ).toBeFalsy();
+    });
+
+    await pressNativePressable(screen.getByTestId("navigation-start-button"));
+
+    await waitFor(() => {
+      expect(mockStartGuidance).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.press(screen.getByTestId("navigation-back-button"));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      "Exit navigation?",
+      "Navigation to this evacuation center will stop.",
+      expect.any(Array),
+    );
+
+    const actions = alertSpy.mock.calls[0][2] as Array<{
+      onPress?: () => void;
+      text: string;
+    }>;
+    actions.find((action) => action.text === "Stay")?.onPress?.();
+    expect(onClose).not.toHaveBeenCalled();
+
+    actions.find((action) => action.text === "Exit navigation")?.onPress?.();
+    expect(mockStopGuidance).toHaveBeenCalled();
+    expect(mockClearDestinations).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    alertSpy.mockRestore();
   });
 });
