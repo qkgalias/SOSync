@@ -145,7 +145,11 @@ npm run admin:web:build
 firebase deploy --only hosting
 ```
 
-The admin portal lives in `admin-web/`, deploys to Firebase Hosting from `admin-web/dist`, and calls custom-claim protected Cloud Functions for hotlines, evacuation centers, and support reports. Use `sosyncRole=super_admin`, `content_admin`, or `support_admin`; mobile Firestore rules remain locked down for system data.
+The admin portal lives in `admin-web/`, deploys to Firebase Hosting from `admin-web/dist`, and calls custom-claim protected Cloud Functions for hotlines, evacuation centers, support reports, admin access, and audit logs. Use `sosyncRole=superadmin`, `admin`, or `operator`; mobile Firestore rules remain locked down for system data. To seed the current core admin accounts, run:
+
+```bash
+npm --prefix functions run set:admin-claim -- --seed-sosync-admins
+```
 
 `firebase.json` now builds the Functions workspace automatically before deploy, so production deploys do not depend on remembering a separate manual Functions build step.
 

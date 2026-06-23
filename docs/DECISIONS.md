@@ -447,6 +447,16 @@
   - Email-only handoff made reports hard to track and gave users no durable in-app submission reference.
   - A backend queue gives the team a minimal review surface without blocking the mobile release on a full admin console.
 
+## 2026-06 Admin Support Media Uses On-Demand Signed URLs
+
+- Decision:
+  - Keep support attachments private and generate 15-minute read URLs only from the support-admin protected `getSupportReport` callable.
+  - Load media when an admin opens a ticket rather than signing every attachment in the report list.
+  - Preview browser-supported images and videos inside the admin portal, with original download fallback for unsupported formats such as HEIF.
+- Why:
+  - Admins need to investigate reports without opening Firebase Console, while permanent public download tokens would weaken attachment privacy.
+  - On-demand signing avoids expired list data and unnecessary signing work during routine dashboard refreshes.
+
 ## 2026-05 Android V1 Includes Minimum Ops
 
 - Decision:
@@ -497,3 +507,16 @@
   - Apply Firestore-backed fixed-window rate limits to authenticated HTTP routes, with IP fallback for unauthenticated or invalid-auth requests.
 - Why:
   - It provides practical abuse protection for high-value HTTP routes without introducing a second infrastructure dependency.
+
+## 2026-06 Evacuation Center Country And PSGC Region Are Separate Fields
+
+- Decision:
+  - Store `countryCode: PH` on every evacuation-center document and store the selected official PSA region separately as `regionCode` plus the server-derived `region` label.
+  - Keep City/Municipality required, remove Province from the center record, and derive Island group from the selected region. Exclude disabled centers from mobile nearby-center results.
+  - Temporarily merge `countryCode == PH` and legacy `region == PH` queries until the live migration is verified.
+- Why:
+  - `PH` is a country code, not a Philippine region. Overloading Region as a country filter made administrative labels inaccurate and previously caused valid nearby centers to disappear.
+  - The split preserves mobile country scoping while supporting all 18 official regions without duplicating administrative geography across Province and Region.
+- Contact policy:
+  - Accept formatted Philippine mobile or landline contacts containing 7 to 11 digits, with only spaces, `+`, `-`, periods, and parentheses as separators.
+  - Preserve readable formatting while enforcing the same digit-count limit in the admin portal and Cloud Functions.

@@ -103,7 +103,7 @@ The first admin portal account also needs a Firebase Auth custom claim:
 npm --prefix functions run set:admin-claim -- --email=<admin-email>
 ```
 
-Supported `sosyncRole` values are `super_admin`, `content_admin`, and `support_admin`. The admin must sign out and sign back in before the new claim appears in their ID token.
+Supported `sosyncRole` values are `superadmin`, `admin`, and `operator`. Legacy claims are still accepted and normalized by the backend for compatibility. The admin must sign out and sign back in before the new claim appears in their ID token.
 
 ## Firestore Collections In Use
 
@@ -125,9 +125,9 @@ Supported `sosyncRole` values are `super_admin`, `content_admin`, and `support_a
 
 - Hosted from `admin-web/dist` through Firebase Hosting.
 - Calls custom-claim protected callable Functions in `asia-southeast1`.
-- `content_admin` can manage emergency hotlines and evacuation centers.
-- `support_admin` can review support/problem reports and update report status.
-- `super_admin` can access both content and support workflows.
+- `admin` can manage emergency hotlines, evacuation centers, and support/problem reports.
+- `operator` can manage emergency hotlines and evacuation centers.
+- `superadmin` can access content workflows, support workflows, admin access management, and audit logs.
 - Mobile Firestore rules stay locked down; admin operations go through Cloud Functions.
 
 ## Current Push Posture

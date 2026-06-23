@@ -17,6 +17,24 @@ npm run admin:web:build
 These checks confirm that the backend release files are present, app TypeScript compiles, the current Jest suite passes, Functions TypeScript builds cleanly, and the admin web portal compiles for Firebase Hosting.
 `npm test` may still try to use Watchman on some machines; prefer `npx jest --runInBand --watchman=false` for deterministic local runs.
 
+## Admin Web Smoke Test
+
+- admin portal sign-in should not expose a self-service forgot-password or password-reset action
+- admin portal access and recovery should be handled by superadmin-managed access records and Firebase Auth administration
+- failed admin portal sign-in should show actionable copy without suggesting password reset
+- superadmin Settings > Access should toggle users between `Disable` and `Enable` from the same neutral row action
+- superadmin Settings > Audit Logs should page audit rows with the same pagination pattern as Hotlines and Support Reports
+- superadmin Settings success feedback should appear as a compact auto-dismissing toast without pushing page content down
+- the evacuation-center form should keep Country read-only as `Philippines`, offer exactly 18 official PSA Region options, and derive Island group from Region
+- place autocomplete should update Region and its derived Island group in one interaction for Quezon City/NCR, Antipolo/Region IV-A, and Talisay City/Region VII
+- Province should not appear in the evacuation-center form, location summaries, backend payloads, or migrated Firestore records
+- evacuation-center contacts should allow common phone separators, reject letters and unsupported symbols, require 7 to 11 total digits, and stop accepting digits after the eleventh
+- evacuation-center field validation should also reject invalid Philippine coordinates, capacity, service radius, missing City/Municipality, and missing Region
+- the desktop evacuation-center modal should use the wider compact layout without consuming the full viewport height, while narrow screens should stack fields safely
+- the evacuation-center sidebar should show up to 9 records per page and retain pagination below the list
+- disabling an evacuation center should keep it visible in the admin portal but exclude it from mobile nearby-center results
+- run `npm run backfill:evacuation-center-regions` to preview country/PSGC geography migration; review unresolved records and add `-- --apply` only after the mappings are correct
+
 ## Android Smoke Test
 
 Current target platform for realistic validation:
@@ -158,6 +176,7 @@ What to verify:
 - set Android/emulator GPS near Manila and confirm Manila centers appear while Visayas/Cebu centers are hidden
 - near Manila, confirm the visible seeded centers can include `Don Bosco School` and `Dapitan Sports Complex`
 - Home should display only safety hubs within 2 km of the user in both the map markers and the `Nearby Safety Hubs` list; when none qualify, the list should show `No nearby safety hubs available`
+- newly created Philippine centers should appear after the app performs a fresh nearby-center lookup; mobile country scope uses `countryCode: PH`, while Region contains the official PSA name
 - tapping `Nearest Safety Hub` selects and focuses the nearest visible hub without opening an external app
 - tapping an evacuation-center marker selects that center on the Home map and shows its soft rounded nametag without changing the marker icon style
 - tapping the evacuation-center label text should not open navigation; only the direction arrow inside the nametag, or the Home safety-hub entry point, should open the in-app route preview bottom sheet
@@ -342,6 +361,38 @@ What to confirm:
 
 Production validation is still Android-first.
 iOS production validation remains limited until native iOS work and APNs are resumed.
+
+## Admin Notification Validation
+
+- Confirm notification items are ordered newest-first and equal timestamps remain stable across refreshes.
+- Confirm each notification action opens the exact support report detail, hotline edit, or evacuation-center edit modal even when filters or pagination hide its row.
+- Confirm individual dismiss and `Clear all` persist for the signed-in admin without changing the underlying report, hotline, or center.
+- Confirm a later center/hotline update creates a new notification version after an older alert was cleared.
+
+After deploying the latest Functions build, verify the admin-web notification bell with each role:
+
+- `operator` sees specific disabled evacuation center and hotline notifications only
+- `admin` sees disabled evacuation center, disabled hotline, and new support report notifications
+- `superadmin` sees the same operational notifications and retains privileged Settings access
+- support report notifications show the reporter identity when available
+- center and hotline notifications show the affected record name and last admin updater
+- selecting a notification closes the popover and opens the matching admin page
+- the bell shows no badge and displays `All admin queues are clear.` when there are no actionable records
+
+Build checks:
+
+```bash
+npm run functions:build
+npm run admin:web:build
+```
+
+## Admin Support Attachment Validation
+
+- Confirm opening a support report calls `getSupportReport` and shows a loading state while secure media URLs are generated.
+- Confirm JPG, PNG, WebP, GIF, and supported video attachments render inside the modal and open in the full-screen viewer.
+- Confirm Escape and previous/next controls close or navigate the viewer, and unsupported HEIF files offer `Download original`.
+- Confirm missing Storage objects and signing failures show a retryable attachment error without hiding the ticket details.
+- Keep `supportReports/**` private in Storage rules; the deployed Functions service account needs `roles/iam.serviceAccountTokenCreator` on itself to generate short-lived URLs.
 
 ## iOS Validation Limits
 
