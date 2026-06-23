@@ -12,7 +12,7 @@ import { useAuthSession } from "@/hooks/useAuthSession";
 import { SIGN_UP_LEGAL_MODAL_CONTENT } from "@/modules/onboarding/signUpLegalContent";
 import { useAppTheme } from "@/providers/AppThemeProvider";
 import { cn, goBackOrReplace } from "@/utils/helpers";
-import { formatPhoneDigits } from "@/utils/input";
+import { formatPhoneDigits, sanitizeSignupName } from "@/utils/input";
 import { signUpFormSchema } from "@/utils/validators";
 
 type FormFieldProps = {
@@ -74,6 +74,7 @@ type SignUpErrors = {
   email?: string;
   password?: string;
   confirmPassword?: string;
+  acceptedLegalTerms?: string;
   general?: string;
 };
 
@@ -132,6 +133,7 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptedLegalTerms, setAcceptedLegalTerms] = useState(false);
   const [errors, setErrors] = useState<SignUpErrors>({});
   const [legalModal, setLegalModal] = useState<LegalModalKey>(null);
   const [loading, setLoading] = useState(false);
@@ -147,6 +149,7 @@ export default function SignUpScreen() {
       email,
       password,
       confirmPassword,
+      acceptedLegalTerms,
     });
 
     if (!parsed.success) {
@@ -158,6 +161,7 @@ export default function SignUpScreen() {
         email: fieldErrors.email?.[0],
         password: fieldErrors.password?.[0],
         confirmPassword: fieldErrors.confirmPassword?.[0],
+        acceptedLegalTerms: fieldErrors.acceptedLegalTerms?.[0],
       });
       return;
     }
@@ -228,7 +232,7 @@ export default function SignUpScreen() {
             <FormField
               value={firstName}
               onChangeText={(value) => {
-                setFirstName(value);
+                setFirstName(sanitizeSignupName(value));
                 setErrors((current) => ({ ...current, firstName: undefined, general: undefined }));
               }}
               placeholder="First Name"
@@ -239,7 +243,7 @@ export default function SignUpScreen() {
             <FormField
               value={lastName}
               onChangeText={(value) => {
-                setLastName(value);
+                setLastName(sanitizeSignupName(value));
                 setErrors((current) => ({ ...current, lastName: undefined, general: undefined }));
               }}
               placeholder="Last Name"
@@ -324,16 +328,42 @@ export default function SignUpScreen() {
             textClassName={`text-[18px] ${isDark ? "text-accent" : ""}`}
           />
 
-          <Text className={`mt-5 text-center text-[12px] leading-5 ${errorTextClassName}`}>
-            By continuing, you agree to our{" "}
-            <Text className="underline" onPress={() => setLegalModal("terms")}>
-              Terms of Service
-            </Text>{" "}
-            and{" "}
-            <Text className="underline" onPress={() => setLegalModal("privacy")}>
-              Privacy Policy
-            </Text>
-          </Text>
+          <View className="mt-5">
+            <View className="mx-auto max-w-[420px] flex-row items-start justify-center px-1">
+              <Pressable
+                accessibilityLabel="Agree to Terms of Service and Privacy Policy"
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: acceptedLegalTerms }}
+                className="mr-2 mt-0.5"
+                hitSlop={10}
+                onPress={() => {
+                  setAcceptedLegalTerms((current) => !current);
+                  setErrors((current) => ({ ...current, acceptedLegalTerms: undefined, general: undefined }));
+                }}
+              >
+                <MaterialCommunityIcons
+                  color="#FFFFFF"
+                  name={acceptedLegalTerms ? "checkbox-marked" : "checkbox-blank-outline"}
+                  size={22}
+                />
+              </Pressable>
+              <Text className={`flex-1 text-center text-[12px] leading-5 ${errorTextClassName}`}>
+                By continuing, you agree to our{" "}
+                <Text className="underline" onPress={() => setLegalModal("terms")}>
+                  Terms of Service
+                </Text>{" "}
+                and{" "}
+                <Text className="underline" onPress={() => setLegalModal("privacy")}>
+                  Privacy Policy
+                </Text>
+              </Text>
+            </View>
+            {errors.acceptedLegalTerms ? (
+              <Text className={`mt-2 text-center text-[12px] leading-5 ${errorTextClassName}`}>
+                {errors.acceptedLegalTerms}
+              </Text>
+            ) : null}
+          </View>
 
           <View className={`mt-5 h-px ${isDark ? "bg-line" : "bg-white/75"}`} />
 

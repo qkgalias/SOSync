@@ -8,6 +8,7 @@ import {
   normalizeEmail,
   normalizeGroupName,
   normalizePhoneNumber,
+  sanitizeSignupName,
   sanitizeInviteCode,
   sanitizeOtpCode,
 } from "@/utils/input";
@@ -36,6 +37,29 @@ const normalizedNameSchema = z.preprocess(
     .min(2, "Display name must be at least 2 characters.")
     .max(NAME_MAX_LENGTH, `Display name must be ${NAME_MAX_LENGTH} characters or fewer.`),
 );
+
+const normalizedSignupNameSchema = (fieldName: "First name" | "Last name") =>
+  z.preprocess(
+    (value) => normalizeDisplayName(String(value ?? "")),
+    z
+      .string()
+      .min(1, `Enter your ${fieldName.toLowerCase()}.`)
+      .max(NAME_MAX_LENGTH, `${fieldName} must be ${NAME_MAX_LENGTH} characters or fewer.`)
+      .regex(/^[\p{L}\p{M} ]+$/u, `${fieldName} can only include letters and spaces.`)
+      .refine((value) => sanitizeSignupName(value) === value, `${fieldName} can only include letters and spaces.`),
+  );
+
+const signupEmailSchema = normalizedEmailSchema.refine(
+  (email) => email.split("@")[1] === "gmail.com",
+  "Use a Gmail address ending in @gmail.com.",
+);
+
+const signupPasswordSchema = z
+  .string()
+  .min(1, "Enter your password.")
+  .min(12, "Password must be at least 12 characters.")
+  .max(64, "Password must be 64 characters or fewer.")
+  .refine((value) => /[A-Z]/.test(value), "Password must include at least one uppercase letter.");
 
 const normalizedGroupNameSchema = z.preprocess(
   (value) => normalizeGroupName(String(value ?? "")),
@@ -67,24 +91,15 @@ export const signUpSchema = emailSignInSchema.extend({
 
 export const signUpFormSchema = z
   .object({
-    firstName: z.preprocess(
-      (value) => normalizeDisplayName(String(value ?? "")),
-      z
-        .string()
-        .min(1, "Enter your first name.")
-        .max(NAME_MAX_LENGTH, `First name must be ${NAME_MAX_LENGTH} characters or fewer.`),
-    ),
-    lastName: z.preprocess(
-      (value) => normalizeDisplayName(String(value ?? "")),
-      z
-        .string()
-        .min(1, "Enter your last name.")
-        .max(NAME_MAX_LENGTH, `Last name must be ${NAME_MAX_LENGTH} characters or fewer.`),
-    ),
+    firstName: normalizedSignupNameSchema("First name"),
+    lastName: normalizedSignupNameSchema("Last name"),
     phoneNumber: phoneSignInSchema.shape.phoneNumber,
-    email: normalizedEmailSchema,
-    password: emailSignInSchema.shape.password,
+    email: signupEmailSchema,
+    password: signupPasswordSchema,
     confirmPassword: z.string().min(1, "Confirm your password."),
+    acceptedLegalTerms: z
+      .boolean()
+      .refine((accepted) => accepted, "Agree to the Terms of Service and Privacy Policy to continue."),
   })
   .superRefine(({ confirmPassword, password }, ctx) => {
     if (confirmPassword && confirmPassword !== password) {

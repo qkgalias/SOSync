@@ -24,7 +24,9 @@ export type EvacuationCenter = {
   capacity: number;
   contact: string;
   address: string;
+  countryCode?: string;
   region: string;
+  regionCode?: string;
   city?: string;
   province?: string;
   islandGroup?: string;

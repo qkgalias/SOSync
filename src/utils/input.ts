@@ -13,6 +13,12 @@ export const normalizeEmail = (value: string) => normalizeWhitespace(value).toLo
 
 export const normalizeDisplayName = (value: string) => normalizeWhitespace(value);
 
+export const sanitizeSignupName = (value: string) =>
+  String(value ?? "")
+    .replace(/[^\p{L}\p{M} ]/gu, "")
+    .replace(WHITESPACE_REGEX, " ")
+    .slice(0, NAME_MAX_LENGTH);
+
 export const normalizeGroupName = (value: string) => normalizeWhitespace(value);
 
 export const sanitizeNumericCode = (value: string, length = OTP_CODE_LENGTH) =>

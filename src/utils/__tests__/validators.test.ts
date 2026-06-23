@@ -50,8 +50,144 @@ describe("validators", () => {
         lastName: "Responder",
         phoneNumber: "",
         email: "invalid",
-        password: "123",
+        password: "short",
         confirmPassword: "456",
+        acceptedLegalTerms: false,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts normalized Gmail signup data with letters and spaces", () => {
+    const parsed = signUpFormSchema.safeParse({
+      firstName: "  Juan Pedro ",
+      lastName: "Dela Cruz Ñ",
+      phoneNumber: "0912 345 6789",
+      email: " USER@GMAIL.COM ",
+      password: "LongpasswordA",
+      confirmPassword: "LongpasswordA",
+      acceptedLegalTerms: true,
+    });
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.firstName).toBe("Juan Pedro");
+      expect(parsed.data.lastName).toBe("Dela Cruz Ñ");
+      expect(parsed.data.email).toBe("user@gmail.com");
+    }
+  });
+
+  it("rejects signup names with numbers", () => {
+    expect(
+      signUpFormSchema.safeParse({
+        firstName: "Jake1",
+        lastName: "Responder",
+        phoneNumber: "0912 345 6789",
+        email: "user@gmail.com",
+        password: "LongpasswordA",
+        confirmPassword: "LongpasswordA",
+        acceptedLegalTerms: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      signUpFormSchema.safeParse({
+        firstName: "Jake",
+        lastName: "Responder2",
+        phoneNumber: "0912 345 6789",
+        email: "user@gmail.com",
+        password: "LongpasswordA",
+        confirmPassword: "LongpasswordA",
+        acceptedLegalTerms: true,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects signup names with punctuation or symbols", () => {
+    for (const [firstName, lastName] of [
+      ["Juan-Pedro", "Responder"],
+      ["ONeil", "Dela.Cruz"],
+      ["Jake!", "Responder"],
+      ["Jake@", "Responder"],
+    ]) {
+      expect(
+        signUpFormSchema.safeParse({
+          firstName,
+          lastName,
+          phoneNumber: "0912 345 6789",
+          email: "user@gmail.com",
+          password: "LongpasswordA",
+          confirmPassword: "LongpasswordA",
+          acceptedLegalTerms: true,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("requires gmail.com only for new signup email", () => {
+    for (const email of ["user@yahoo.com", "user@googlemail.com", "not-an-email"]) {
+      expect(
+        signUpFormSchema.safeParse({
+          firstName: "Jake",
+          lastName: "Responder",
+          phoneNumber: "0912 345 6789",
+          email,
+          password: "LongpasswordA",
+          confirmPassword: "LongpasswordA",
+          acceptedLegalTerms: true,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("requires stronger signup password length and uppercase rules", () => {
+    const basePayload = {
+      firstName: "Jake",
+      lastName: "Responder",
+      phoneNumber: "0912 345 6789",
+      email: "user@gmail.com",
+      confirmPassword: "",
+      acceptedLegalTerms: true,
+    };
+
+    expect(
+      signUpFormSchema.safeParse({
+        ...basePayload,
+        password: "ShortpassA",
+        confirmPassword: "ShortpassA",
+      }).success,
+    ).toBe(false);
+    expect(
+      signUpFormSchema.safeParse({
+        ...basePayload,
+        password: "a".repeat(65) + "A",
+        confirmPassword: "a".repeat(65) + "A",
+      }).success,
+    ).toBe(false);
+    expect(
+      signUpFormSchema.safeParse({
+        ...basePayload,
+        password: "longpasswordonly",
+        confirmPassword: "longpasswordonly",
+      }).success,
+    ).toBe(false);
+    expect(
+      signUpFormSchema.safeParse({
+        ...basePayload,
+        password: "LongpasswordA",
+        confirmPassword: "LongpasswordA",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("requires explicit legal agreement for signup", () => {
+    expect(
+      signUpFormSchema.safeParse({
+        firstName: "Jake",
+        lastName: "Responder",
+        phoneNumber: "0912 345 6789",
+        email: "user@gmail.com",
+        password: "LongpasswordA",
+        confirmPassword: "LongpasswordA",
+        acceptedLegalTerms: false,
       }).success,
     ).toBe(false);
   });

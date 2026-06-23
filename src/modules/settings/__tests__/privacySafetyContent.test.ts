@@ -15,6 +15,11 @@ const signupTermsText = SIGN_UP_LEGAL_MODAL_CONTENT.terms.sections
   .join(" ");
 
 describe("privacySafetyContent legal summaries", () => {
+  it("uses Firebase default Hosting for reachable hosted legal pages", () => {
+    expect(PRIVACY_POLICY_CONTENT.hostedUrl).toBe("https://sosync-3276e.web.app/privacy");
+    expect(TERMS_AND_CONDITIONS_CONTENT.hostedUrl).toBe("https://sosync-3276e.web.app/terms");
+  });
+
   it("covers current privacy data categories and controls", () => {
     expect(privacyText).toContain("account details");
     expect(privacyText).toContain("trusted-circle memberships");
