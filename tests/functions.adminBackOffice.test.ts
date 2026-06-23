@@ -1,12 +1,13 @@
 /** Purpose: Verify custom-claim role gates for admin back-office functions. */
 import { extractAdminRole, resolveAdminContext } from "../functions/src/adminAuthorization";
 
-const contentRoles = new Set(["content_admin", "super_admin"] as const);
-const supportRoles = new Set(["support_admin", "super_admin"] as const);
+const contentRoles = new Set(["admin", "operator", "superadmin"] as const);
+const supportRoles = new Set(["admin", "superadmin"] as const);
+const superAdminRoles = new Set(["superadmin"] as const);
 
 describe("functions admin back office authorization", () => {
   it("extracts only supported SOSync admin roles", () => {
-    expect(extractAdminRole({ uid: "u1", token: { sosyncRole: "super_admin" } })).toBe("super_admin");
+    expect(extractAdminRole({ uid: "u1", token: { sosyncRole: "super_admin" } })).toBe("superadmin");
     expect(extractAdminRole({ uid: "u1", token: { sosyncRole: "member" } })).toBeNull();
     expect(extractAdminRole({ uid: "u1", token: {} })).toBeNull();
   });
@@ -19,32 +20,32 @@ describe("functions admin back office authorization", () => {
     expect(resolveAdminContext({ uid: "u1", token: {} }, contentRoles).code).toBe("permission-denied");
   });
 
-  it("allows content admins to manage content but not support reports", () => {
-    expect(resolveAdminContext({ uid: "u1", token: { sosyncRole: "content_admin" } }, contentRoles).context).toEqual({
-      role: "content_admin",
+  it("allows admins to manage content", () => {
+    expect(resolveAdminContext({ uid: "u1", token: { sosyncRole: "admin" } }, contentRoles).context).toEqual({
+      role: "admin",
       uid: "u1",
     });
-    expect(resolveAdminContext({ uid: "u1", token: { sosyncRole: "content_admin" } }, supportRoles).code).toBe(
-      "permission-denied",
-    );
   });
 
-  it("allows support admins to review support but not manage content", () => {
-    expect(resolveAdminContext({ uid: "u1", token: { sosyncRole: "support_admin" } }, supportRoles).context).toEqual({
-      role: "support_admin",
+  it("allows operators to manage content", () => {
+    expect(resolveAdminContext({ uid: "u1", token: { sosyncRole: "operator" } }, contentRoles).context).toEqual({
+      role: "operator",
       uid: "u1",
     });
-    expect(resolveAdminContext({ uid: "u1", token: { sosyncRole: "support_admin" } }, contentRoles).code).toBe(
+  });
+
+  it("keeps operators out of support report review", () => {
+    expect(resolveAdminContext({ uid: "u1", token: { sosyncRole: "operator" } }, supportRoles).code).toBe(
       "permission-denied",
     );
   });
 
   it("allows super admins everywhere", () => {
-    expect(resolveAdminContext({ uid: "u1", token: { sosyncRole: "super_admin" } }, contentRoles).context?.role).toBe(
-      "super_admin",
+    expect(resolveAdminContext({ uid: "u1", token: { sosyncRole: "superadmin" } }, contentRoles).context?.role).toBe(
+      "superadmin",
     );
-    expect(resolveAdminContext({ uid: "u1", token: { sosyncRole: "super_admin" } }, supportRoles).context?.role).toBe(
-      "super_admin",
+    expect(resolveAdminContext({ uid: "u1", token: { sosyncRole: "superadmin" } }, superAdminRoles).context?.role).toBe(
+      "superadmin",
     );
   });
 });

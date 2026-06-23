@@ -7,12 +7,15 @@ export type EvacuationCenterDoc = {
   centerId: string;
   city?: string;
   contact?: string;
+  countryCode?: string;
+  disabled?: boolean;
   islandGroup?: string;
   latitude?: number;
   longitude?: number;
   name?: string;
   province?: string;
   region?: string;
+  regionCode?: string;
   serviceRadiusKm?: number;
 };
 
@@ -51,7 +54,11 @@ export const filterNearbyEvacuationCenters = (
   origin: { latitude: number; longitude: number },
 ) =>
   centers
-    .filter((center) => isValidCoordinatePair(center.latitude, center.longitude))
+    .filter(
+      (center) =>
+        center.disabled !== true &&
+        isValidCoordinatePair(center.latitude, center.longitude),
+    )
     .map((center) => {
       const distanceMeters = distanceMetersBetween(origin, {
         latitude: center.latitude as number,

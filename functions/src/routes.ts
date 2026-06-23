@@ -15,6 +15,7 @@ import {
   takeRateLimit,
 } from "./http.js";
 import { coerceCoordinate } from "./httpValidation.js";
+import { mergeEvacuationCenterScopes, PHILIPPINE_COUNTRY_CODE } from "./evacuationCenterHelpers.js";
 import {
   coerceEvacuationTravelMode,
   filterNearbyEvacuationCenters,
@@ -50,6 +51,20 @@ const emptyRoute = (centerId: string, travelMode: ReturnType<typeof coerceEvacua
   warnings: [],
 });
 
+const loadPhilippineEvacuationCenters = async (): Promise<EvacuationCenterDoc[]> => {
+  const [countrySnapshot, legacySnapshot] = await Promise.all([
+    adminDb.collection("evacuation_centers").where("countryCode", "==", PHILIPPINE_COUNTRY_CODE).get(),
+    adminDb.collection("evacuation_centers").where("region", "==", PHILIPPINE_COUNTRY_CODE).get(),
+  ]);
+  return mergeEvacuationCenterScopes(
+    countrySnapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
+    legacySnapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
+  ).map(({ id, data }) => ({
+    centerId: id,
+    ...(data as Omit<EvacuationCenterDoc, "centerId">),
+  }));
+};
+
 export const getNearbyEvacuationCenters = onRequest(
   { region: functionsRegion },
   async (request, response) => {
@@ -83,11 +98,7 @@ export const getNearbyEvacuationCenters = onRequest(
       return;
     }
 
-    const snapshot = await adminDb.collection("evacuation_centers").where("region", "==", "PH").get();
-    const centers = snapshot.docs.map((doc) => ({
-      centerId: doc.id,
-      ...(doc.data() as Omit<EvacuationCenterDoc, "centerId">),
-    }));
+    const centers = await loadPhilippineEvacuationCenters();
 
     response.json({
       centers: filterNearbyEvacuationCenters(centers, {
@@ -243,11 +254,7 @@ export const authorizeEvacuationNavigationStart = onRequest(
       return;
     }
 
-    const snapshot = await adminDb.collection("evacuation_centers").where("region", "==", "PH").get();
-    const centers = snapshot.docs.map((doc) => ({
-      centerId: doc.id,
-      ...(doc.data() as Omit<EvacuationCenterDoc, "centerId">),
-    }));
+    const centers = await loadPhilippineEvacuationCenters();
 
     const matchedCenter = resolveNearbyEvacuationCenter(centers, {
       centerId,

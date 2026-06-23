@@ -14,6 +14,7 @@
     "qa:android-emulator": "node ./scripts/qaAndroidEmulator.mjs",
     "audit:circle-data": "npm --prefix functions run audit:circle-data --",
     "backfill:circle-codes": "npm --prefix functions run backfill:circle-data --",
+    "backfill:evacuation-center-regions": "npm --prefix functions run backfill:evacuation-center-regions --",
     "seed:live-data": "npm --prefix functions run seed:test-data --",
     "seed:live-alert": "npm --prefix functions run seed:manual-alert --",
     "typecheck": "tsc --noEmit",

@@ -1,9 +1,12 @@
 /** Purpose: Keep SOSync admin custom-claim role checks testable without Functions runtime imports. */
-export type AdminRole = "content_admin" | "support_admin" | "super_admin";
+export type AdminRole = "admin" | "operator" | "superadmin";
+export type LegacyAdminRole = "content_admin" | "support_admin" | "super_admin";
+export type AnyAdminRole = AdminRole | LegacyAdminRole;
 
-export const ADMIN_ROLES = new Set<AdminRole>(["content_admin", "support_admin", "super_admin"]);
-export const CONTENT_ROLES = new Set<AdminRole>(["content_admin", "super_admin"]);
-export const SUPPORT_ROLES = new Set<AdminRole>(["support_admin", "super_admin"]);
+export const ADMIN_ROLES = new Set<AnyAdminRole>(["admin", "operator", "superadmin", "content_admin", "support_admin", "super_admin"]);
+export const CONTENT_ROLES = new Set<AnyAdminRole>(["admin", "operator", "superadmin", "content_admin", "support_admin", "super_admin"]);
+export const SUPPORT_ROLES = new Set<AnyAdminRole>(["admin", "superadmin", "content_admin", "support_admin", "super_admin"]);
+export const SUPERADMIN_ROLES = new Set<AnyAdminRole>(["superadmin", "super_admin"]);
 
 export type CallableAuthLike = {
   token?: Record<string, unknown>;
@@ -15,12 +18,25 @@ export type AdminContext = {
   uid: string;
 };
 
-export const extractAdminRole = (auth?: CallableAuthLike): AdminRole | null => {
-  const role = auth?.token?.sosyncRole;
-  return typeof role === "string" && ADMIN_ROLES.has(role as AdminRole) ? (role as AdminRole) : null;
+export const normalizeAdminRole = (role: string | null | undefined): AdminRole | null => {
+  if (role === "superadmin" || role === "super_admin") {
+    return "superadmin";
+  }
+  if (role === "admin" || role === "content_admin") {
+    return "admin";
+  }
+  if (role === "operator" || role === "support_admin") {
+    return "operator";
+  }
+  return null;
 };
 
-export const resolveAdminContext = (auth: CallableAuthLike | undefined, allowedRoles: Set<AdminRole>) => {
+export const extractAdminRole = (auth?: CallableAuthLike): AdminRole | null => {
+  const role = auth?.token?.sosyncRole;
+  return typeof role === "string" ? normalizeAdminRole(role) : null;
+};
+
+export const resolveAdminContext = (auth: CallableAuthLike | undefined, allowedRoles: Set<AnyAdminRole>) => {
   if (!auth?.uid) {
     return { code: "unauthenticated" as const, context: null };
   }

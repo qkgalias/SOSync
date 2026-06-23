@@ -42,6 +42,28 @@ describe("evacuation routing helpers", () => {
     expect(result.map((center) => center.centerId)).toEqual(["manila-1"]);
   });
 
+  it("excludes disabled centers even when they are inside the service radius", () => {
+    const result = filterNearbyEvacuationCenters(
+      [
+        ...centers,
+        {
+          centerId: "disabled-nearby",
+          disabled: true,
+          latitude: 14.5996,
+          longitude: 120.9843,
+          name: "Disabled Nearby Center",
+          serviceRadiusKm: 35,
+        },
+      ],
+      {
+        latitude: 14.5995,
+        longitude: 120.9842,
+      },
+    );
+
+    expect(result.map((center) => center.centerId)).toEqual(["manila-1"]);
+  });
+
   it("accepts a chosen center only when it is still nearby and matches the submitted destination", () => {
     const matchedCenter = resolveNearbyEvacuationCenter(centers, {
       centerId: "talisay-1",
