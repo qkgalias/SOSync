@@ -1,14 +1,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import {
   browserSessionPersistence,
-  sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
 } from "firebase/auth";
 
 import { BrandLockup } from "../components/Brand";
 import type { ThemeMode } from "../App";
-import { getAuthErrorMessage, getPasswordResetErrorMessage, isValidEmail } from "../errors";
+import { getAuthErrorMessage, isValidEmail } from "../errors";
 import { auth } from "../firebase";
 import heroMap from "../assets/philippines-alert-map.png";
 
@@ -208,7 +207,6 @@ export function LoginScreen({ onToggleTheme, theme }: { onToggleTheme: () => voi
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
-  const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [dialog, setDialog] = useState<LoginDialog>(null);
@@ -216,7 +214,6 @@ export function LoginScreen({ onToggleTheme, theme }: { onToggleTheme: () => voi
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
-    setNotice("");
     const nextFieldErrors: { email?: string; password?: string } = {};
     const trimmedEmail = email.trim();
     if (!isValidEmail(trimmedEmail)) {
@@ -237,24 +234,6 @@ export function LoginScreen({ onToggleTheme, theme }: { onToggleTheme: () => voi
       setError(getAuthErrorMessage(nextError));
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const resetPassword = async () => {
-    setError("");
-    setNotice("");
-    const trimmedEmail = email.trim();
-    if (!isValidEmail(trimmedEmail)) {
-      setFieldErrors({ email: "Enter a valid email address." });
-      setError("Enter a valid email address before requesting a reset link.");
-      return;
-    }
-    setFieldErrors({});
-    try {
-      await sendPasswordResetEmail(auth, trimmedEmail);
-      setNotice("Password reset email sent.");
-    } catch (nextError) {
-      setError(getPasswordResetErrorMessage(nextError));
     }
   };
 
@@ -344,12 +323,8 @@ export function LoginScreen({ onToggleTheme, theme }: { onToggleTheme: () => voi
           </label>
           <div className="signin-card__row">
             <span className="session-note">Session ends when this tab closes.</span>
-            <button className="text-button" onClick={() => void resetPassword()} type="button">
-              Forgot password?
-            </button>
           </div>
           {error ? <p className="error">{error}</p> : null}
-          {notice ? <p className="notice">{notice}</p> : null}
           <button className="primary-button" disabled={isSubmitting} type="submit">
             {isSubmitting ? "Signing in..." : "Sign In"}
           </button>

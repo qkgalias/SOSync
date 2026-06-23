@@ -1,25 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 
 import { createMarkerIcon, darkMapStyles, lightMapStyles, loadGoogleMaps } from "./GoogleMapPanel";
+import { deriveGooglePlaceGeography } from "../pages/evacuationCenterHelpers";
 
 type LocationValue = {
   address: string;
   city?: string;
   latitude: number;
   longitude: number;
-  province?: string;
   region?: string;
+  regionCode?: string;
+  islandGroup?: string;
 };
 
 const defaultCenter = { lat: 12.8797, lng: 121.774 };
 
 const getCurrentTheme = () =>
   typeof document !== "undefined" && document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-
-const getAddressComponent = (
-  components: Array<{ long_name: string; short_name: string; types: string[] }> | undefined,
-  type: string,
-) => components?.find((component) => component.types.includes(type))?.long_name ?? "";
 
 export function LocationPickerMap({
   onChange,
@@ -104,21 +101,15 @@ export function LocationPickerMap({
               return;
             }
             const nextPosition = { lat: location.lat(), lng: location.lng() };
-            const province =
-              getAddressComponent(place.address_components, "administrative_area_level_2") ||
-              getAddressComponent(place.address_components, "administrative_area_level_1");
+            const geography = deriveGooglePlaceGeography(place.address_components);
             marker.setPosition?.(nextPosition);
             map.panTo(nextPosition);
             map.setZoom(15);
             onChange({
               address: place.formatted_address || place.name || value.address,
-              city:
-                getAddressComponent(place.address_components, "locality") ||
-                getAddressComponent(place.address_components, "administrative_area_level_3"),
+              ...geography,
               latitude: nextPosition.lat,
               longitude: nextPosition.lng,
-              province,
-              region: getAddressComponent(place.address_components, "administrative_area_level_1") || value.region,
             });
           });
           setStatus("ready");
@@ -138,7 +129,6 @@ export function LocationPickerMap({
       <label className="field">
         <span>Search area or place</span>
         <input ref={inputRef} placeholder="Search for a school, hall, or address" type="search" />
-        <small className="field-helper">Select a result to fill address and coordinates, or click the map to adjust the pin.</small>
       </label>
       <div className="location-picker__map" ref={mapRef}>
         <div className="location-picker__canvas" ref={mapCanvasRef} />

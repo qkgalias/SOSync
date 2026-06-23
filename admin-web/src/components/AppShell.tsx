@@ -3,10 +3,9 @@ import type { User } from "firebase/auth";
 import { signOut } from "firebase/auth";
 
 import type { ThemeMode } from "../App";
-import type { EvacuationCenter, Hotline, SupportReport } from "../types";
 import philippinesMap from "../assets/philippines-alert-map.png";
 import { auth } from "../firebase";
-import type { AdminRole, AppTab } from "../types";
+import type { AdminNotificationItem, AdminNotificationKind, AdminRole, AppTab } from "../types";
 import { formatRole, getVisibleTabs, pageTitles } from "../utils";
 import { BrandLockup } from "./Brand";
 
@@ -17,6 +16,30 @@ const navLabels: Record<AppTab, string> = {
   reports: "Support Reports",
   settings: "Settings",
   status: "System Status",
+};
+
+const notificationLabels: Record<AdminNotificationKind, string> = {
+  evacuation_center: "Evacuation center",
+  hotline: "Hotline",
+  support_report: "Support report",
+};
+
+const notificationLabel = (kind: AdminNotificationKind) => notificationLabels[kind];
+
+const formatNotificationTime = (value?: string) => {
+  if (!value) {
+    return "Time unavailable";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Time unavailable";
+  }
+  return date.toLocaleString("en-US", {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
+  });
 };
 
 function SidebarIcon({ tab }: { tab: AppTab }) {
@@ -76,38 +99,70 @@ function SidebarIcon({ tab }: { tab: AppTab }) {
 
 export function AppShell({
   activeTab,
-  centers,
   children,
   error,
-  hotlines,
+  notifications,
+  onClearNotifications,
+  onDismissNotification,
+  onOpenNotification,
   onRefresh,
   onTabChange,
   onToggleTheme,
-  reports,
   role,
   theme,
   user,
 }: {
   activeTab: AppTab;
-  centers: EvacuationCenter[];
   children: ReactNode;
   error: string;
-  hotlines: Hotline[];
+  notifications: AdminNotificationItem[];
+  onClearNotifications: () => Promise<void>;
+  onDismissNotification: (notificationId: string) => Promise<void>;
+  onOpenNotification: (notification: AdminNotificationItem) => void;
   onRefresh: () => void;
   onTabChange: (tab: AppTab) => void;
   onToggleTheme: () => void;
-  reports: SupportReport[];
   role: AdminRole;
   theme: ThemeMode;
   user: User;
 }) {
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationError, setNotificationError] = useState("");
+  const [busyNotificationId, setBusyNotificationId] = useState("");
   const visibleTabs = getVisibleTabs(role);
   const title = pageTitles[activeTab];
-  const newReports = reports.filter((report) => (report.status ?? "new") === "new").length;
-  const disabledCenters = centers.filter((center) => center.disabled).length;
-  const disabledHotlines = hotlines.filter((hotline) => hotline.disabled).length;
-  const noticeCount = [newReports, disabledCenters, disabledHotlines].filter((count) => count > 0).length;
+  const noticeCount = notifications.length;
+
+  const openNotificationTarget = (notification: AdminNotificationItem) => {
+    if (visibleTabs.includes(notification.tab)) {
+      onOpenNotification(notification);
+    }
+    setShowNotifications(false);
+  };
+
+  const dismissNotification = async (notificationId: string) => {
+    setNotificationError("");
+    setBusyNotificationId(notificationId);
+    try {
+      await onDismissNotification(notificationId);
+    } catch {
+      setNotificationError("Unable to dismiss this notification. Try again.");
+    } finally {
+      setBusyNotificationId("");
+    }
+  };
+
+  const clearNotifications = async () => {
+    setNotificationError("");
+    setBusyNotificationId("all");
+    try {
+      await onClearNotifications();
+    } catch {
+      setNotificationError("Unable to clear notifications. Try again.");
+    } finally {
+      setBusyNotificationId("");
+    }
+  };
 
   return (
     <main className="app-shell">
@@ -152,7 +207,7 @@ export function AppShell({
                 aria-expanded={showNotifications}
                 aria-label="Admin notifications"
                 className="icon-button icon-button--alert"
-                data-count={noticeCount}
+                data-count={noticeCount > 99 ? "99+" : noticeCount}
                 onClick={() => setShowNotifications((isOpen) => !isOpen)}
                 type="button"
               >
@@ -165,15 +220,51 @@ export function AppShell({
                 <div className="notification-popover" role="status">
                   <div className="notification-popover__header">
                     <strong>Admin notifications</strong>
-                    <button onClick={() => setShowNotifications(false)} type="button" aria-label="Close notifications">
-                      ×
-                    </button>
+                    <div>
+                      {noticeCount ? (
+                        <button disabled={Boolean(busyNotificationId)} onClick={() => void clearNotifications()} type="button">
+                          {busyNotificationId === "all" ? "Clearing..." : "Clear all"}
+                        </button>
+                      ) : null}
+                      <button onClick={() => setShowNotifications(false)} type="button" aria-label="Close notifications">×</button>
+                    </div>
                   </div>
+                  {notificationError ? <p className="notification-popover__error">{notificationError}</p> : null}
                   <div className="notification-list">
-                    {newReports ? <span>{newReports} new support report{newReports === 1 ? "" : "s"} need review.</span> : null}
-                    {disabledCenters ? <span>{disabledCenters} evacuation center{disabledCenters === 1 ? "" : "s"} disabled.</span> : null}
-                    {disabledHotlines ? <span>{disabledHotlines} hotline{disabledHotlines === 1 ? "" : "s"} disabled.</span> : null}
-                    {!noticeCount ? <span>All admin queues are clear.</span> : null}
+                    {notifications.map((notification) => (
+                      <article className="notification-item" key={notification.id}>
+                        <div className="notification-item__header">
+                          <span>{notificationLabel(notification.kind)}</span>
+                          <div>
+                            <time>{formatNotificationTime(notification.createdAt)}</time>
+                            <button
+                              aria-label={`Dismiss ${notification.title}`}
+                              disabled={Boolean(busyNotificationId)}
+                              onClick={() => void dismissNotification(notification.id)}
+                              type="button"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                        <strong>{notification.title}</strong>
+                        <p>{notification.message}</p>
+                        <dl>
+                          <div>
+                            <dt>Source</dt>
+                            <dd>{notification.sourceLabel}</dd>
+                          </div>
+                          <div>
+                            <dt>Record</dt>
+                            <dd>{notification.targetLabel}</dd>
+                          </div>
+                        </dl>
+                        <button onClick={() => openNotificationTarget(notification)} type="button">
+                          View {navLabels[notification.tab]}
+                        </button>
+                      </article>
+                    ))}
+                    {!noticeCount ? <span className="notification-empty">All admin queues are clear.</span> : null}
                   </div>
                   <p>System live. Admin data loaded from Firebase Cloud Functions.</p>
                 </div>

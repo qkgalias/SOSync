@@ -6,23 +6,34 @@ import { LocationPickerMap } from "../components/LocationPickerMap";
 import { getAdminActionErrorMessage } from "../errors";
 import { callAdminFunction } from "../firebase";
 import type { EvacuationCenter, EvacuationCenterDraft } from "../types";
+import {
+  formatEvacuationCenterArea,
+  isValidEvacuationCenterContact,
+  getPhilippineRegionByCode,
+  limitEvacuationCenterContactInput,
+  EVACUATION_CENTER_PAGE_SIZE,
+  PHILIPPINE_COUNTRY_CODE,
+  PHILIPPINE_REGIONS,
+  sanitizeEvacuationCenterDraft,
+} from "./evacuationCenterHelpers";
 
 const emptyCenter: EvacuationCenterDraft = {
   address: "",
   capacity: 0,
   city: "",
   contact: "",
+  countryCode: PHILIPPINE_COUNTRY_CODE,
   disabled: false,
   islandGroup: "",
   latitude: 0,
   longitude: 0,
   name: "",
-  province: "",
-  region: "PH",
+  region: "",
+  regionCode: "",
   serviceRadiusKm: 2,
 };
 
-const pageSize = 7;
+const pageSize = EVACUATION_CENTER_PAGE_SIZE;
 type IslandFilter = "all" | "luzon" | "mindanao" | "visayas";
 
 const islandOptions: Array<{ label: string; value: IslandFilter }> = [
@@ -31,9 +42,6 @@ const islandOptions: Array<{ label: string; value: IslandFilter }> = [
   { label: "Visayas", value: "visayas" },
   { label: "Mindanao", value: "mindanao" },
 ];
-
-const formatCenterArea = (center: EvacuationCenter) =>
-  [center.city, center.province, center.region].filter(Boolean).join(", ") || center.address;
 
 const formatCoordinate = (value: number, positive: string, negative: string) =>
   `${Math.abs(value).toFixed(4)}° ${value >= 0 ? positive : negative}`;
@@ -48,9 +56,13 @@ const normalizeIslandGroup = (value?: string): IslandFilter | "" => {
 
 export function EvacuationCentersPage({
   centers,
+  notificationTargetId,
+  onConsumeNotificationTarget,
   onRefresh,
 }: {
   centers: EvacuationCenter[];
+  notificationTargetId: string;
+  onConsumeNotificationTarget: (unavailableMessage?: string) => void;
   onRefresh: () => Promise<void>;
 }) {
   const [draft, setDraft] = useState<EvacuationCenterDraft | null>(null);
@@ -65,7 +77,10 @@ export function EvacuationCentersPage({
   const [isTogglingDisabled, setIsTogglingDisabled] = useState(false);
   const [page, setPage] = useState(1);
   const [pendingDisabledCenter, setPendingDisabledCenter] = useState<EvacuationCenter | null>(null);
+  const [pendingDeleteCenter, setPendingDeleteCenter] = useState<EvacuationCenter | null>(null);
+  const [isDeletingCenter, setIsDeletingCenter] = useState(false);
   const [toggleError, setToggleError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [selectedCenterId, setSelectedCenterId] = useState<string>(() => centers[0]?.centerId ?? "");
 
   const availableCenters = useMemo(() => centers.filter((center) => !center.disabled), [centers]);
@@ -147,31 +162,53 @@ export function EvacuationCentersPage({
     setDraft(nextDraft);
   };
 
+  useEffect(() => {
+    if (!notificationTargetId) return;
+    const center = centers.find((item) => item.centerId === notificationTargetId);
+    if (!center) {
+      onConsumeNotificationTarget("This evacuation center is no longer available.");
+      return;
+    }
+    setFilter("all");
+    setIslandFilter("all");
+    setSelectedCenterId(center.centerId);
+    setFieldErrors({});
+    setFormError("");
+    setDraft(center);
+    onConsumeNotificationTarget();
+  }, [centers, notificationTargetId, onConsumeNotificationTarget]);
+
   const validateDraft = (nextDraft: EvacuationCenterDraft) => {
     const errors: Partial<Record<keyof EvacuationCenterDraft, string>> = {};
-    if (!nextDraft.name.trim()) {
-      errors.name = "Enter an evacuation center name.";
+    const normalizedName = nextDraft.name.trim().replace(/\s+/g, " ");
+    const normalizedAddress = nextDraft.address.trim().replace(/\s+/g, " ");
+    const normalizedCity = nextDraft.city?.trim().replace(/\s+/g, " ") ?? "";
+    if (normalizedName.length < 2 || normalizedName.length > 160) {
+      errors.name = "Name must be 2 to 160 characters.";
     }
-    if (!nextDraft.address.trim()) {
-      errors.address = "Enter the center address.";
+    if (normalizedAddress.length < 5 || normalizedAddress.length > 300) {
+      errors.address = "Address must be 5 to 300 characters.";
     }
-    if (!nextDraft.contact.trim()) {
-      errors.contact = "Enter a contact number or contact office.";
+    if (!isValidEvacuationCenterContact(nextDraft.contact)) {
+      errors.contact = "Enter a valid contact number with 7 to 11 digits.";
     }
-    if (!nextDraft.city?.trim()) {
+    if (!normalizedCity || normalizedCity.length > 120) {
       errors.city = "Enter the city or municipality.";
     }
-    if (!Number.isFinite(nextDraft.latitude) || nextDraft.latitude < -90 || nextDraft.latitude > 90) {
-      errors.latitude = "Latitude must be between -90 and 90.";
+    if (!getPhilippineRegionByCode(nextDraft.regionCode)) {
+      errors.regionCode = "Select an official Philippine region.";
     }
-    if (!Number.isFinite(nextDraft.longitude) || nextDraft.longitude < -180 || nextDraft.longitude > 180) {
-      errors.longitude = "Longitude must be between -180 and 180.";
+    if (!Number.isFinite(nextDraft.latitude) || nextDraft.latitude < 4 || nextDraft.latitude > 22.5) {
+      errors.latitude = "Latitude must be within the Philippines (4 to 22.5).";
     }
-    if (!Number.isFinite(nextDraft.capacity) || nextDraft.capacity < 0) {
-      errors.capacity = "Capacity must be 0 or higher.";
+    if (!Number.isFinite(nextDraft.longitude) || nextDraft.longitude < 114 || nextDraft.longitude > 128) {
+      errors.longitude = "Longitude must be within the Philippines (114 to 128).";
     }
-    if (nextDraft.serviceRadiusKm !== undefined && (!Number.isFinite(nextDraft.serviceRadiusKm) || nextDraft.serviceRadiusKm <= 0)) {
-      errors.serviceRadiusKm = "Service radius must be greater than 0.";
+    if (!Number.isInteger(nextDraft.capacity) || nextDraft.capacity < 0 || nextDraft.capacity > 1_000_000) {
+      errors.capacity = "Capacity must be a whole number from 0 to 1,000,000.";
+    }
+    if (nextDraft.serviceRadiusKm === undefined || !Number.isFinite(nextDraft.serviceRadiusKm) || nextDraft.serviceRadiusKm < 0.1 || nextDraft.serviceRadiusKm > 75) {
+      errors.serviceRadiusKm = "Service radius must be between 0.1 and 75 km.";
     }
     return errors;
   };
@@ -187,16 +224,7 @@ export function EvacuationCentersPage({
     if (Object.keys(nextFieldErrors).length) {
       return;
     }
-    const sanitizedDraft: EvacuationCenterDraft = {
-      ...draft,
-      address: draft.address.trim(),
-      city: draft.city?.trim() ?? "",
-      contact: draft.contact.trim(),
-      islandGroup: draft.islandGroup?.trim() ?? "",
-      name: draft.name.trim(),
-      province: draft.province?.trim() ?? "",
-      region: draft.region?.trim() || "PH",
-    };
+    const sanitizedDraft = sanitizeEvacuationCenterDraft(draft);
     setIsSaving(true);
     try {
       await callAdminFunction<typeof sanitizedDraft, { centerId: string }>("upsertEvacuationCenter", sanitizedDraft);
@@ -222,7 +250,6 @@ export function EvacuationCentersPage({
     const nextDraft: EvacuationCenterDraft = {
       ...pendingDisabledCenter,
       disabled: !pendingDisabledCenter.disabled,
-      region: pendingDisabledCenter.region?.trim() || "PH",
     };
     try {
       await callAdminFunction<typeof nextDraft, { centerId: string }>("upsertEvacuationCenter", nextDraft);
@@ -239,6 +266,28 @@ export function EvacuationCentersPage({
       );
     } finally {
       setIsTogglingDisabled(false);
+    }
+  };
+
+  const confirmDeleteCenter = async () => {
+    if (!pendingDeleteCenter) {
+      return;
+    }
+    setDeleteError("");
+    setIsDeletingCenter(true);
+    try {
+      await callAdminFunction<{ centerId: string }, { success: true }>("deleteEvacuationCenter", {
+        centerId: pendingDeleteCenter.centerId,
+      });
+      setPendingDeleteCenter(null);
+      if (draft?.centerId === pendingDeleteCenter.centerId) {
+        setDraft(null);
+      }
+      await onRefresh();
+    } catch (nextError) {
+      setDeleteError(getAdminActionErrorMessage(nextError, "Unable to remove this evacuation center. Try again."));
+    } finally {
+      setIsDeletingCenter(false);
     }
   };
 
@@ -290,7 +339,7 @@ export function EvacuationCentersPage({
                   </span>
                   <span>
                     <strong>{center.name}</strong>
-                    <small>{formatCenterArea(center)}</small>
+                    <small>{formatEvacuationCenterArea(center)}</small>
                   </span>
                 </button>
                 <button
@@ -395,7 +444,7 @@ export function EvacuationCentersPage({
             <dl className="center-detail-list">
               <div>
                 <dt>Area</dt>
-                <dd>{formatCenterArea(selectedCenter)}</dd>
+                <dd>{formatEvacuationCenterArea(selectedCenter)}</dd>
               </div>
               <div>
                 <dt>Address</dt>
@@ -437,53 +486,72 @@ export function EvacuationCentersPage({
                   city: draft.city,
                   latitude: draft.latitude,
                   longitude: draft.longitude,
-                  province: draft.province,
                   region: draft.region,
+                  regionCode: draft.regionCode,
+                  islandGroup: draft.islandGroup,
                 }}
               />
             </div>
-            <Field error={fieldErrors.name} label="Name">
+            <Field className="center-field--half" error={fieldErrors.name} label="Name">
               <input aria-invalid={Boolean(fieldErrors.name)} onChange={(event) => setDraft({ ...draft, name: event.target.value })} value={draft.name} />
             </Field>
-            <Field error={fieldErrors.contact} label="Contact">
-              <input aria-invalid={Boolean(fieldErrors.contact)} onChange={(event) => setDraft({ ...draft, contact: event.target.value })} value={draft.contact} />
+            <Field className="center-field--half" error={fieldErrors.contact} label="Contact">
+              <input
+                aria-invalid={Boolean(fieldErrors.contact)}
+                inputMode="tel"
+                onChange={(event) => setDraft({ ...draft, contact: limitEvacuationCenterContactInput(event.target.value) })}
+                value={draft.contact}
+              />
             </Field>
-            <Field error={fieldErrors.address} label="Address">
+            <Field className="center-field--address" error={fieldErrors.address} label="Address">
               <textarea aria-invalid={Boolean(fieldErrors.address)} onChange={(event) => setDraft({ ...draft, address: event.target.value })} value={draft.address} />
             </Field>
-            <Field error={fieldErrors.capacity} label="Capacity">
+            <Field className="center-field--capacity" error={fieldErrors.capacity} label="Capacity">
               <input aria-invalid={Boolean(fieldErrors.capacity)} min="0" onChange={(event) => setDraft({ ...draft, capacity: Number(event.target.value) })} type="number" value={draft.capacity} />
             </Field>
-            <Field error={fieldErrors.latitude} label="Latitude">
+            <Field className="center-field--latitude" error={fieldErrors.latitude} label="Latitude">
               <input aria-invalid={Boolean(fieldErrors.latitude)} max="90" min="-90" onChange={(event) => setDraft({ ...draft, latitude: Number(event.target.value) })} step="any" type="number" value={draft.latitude} />
             </Field>
-            <Field error={fieldErrors.longitude} label="Longitude">
+            <Field className="center-field--longitude" error={fieldErrors.longitude} label="Longitude">
               <input aria-invalid={Boolean(fieldErrors.longitude)} max="180" min="-180" onChange={(event) => setDraft({ ...draft, longitude: Number(event.target.value) })} step="any" type="number" value={draft.longitude} />
             </Field>
-            <Field error={fieldErrors.city} label="City / Municipality">
+            <Field className="center-field--city" error={fieldErrors.city} label="City / Municipality">
               <input aria-invalid={Boolean(fieldErrors.city)} onChange={(event) => setDraft({ ...draft, city: event.target.value })} value={draft.city} />
             </Field>
-            <details className="form-disclosure modal-actions--wide" open={Boolean(fieldErrors.serviceRadiusKm)}>
+            <details className="form-disclosure modal-actions--wide" open={Boolean(fieldErrors.serviceRadiusKm || fieldErrors.regionCode)}>
               <summary>Additional details</summary>
               <div className="form-disclosure__grid">
-                <Field label="Province">
-                  <input onChange={(event) => setDraft({ ...draft, province: event.target.value })} value={draft.province} />
+                <Field label="Country">
+                  <input disabled value="Philippines" />
                 </Field>
-                <Field label="Region">
-                  <input onChange={(event) => setDraft({ ...draft, region: event.target.value })} value={draft.region} />
+                <Field error={fieldErrors.regionCode} label="Region">
+                  <select
+                    aria-invalid={Boolean(fieldErrors.regionCode)}
+                    onChange={(event) => {
+                      const region = getPhilippineRegionByCode(event.target.value);
+                      setDraft({
+                        ...draft,
+                        islandGroup: region?.islandGroup ?? "",
+                        region: region?.name ?? "",
+                        regionCode: region?.code ?? "",
+                      });
+                    }}
+                    value={draft.regionCode ?? ""}
+                  >
+                    <option value="">Select a region</option>
+                    {PHILIPPINE_REGIONS.map((region) => (
+                      <option key={region.code} value={region.code}>{region.name}</option>
+                    ))}
+                  </select>
                 </Field>
                 <Field label="Island group">
-                  <select onChange={(event) => setDraft({ ...draft, islandGroup: event.target.value })} value={draft.islandGroup}>
-                    <option value="">Unspecified</option>
-                    <option value="Luzon">Luzon</option>
-                    <option value="Visayas">Visayas</option>
-                    <option value="Mindanao">Mindanao</option>
-                  </select>
+                  <input disabled value={draft.islandGroup || "Select a region first"} />
                 </Field>
                 <Field error={fieldErrors.serviceRadiusKm} label="Service radius km">
                   <input
                     aria-invalid={Boolean(fieldErrors.serviceRadiusKm)}
                     min="0.1"
+                    max="75"
                     onChange={(event) => setDraft({ ...draft, serviceRadiusKm: Number(event.target.value) })}
                     step="any"
                     type="number"
@@ -493,6 +561,19 @@ export function EvacuationCentersPage({
               </div>
             </details>
             <div className="modal-actions modal-actions--wide">
+              {draft.centerId ? (
+                <button
+                  className="danger-outline-button"
+                  disabled={isSaving}
+                  onClick={() => {
+                    setDeleteError("");
+                    setPendingDeleteCenter({ ...draft, centerId: draft.centerId } as EvacuationCenter);
+                  }}
+                  type="button"
+                >
+                  Remove
+                </button>
+              ) : null}
               <button className="primary-button" disabled={isSaving} type="submit">
                 {isSaving ? "Saving..." : "Save center"}
               </button>
@@ -520,6 +601,29 @@ export function EvacuationCentersPage({
             <div className="modal-actions">
               <button className="primary-button" disabled={isTogglingDisabled} onClick={confirmDisabledToggle} type="button">
                 {isTogglingDisabled ? "Saving..." : pendingDisabledCenter.disabled ? "Enable center" : "Disable center"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
+      {pendingDeleteCenter ? (
+        <Modal
+          onClose={() => {
+            if (!isDeletingCenter) {
+              setPendingDeleteCenter(null);
+              setDeleteError("");
+            }
+          }}
+          title="Remove center?"
+        >
+          <div className="confirmation-modal">
+            <p>
+              {pendingDeleteCenter.name} will be permanently removed from the admin evacuation center list. This cannot be undone.
+            </p>
+            {deleteError ? <p className="inline-form-error">{deleteError}</p> : null}
+            <div className="modal-actions">
+              <button className="danger-outline-button" disabled={isDeletingCenter} onClick={() => void confirmDeleteCenter()} type="button">
+                {isDeletingCenter ? "Removing..." : "Remove center"}
               </button>
             </div>
           </div>

@@ -22,26 +22,11 @@ export const getAuthErrorMessage = (error: unknown) => {
     case "auth/user-disabled":
       return "This admin account has been disabled.";
     case "auth/too-many-requests":
-      return "Too many attempts. Try again later or reset your password.";
+      return "Too many attempts. Try again later or contact a super admin.";
     case "auth/network-request-failed":
       return "Network error. Check your connection and try again.";
     default:
       return "Unable to sign in. Check your details and try again.";
-  }
-};
-
-export const getPasswordResetErrorMessage = (error: unknown) => {
-  switch (getErrorCode(error)) {
-    case "auth/invalid-email":
-      return "Enter a valid email address.";
-    case "auth/user-not-found":
-      return "No account was found for that email address.";
-    case "auth/too-many-requests":
-      return "Too many reset requests. Try again later.";
-    case "auth/network-request-failed":
-      return "Network error. Check your connection and try again.";
-    default:
-      return "Unable to send a reset email. Try again later.";
   }
 };
 

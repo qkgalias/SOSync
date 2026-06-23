@@ -1,7 +1,8 @@
 import type { AdminRole, AppTab, EvacuationCenter, Hotline, SupportReport } from "./types";
 
-export const roleCanEditContent = (role?: AdminRole) => role === "content_admin" || role === "super_admin";
-export const roleCanReviewReports = (role?: AdminRole) => role === "support_admin" || role === "super_admin";
+export const roleCanEditContent = (role?: AdminRole) => role === "admin" || role === "operator" || role === "superadmin";
+export const roleCanReviewReports = (role?: AdminRole) => role === "admin" || role === "superadmin";
+export const roleCanManageAccess = (role?: AdminRole) => role === "superadmin";
 
 export const getVisibleTabs = (role: AdminRole): AppTab[] => {
   const tabs: AppTab[] = ["dashboard"];
@@ -37,10 +38,7 @@ export const formatDate = (value?: string) => {
 };
 
 export const formatRole = (role: AdminRole) =>
-  role
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  role === "superadmin" ? "Super Admin" : role === "admin" ? "Admin" : "Operator";
 
 export const matchesSearch = (values: Array<number | string | undefined>, query: string) => {
   const normalizedQuery = query.trim().toLowerCase();
@@ -52,7 +50,10 @@ export const matchesSearch = (values: Array<number | string | undefined>, query:
 
 export const filterHotlines = (hotlines: Hotline[], query: string) =>
   hotlines.filter((hotline) =>
-    matchesSearch([hotline.name, hotline.phone, hotline.region, hotline.description, hotline.disabled ? "disabled" : "active"], query),
+    matchesSearch(
+      [hotline.name, hotline.phone, hotline.cityArea, hotline.region, hotline.description, hotline.disabled ? "disabled" : "active"],
+      query,
+    ),
   );
 
 export const filterCenters = (centers: EvacuationCenter[], query: string) =>
@@ -62,7 +63,6 @@ export const filterCenters = (centers: EvacuationCenter[], query: string) =>
         center.name,
         center.address,
         center.city,
-        center.province,
         center.region,
         center.contact,
         center.capacity,

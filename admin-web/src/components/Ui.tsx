@@ -10,17 +10,19 @@ export function EmptyState({ message }: { message: string }) {
 
 export function Field({
   children,
+  className = "",
   error,
   helper,
   label,
 }: {
   children: ReactNode;
+  className?: string;
   error?: string;
   helper?: string;
   label: string;
 }) {
   return (
-    <label className={["field", error ? "field--invalid" : ""].filter(Boolean).join(" ")}>
+    <label className={["field", className, error ? "field--invalid" : ""].filter(Boolean).join(" ")}>
       <span>{label}</span>
       {children}
       {helper && !error ? <small className="field-helper">{helper}</small> : null}

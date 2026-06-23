@@ -127,7 +127,7 @@ export function SystemStatusPage({
           <div className="status-metric">
             <span>Admin role</span>
             <strong>{roleLabel}</strong>
-            <small>{role === "super_admin" ? "Full access" : "Role-limited access"}</small>
+            <small>{role === "superadmin" ? "Full access" : "Role-limited access"}</small>
           </div>
         </Card>
         <Card className="status-metric-card status-metric-card--info">

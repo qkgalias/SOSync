@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { EmptyState } from "../components/Ui";
 import { getAdminActionErrorMessage } from "../errors";
@@ -19,6 +19,15 @@ const attachmentOptions: AttachmentFilter[] = ["all", "with", "without"];
 const dateOptions: DateFilter[] = ["all", "today", "week", "month"];
 const sortOptions: SortMode[] = ["attention", "newest", "oldest"];
 const highAttentionCategories = new Set(["crash or freeze", "sos alert failure", "notifications failure", "location issues"]);
+const browserPreviewableImageTypes = new Set([
+  "image/avif",
+  "image/bmp",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/svg+xml",
+  "image/webp",
+]);
 
 const statusLabels: Record<ReportStatus, string> = {
   dismissed: "Closed",
@@ -118,6 +127,9 @@ const getMediaPreviewType = (media: NonNullable<SupportReport["mediaFiles"]>[num
   }
   return "file";
 };
+
+const canBrowserPreviewImage = (contentType?: string) =>
+  Boolean(contentType && browserPreviewableImageTypes.has(contentType.toLowerCase()));
 
 const parseDate = (value?: string) => {
   if (!value) {
@@ -229,9 +241,13 @@ const copyText = async (value: string) => {
 };
 
 export function SupportReportsPage({
+  notificationTargetId,
+  onConsumeNotificationTarget,
   onRefresh,
   reports,
 }: {
+  notificationTargetId: string;
+  onConsumeNotificationTarget: (unavailableMessage?: string) => void;
   onRefresh: () => Promise<void>;
   reports: SupportReport[];
 }) {
@@ -243,8 +259,13 @@ export function SupportReportsPage({
   const [query, setQuery] = useState("");
   const [actionError, setActionError] = useState("");
   const [busyReportId, setBusyReportId] = useState("");
+  const [deleteTargetReport, setDeleteTargetReport] = useState<SupportReport | null>(null);
+  const [isReportDetailLoading, setIsReportDetailLoading] = useState(false);
+  const [reportDetail, setReportDetail] = useState<SupportReport | null>(null);
+  const [reportDetailError, setReportDetailError] = useState("");
   const [selectedReportId, setSelectedReportId] = useState("");
   const [page, setPage] = useState(1);
+  const detailRequestIdRef = useRef(0);
 
   const categories = useMemo(
     () => Array.from(new Set(reports.map((report) => report.category).filter(Boolean) as string[])).sort(),
@@ -301,10 +322,11 @@ export function SupportReportsPage({
     return sortReports(filtered, sortMode);
   }, [attachmentFilter, categoryFilter, dateFilter, kindFilter, query, reports, sortMode, statusFilter]);
 
-  const selectedReport = useMemo(
+  const selectedListReport = useMemo(
     () => reports.find((report) => report.reportId === selectedReportId) ?? null,
     [reports, selectedReportId],
   );
+  const selectedReport = reportDetail?.reportId === selectedReportId ? reportDetail : selectedListReport;
 
   const pageCount = Math.max(1, Math.ceil(visibleReports.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
@@ -316,6 +338,12 @@ export function SupportReportsPage({
   useEffect(() => {
     setPage(1);
   }, [attachmentFilter, categoryFilter, dateFilter, kindFilter, query, sortMode, statusFilter]);
+
+  useEffect(() => {
+    if (page > pageCount) {
+      setPage(pageCount);
+    }
+  }, [page, pageCount]);
 
   const resetFilters = () => {
     setAttachmentFilter("all");
@@ -335,9 +363,74 @@ export function SupportReportsPage({
         reportId,
         status,
       });
+      setReportDetail((current) => current?.reportId === reportId ? { ...current, status } : current);
       await onRefresh();
     } catch (nextError) {
       setActionError(getAdminActionErrorMessage(nextError, "Unable to update this report status. Try again."));
+    } finally {
+      setBusyReportId("");
+    }
+  };
+
+  const loadReportDetail = async (reportId: string) => {
+    const requestId = detailRequestIdRef.current + 1;
+    detailRequestIdRef.current = requestId;
+    setIsReportDetailLoading(true);
+    setReportDetailError("");
+    try {
+      const result = await callAdminFunction<{ reportId: string }, { report: SupportReport }>("getSupportReport", { reportId });
+      if (detailRequestIdRef.current === requestId) {
+        setReportDetail(result.report);
+      }
+    } catch (nextError) {
+      if (detailRequestIdRef.current === requestId) {
+        setReportDetailError(getAdminActionErrorMessage(nextError, "Unable to load secure attachment previews. Try again."));
+      }
+    } finally {
+      if (detailRequestIdRef.current === requestId) {
+        setIsReportDetailLoading(false);
+      }
+    }
+  };
+
+  const openReportDetail = (reportId: string) => {
+    setSelectedReportId(reportId);
+    setReportDetail(null);
+    void loadReportDetail(reportId);
+  };
+
+  useEffect(() => {
+    if (!notificationTargetId) return;
+    const report = reports.find((item) => item.reportId === notificationTargetId);
+    if (!report) {
+      onConsumeNotificationTarget("This support report is no longer available.");
+      return;
+    }
+    openReportDetail(report.reportId);
+    onConsumeNotificationTarget();
+  }, [notificationTargetId, onConsumeNotificationTarget, reports]);
+
+  const closeReportDetail = () => {
+    detailRequestIdRef.current += 1;
+    setSelectedReportId("");
+    setReportDetail(null);
+    setReportDetailError("");
+    setIsReportDetailLoading(false);
+  };
+
+  const deleteReport = async (reportId: string) => {
+    setActionError("");
+    setBusyReportId(reportId);
+    try {
+      await callAdminFunction<{ reportId: string }, { success: true }>("deleteSupportReport", { reportId });
+      if (selectedReportId === reportId) {
+        closeReportDetail();
+      }
+      setDeleteTargetReport(null);
+      await onRefresh();
+    } catch (nextError) {
+      setDeleteTargetReport(null);
+      setActionError(getAdminActionErrorMessage(nextError, "Unable to delete this support report. Try again."));
     } finally {
       setBusyReportId("");
     }
@@ -487,7 +580,7 @@ export function SupportReportsPage({
                         </td>
                         <td>
                           <div className="report-row-actions">
-                            <button onClick={() => setSelectedReportId(report.reportId)} type="button">
+                            <button onClick={() => openReportDetail(report.reportId)} type="button">
                               View
                             </button>
                             <select
@@ -546,9 +639,22 @@ export function SupportReportsPage({
       {selectedReport ? (
         <ReportDetailModal
           busyReportId={busyReportId}
-          onClose={() => setSelectedReportId("")}
+          isLoading={isReportDetailLoading}
+          mediaError={reportDetailError}
+          onClose={closeReportDetail}
+          onDeleteRequest={setDeleteTargetReport}
+          onRetryMedia={() => loadReportDetail(selectedReport.reportId)}
           onStatusChange={updateStatus}
           report={selectedReport}
+        />
+      ) : null}
+
+      {deleteTargetReport ? (
+        <DeleteReportConfirmationModal
+          busy={busyReportId === deleteTargetReport.reportId}
+          onCancel={() => setDeleteTargetReport(null)}
+          onConfirm={() => void deleteReport(deleteTargetReport.reportId)}
+          report={deleteTargetReport}
         />
       ) : null}
     </div>
@@ -592,12 +698,20 @@ function StatusText({
 
 function ReportDetailModal({
   busyReportId,
+  isLoading,
+  mediaError,
   onClose,
+  onDeleteRequest,
+  onRetryMedia,
   onStatusChange,
   report,
 }: {
   busyReportId: string;
+  isLoading: boolean;
+  mediaError: string;
   onClose: () => void;
+  onDeleteRequest: (report: SupportReport) => void;
+  onRetryMedia: () => Promise<void>;
   onStatusChange: (reportId: string, status: ReportStatus) => Promise<void>;
   report: SupportReport;
 }) {
@@ -605,6 +719,23 @@ function ReportDetailModal({
   const attention = getAttentionLevel(report);
   const createdAt = formatReportDateTime(report.createdAt);
   const updatedAt = formatReportDateTime(report.updatedAt);
+  const mediaFiles = report.mediaFiles ?? [];
+  const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(null);
+  const [failedMediaKeys, setFailedMediaKeys] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setActiveMediaIndex(null);
+    setFailedMediaKeys(new Set());
+  }, [report.reportId, report.mediaFiles]);
+
+  const markMediaFailed = (key: string) => {
+    setFailedMediaKeys((current) => new Set(current).add(key));
+  };
+
+  const retryMedia = async () => {
+    setFailedMediaKeys(new Set());
+    await onRetryMedia();
+  };
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -681,33 +812,68 @@ function ReportDetailModal({
         </dl>
 
         <section className="report-media-panel">
-          <h4>Attachments</h4>
-          {report.mediaFiles?.length ? (
+          <div className="report-media-panel__heading">
+            <h4>Attachments</h4>
+            {!isLoading && (mediaError || mediaFiles.some((media) => media.previewStatus === "unavailable")) ? (
+              <button onClick={() => void retryMedia()} type="button">Retry previews</button>
+            ) : null}
+          </div>
+          {isLoading ? (
+            <p className="report-media-state">Loading secure previews...</p>
+          ) : mediaError ? (
+            <div className="report-media-error" role="alert">
+              <span>{mediaError}</span>
+              <button onClick={() => void retryMedia()} type="button">Retry preview</button>
+            </div>
+          ) : mediaFiles.length ? (
             <ul className="report-media-list">
-              {report.mediaFiles.map((media) => {
+              {mediaFiles.map((media, mediaIndex) => {
                 const previewType = getMediaPreviewType(media);
-                const mediaKey = media.storagePath ?? media.downloadUrl ?? media.fileName;
+                const mediaKey = media.storagePath ?? media.downloadUrl ?? media.fileName ?? `attachment-${mediaIndex}`;
+                const previewFailed = failedMediaKeys.has(mediaKey);
+                const canPreviewImage = previewType === "image" && canBrowserPreviewImage(media.contentType);
+                const canOpenViewer = Boolean(media.downloadUrl && (canPreviewImage || previewType === "video"));
                 return (
                   <li key={mediaKey}>
-                    <div className="report-media-preview">
-                      {previewType === "image" && media.downloadUrl ? (
-                        <img alt={media.fileName ?? "Support report attachment"} src={media.downloadUrl} />
-                      ) : previewType === "video" && media.downloadUrl ? (
-                        <video controls preload="metadata" src={media.downloadUrl} />
+                    <button
+                      aria-label={canOpenViewer ? `Enlarge ${media.fileName ?? "attachment"}` : undefined}
+                      className="report-media-preview report-media-preview-button"
+                      disabled={!canOpenViewer || previewFailed}
+                      onClick={() => setActiveMediaIndex(mediaIndex)}
+                      type="button"
+                    >
+                      {canPreviewImage && media.downloadUrl && !previewFailed ? (
+                        <img
+                          alt={media.fileName ?? "Support report attachment"}
+                          onError={() => markMediaFailed(mediaKey)}
+                          src={media.downloadUrl}
+                        />
+                      ) : previewType === "video" && media.downloadUrl && !previewFailed ? (
+                        <video muted onError={() => markMediaFailed(mediaKey)} preload="metadata" src={media.downloadUrl} />
+                      ) : media.previewStatus === "missing" ? (
+                        <span>File missing from Storage</span>
+                      ) : previewFailed ? (
+                        <span>Preview expired or failed</span>
+                      ) : previewType === "image" && !canPreviewImage && media.downloadUrl ? (
+                        <span>This image format cannot be previewed in this browser</span>
                       ) : (
-                        <span>Preview unavailable</span>
+                        <span>Secure preview unavailable</span>
                       )}
-                    </div>
+                    </button>
                     <div className="report-media-meta">
                       <strong>{media.fileName ?? "Attachment"}</strong>
                       <span>{media.contentType ?? "Unknown type"}</span>
                       <code>{media.storagePath ?? "No storage path"}</code>
                     </div>
                     <div className="report-media-actions">
-                      {media.downloadUrl ? (
-                        <a href={media.downloadUrl} rel="noreferrer" target="_blank">
-                          Open media
+                      {canOpenViewer ? (
+                        <button onClick={() => setActiveMediaIndex(mediaIndex)} type="button">View full screen</button>
+                      ) : media.downloadUrl ? (
+                        <a download={media.fileName} href={media.downloadUrl} rel="noreferrer" target="_blank">
+                          Download original
                         </a>
+                      ) : previewFailed || media.previewStatus === "unavailable" ? (
+                        <button onClick={() => void retryMedia()} type="button">Retry preview</button>
                       ) : null}
                       {media.storagePath ? (
                         <button onClick={() => void copyText(media.storagePath ?? "")} type="button">
@@ -724,7 +890,33 @@ function ReportDetailModal({
           )}
         </section>
 
+        {activeMediaIndex !== null && mediaFiles[activeMediaIndex] ? (
+          <AttachmentViewer
+            activeIndex={activeMediaIndex}
+            mediaFiles={mediaFiles}
+            onChange={setActiveMediaIndex}
+            onClose={() => setActiveMediaIndex(null)}
+            onPreviewError={() => {
+              const activeMedia = mediaFiles[activeMediaIndex];
+              if (activeMedia) {
+                markMediaFailed(
+                  activeMedia.storagePath ?? activeMedia.downloadUrl ?? activeMedia.fileName ?? `attachment-${activeMediaIndex}`,
+                );
+              }
+              setActiveMediaIndex(null);
+            }}
+          />
+        ) : null}
+
         <div className="report-detail-actions">
+          <button
+            className="danger-outline-button report-detail-delete-button"
+            disabled={busyReportId === report.reportId}
+            onClick={() => onDeleteRequest(report)}
+            type="button"
+          >
+            Delete report
+          </button>
           <select
             disabled={busyReportId === report.reportId}
             onChange={(event) => void onStatusChange(report.reportId, event.target.value as ReportStatus)}
@@ -738,6 +930,137 @@ function ReportDetailModal({
           <button className="primary-button" onClick={onClose} type="button">
             Done
           </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AttachmentViewer({
+  activeIndex,
+  mediaFiles,
+  onChange,
+  onClose,
+  onPreviewError,
+}: {
+  activeIndex: number;
+  mediaFiles: NonNullable<SupportReport["mediaFiles"]>;
+  onChange: (index: number) => void;
+  onClose: () => void;
+  onPreviewError: () => void;
+}) {
+  const media = mediaFiles[activeIndex];
+  const previewType = getMediaPreviewType(media);
+  const canPreviewImage = previewType === "image" && canBrowserPreviewImage(media.contentType);
+  const hasMultiple = mediaFiles.length > 1;
+  const showPrevious = () => onChange((activeIndex - 1 + mediaFiles.length) % mediaFiles.length);
+  const showNext = () => onChange((activeIndex + 1) % mediaFiles.length);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      } else if (event.key === "ArrowLeft" && hasMultiple) {
+        showPrevious();
+      } else if (event.key === "ArrowRight" && hasMultiple) {
+        showNext();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeIndex, hasMultiple, mediaFiles.length, onClose]);
+
+  return (
+    <div
+      className="report-media-viewer-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+      role="presentation"
+    >
+      <section
+        aria-label={`Attachment ${activeIndex + 1} of ${mediaFiles.length}`}
+        aria-modal="true"
+        className="report-media-viewer"
+        role="dialog"
+      >
+        <header>
+          <div>
+            <strong>{media.fileName ?? "Support report attachment"}</strong>
+            <span>{activeIndex + 1} of {mediaFiles.length}</span>
+          </div>
+          <button aria-label="Close attachment viewer" className="icon-button" onClick={onClose} type="button">x</button>
+        </header>
+
+        <div className="report-media-viewer__stage">
+          {canPreviewImage && media.downloadUrl ? (
+            <img alt={media.fileName ?? "Support report attachment"} onError={onPreviewError} src={media.downloadUrl} />
+          ) : previewType === "video" && media.downloadUrl ? (
+            <video autoPlay controls onError={onPreviewError} preload="metadata" src={media.downloadUrl} />
+          ) : (
+            <div className="report-media-viewer__unsupported">
+              <strong>Preview is not supported for this file format.</strong>
+              <span>{media.contentType ?? "Unknown file type"}</span>
+              {media.downloadUrl ? (
+                <a download={media.fileName} href={media.downloadUrl} rel="noreferrer" target="_blank">
+                  Download original
+                </a>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        <footer>
+          <button disabled={!hasMultiple} onClick={showPrevious} type="button">Previous</button>
+          <span>{media.contentType ?? "Unknown type"}</span>
+          <button disabled={!hasMultiple} onClick={showNext} type="button">Next</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function DeleteReportConfirmationModal({
+  busy,
+  onCancel,
+  onConfirm,
+  report,
+}: {
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  report: SupportReport;
+}) {
+  const attachmentCount = report.mediaFiles?.length ?? 0;
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section aria-labelledby="delete-support-report-title" aria-modal="true" className="modal-card" role="dialog">
+        <header className="modal-card__header">
+          <h3 id="delete-support-report-title">Delete support report?</h3>
+          <button className="icon-button" disabled={busy} onClick={onCancel} type="button">
+            x
+          </button>
+        </header>
+        <div className="confirmation-modal">
+          <p>
+            This will permanently delete the ticket
+            {" "}
+            <strong>{getShortReportId(report.reportId)}</strong>
+            {attachmentCount ? ` and ${attachmentCount} attached file${attachmentCount === 1 ? "" : "s"}` : ""}.
+          </p>
+          <p>This action cannot be undone.</p>
+          <div className="modal-actions">
+            <button disabled={busy} onClick={onCancel} type="button">
+              Cancel
+            </button>
+            <button className="danger-button" disabled={busy} onClick={onConfirm} type="button">
+              {busy ? "Deleting..." : "Delete report"}
+            </button>
+          </div>
         </div>
       </section>
     </div>

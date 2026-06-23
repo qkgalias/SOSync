@@ -4,17 +4,19 @@ import { callAdminFunction } from "../firebase";
 import { EmptyState, Field, Modal } from "../components/Ui";
 import { getAdminActionErrorMessage } from "../errors";
 import type { Hotline, HotlineDraft } from "../types";
+import { formatCityArea, resolveHotlineCityArea } from "./hotlineHelpers";
 
 const PAGE_SIZE = 7;
 
 type HotlineStatusFilter = "active" | "all" | "disabled";
 
 const emptyHotline: HotlineDraft = {
+  cityArea: "",
   description: "",
   disabled: false,
   name: "",
   phone: "",
-  region: "",
+  region: "PH",
 };
 
 function PhoneIcon() {
@@ -67,61 +69,15 @@ function normalize(value?: string) {
   return (value ?? "").trim().toLowerCase();
 }
 
-function getLegacyHotlineCity(hotline: Hotline) {
-  const id = normalize(hotline.hotlineId);
-  const name = normalize(hotline.name);
-  if (
-    id.includes("tabunok") ||
-    id.includes("bfp-talisay") ||
-    id.includes("pnp-talisay") ||
-    id.includes("talisay-drrmo") ||
-    name.includes("tabunok") ||
-    name.includes("bureau of fire") ||
-    name.includes("philippine national police") ||
-    name.includes("drrmo")
-  ) {
-    return "Talisay";
-  }
-  if (id.includes("ndrrmc") || id === "911" || name.includes("ndrrmc") || name.includes("national emergency")) {
-    return "Quezon City";
-  }
-  if (id.includes("red-cross") || name.includes("red cross")) {
-    return "Pasig City";
-  }
-  return "";
-}
-
-function getHotlineCity(hotline: Hotline, manuallySavedPhIds: ReadonlySet<string>) {
-  const region = hotline.region?.trim();
-  if (region && normalize(region) !== "ph") {
-    return region;
-  }
-  if (region && manuallySavedPhIds.has(hotline.hotlineId)) {
-    return region;
-  }
-  return getLegacyHotlineCity(hotline) || region || "PH";
-}
-
-function formatCityArea(value: string) {
-  const trimmed = value.trim().replace(/\s+/g, " ");
-  if (!trimmed || trimmed.length <= 3) {
-    return trimmed;
-  }
-  const lettersOnly = trimmed.replace(/[^A-Za-z]/g, "");
-  if (!lettersOnly || (lettersOnly.length <= 3 && trimmed === trimmed.toUpperCase())) {
-    return trimmed;
-  }
-  if (trimmed === trimmed.toUpperCase() || trimmed === trimmed.toLowerCase()) {
-    return trimmed.toLowerCase().replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
-  }
-  return trimmed;
-}
-
 export function HotlinesPage({
   hotlines,
+  notificationTargetId,
+  onConsumeNotificationTarget,
   onRefresh,
 }: {
   hotlines: Hotline[];
+  notificationTargetId: string;
+  onConsumeNotificationTarget: (unavailableMessage?: string) => void;
   onRefresh: () => Promise<void>;
 }) {
   const [draft, setDraft] = useState<HotlineDraft | null>(null);
@@ -134,11 +90,13 @@ export function HotlinesPage({
   const [statusFilter, setStatusFilter] = useState<HotlineStatusFilter>("all");
   const [page, setPage] = useState(1);
   const [pendingToggle, setPendingToggle] = useState<Hotline | null>(null);
-  const [manuallySavedPhIds, setManuallySavedPhIds] = useState<Set<string>>(() => new Set());
+  const [pendingDeleteHotline, setPendingDeleteHotline] = useState<Hotline | null>(null);
+  const [isDeletingHotline, setIsDeletingHotline] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const activeHotlines = hotlines.filter((hotline) => !hotline.disabled);
   const disabledHotlines = hotlines.filter((hotline) => hotline.disabled);
-  const citiesCovered = new Set(hotlines.map((hotline) => normalize(getHotlineCity(hotline, manuallySavedPhIds))).filter(Boolean)).size;
+  const areasCovered = new Set(hotlines.map((hotline) => normalize(resolveHotlineCityArea(hotline))).filter(Boolean)).size;
 
   const filteredHotlines = useMemo(() => {
     const search = normalize(query);
@@ -153,13 +111,13 @@ export function HotlinesPage({
       return [
         hotline.name,
         hotline.phone,
-        getHotlineCity(hotline, manuallySavedPhIds),
+        resolveHotlineCityArea(hotline),
         hotline.region,
         hotline.description,
         status,
       ].some((value) => normalize(value).includes(search));
     });
-  }, [hotlines, manuallySavedPhIds, query, statusFilter]);
+  }, [hotlines, query, statusFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filteredHotlines.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
@@ -176,15 +134,26 @@ export function HotlinesPage({
     setActionError("");
     setFieldErrors({});
     setFormError("");
-    const legacyCity =
-      nextDraft.hotlineId && normalize(nextDraft.region) === "ph" && !manuallySavedPhIds.has(nextDraft.hotlineId)
-        ? getLegacyHotlineCity(nextDraft as Hotline)
-        : "";
     setDraft({
       ...nextDraft,
-      region: legacyCity || nextDraft.region,
+      cityArea: resolveHotlineCityArea(nextDraft) || "",
+      region: "PH",
     });
   };
+
+  useEffect(() => {
+    if (!notificationTargetId) return;
+    const hotline = hotlines.find((item) => item.hotlineId === notificationTargetId);
+    if (!hotline) {
+      onConsumeNotificationTarget("This hotline is no longer available.");
+      return;
+    }
+    setActionError("");
+    setFieldErrors({});
+    setFormError("");
+    setDraft({ ...hotline, cityArea: resolveHotlineCityArea(hotline), region: "PH" });
+    onConsumeNotificationTarget();
+  }, [hotlines, notificationTargetId, onConsumeNotificationTarget]);
 
   const validateDraft = (nextDraft: HotlineDraft) => {
     const errors: Partial<Record<keyof HotlineDraft, string>> = {};
@@ -194,19 +163,20 @@ export function HotlinesPage({
     if (!nextDraft.phone.trim()) {
       errors.phone = "Enter a phone number.";
     }
-    if (!nextDraft.region.trim()) {
-      errors.region = "Enter the city or area covered.";
+    if (!nextDraft.cityArea?.trim()) {
+      errors.cityArea = "Enter the city or area covered.";
     }
     return errors;
   };
 
   const sanitizeDraft = (nextDraft: HotlineDraft): HotlineDraft => ({
     ...nextDraft,
+    cityArea: formatCityArea(nextDraft.cityArea ?? ""),
     description: nextDraft.description?.trim() ?? "",
     disabled: Boolean(nextDraft.disabled),
     name: nextDraft.name.trim(),
     phone: nextDraft.phone.trim(),
-    region: formatCityArea(nextDraft.region),
+    region: "PH",
   });
 
   const submit = async (event: FormEvent) => {
@@ -224,16 +194,6 @@ export function HotlinesPage({
     setIsSaving(true);
     try {
       const result = await callAdminFunction<typeof sanitizedDraft, { hotlineId: string }>("upsertHotline", sanitizedDraft);
-      setManuallySavedPhIds((current) => {
-        const nextIds = new Set(current);
-        const hotlineId = draft.hotlineId || result.hotlineId;
-        if (hotlineId && normalize(sanitizedDraft.region) === "ph") {
-          nextIds.add(hotlineId);
-        } else if (hotlineId) {
-          nextIds.delete(hotlineId);
-        }
-        return nextIds;
-      });
       setDraft(null);
       await onRefresh();
     } catch (nextError) {
@@ -263,6 +223,29 @@ export function HotlinesPage({
       );
     } finally {
       setBusyHotlineId("");
+    }
+  };
+
+  const confirmDeleteHotline = async () => {
+    if (!pendingDeleteHotline) {
+      return;
+    }
+    setFormError("");
+    setDeleteError("");
+    setIsDeletingHotline(true);
+    try {
+      await callAdminFunction<{ hotlineId: string }, { success: true }>("deleteHotline", {
+        hotlineId: pendingDeleteHotline.hotlineId,
+      });
+      setPendingDeleteHotline(null);
+      if (draft?.hotlineId === pendingDeleteHotline.hotlineId) {
+        setDraft(null);
+      }
+      await onRefresh();
+    } catch (nextError) {
+      setDeleteError(getAdminActionErrorMessage(nextError, "Unable to remove this hotline. Try again."));
+    } finally {
+      setIsDeletingHotline(false);
     }
   };
 
@@ -301,8 +284,8 @@ export function HotlinesPage({
             <StatIcon type="cities" />
           </span>
           <div>
-            <span>Cities Covered</span>
-            <strong>{citiesCovered}</strong>
+            <span>Areas Covered</span>
+            <strong>{areasCovered}</strong>
           </div>
         </article>
         <button className="primary-button hotline-add-button" onClick={() => openDraft(emptyHotline)} type="button">
@@ -350,7 +333,7 @@ export function HotlinesPage({
                 <tr>
                   <th>Hotline name</th>
                   <th>Phone number</th>
-                  <th>City</th>
+                  <th>City / Area</th>
                   <th>Status</th>
                   <th>Description</th>
                   <th>Actions</th>
@@ -368,7 +351,7 @@ export function HotlinesPage({
                         {hotline.phone}
                       </span>
                     </td>
-                    <td>{getHotlineCity(hotline, manuallySavedPhIds)}</td>
+                    <td>{resolveHotlineCityArea(hotline) || "PH"}</td>
                     <td>
                       <span className={`hotline-status-text hotline-status-text--${hotline.disabled ? "disabled" : "active"}`}>
                         {hotline.disabled ? "Disabled" : "Active"}
@@ -446,17 +429,30 @@ export function HotlinesPage({
                 value={draft.phone}
               />
             </Field>
-            <Field error={fieldErrors.region} label="City / Area">
+            <Field error={fieldErrors.cityArea} label="City / Area">
               <input
-                aria-invalid={Boolean(fieldErrors.region)}
-                onChange={(event) => setDraft({ ...draft, region: event.target.value })}
-                value={draft.region}
+                aria-invalid={Boolean(fieldErrors.cityArea)}
+                onChange={(event) => setDraft({ ...draft, cityArea: event.target.value })}
+                value={draft.cityArea ?? ""}
               />
             </Field>
             <Field label="Description">
               <textarea onChange={(event) => setDraft({ ...draft, description: event.target.value })} value={draft.description} />
             </Field>
-            <div className="modal-actions modal-actions--end">
+            <div className="modal-actions">
+              {draft.hotlineId ? (
+                <button
+                  className="danger-outline-button"
+                  disabled={isSaving}
+                  onClick={() => {
+                    setDeleteError("");
+                    setPendingDeleteHotline({ ...draft, hotlineId: draft.hotlineId } as Hotline);
+                  }}
+                  type="button"
+                >
+                  Remove
+                </button>
+              ) : null}
               <button className="primary-button" disabled={isSaving} type="submit">
                 {isSaving ? "Saving..." : "Save hotline"}
               </button>
@@ -480,6 +476,34 @@ export function HotlinesPage({
                   : pendingToggle.disabled
                     ? "Enable Hotline"
                     : "Disable Hotline"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
+      {pendingDeleteHotline ? (
+        <Modal
+          onClose={() => {
+            if (!isDeletingHotline) {
+              setPendingDeleteHotline(null);
+              setDeleteError("");
+            }
+          }}
+          title="Remove hotline?"
+        >
+          <div className="confirmation-modal">
+            <p>
+              {pendingDeleteHotline.name} will be permanently removed from the admin hotline list. This cannot be undone.
+            </p>
+            {deleteError ? <p className="inline-form-error">{deleteError}</p> : null}
+            <div className="modal-actions">
+              <button
+                className="danger-outline-button"
+                disabled={isDeletingHotline}
+                onClick={() => void confirmDeleteHotline()}
+                type="button"
+              >
+                {isDeletingHotline ? "Removing..." : "Remove hotline"}
               </button>
             </div>
           </div>
