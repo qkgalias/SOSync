@@ -329,12 +329,12 @@ export default function SignUpScreen() {
           />
 
           <View className="mt-5">
-            <View className="mx-auto max-w-[420px] flex-row items-start justify-center px-1">
+            <View className="mx-auto flex-row items-start justify-start px-1">
               <Pressable
                 accessibilityLabel="Agree to Terms of Service and Privacy Policy"
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: acceptedLegalTerms }}
-                className="mr-2 mt-0.5"
+                className="mr-2 mt-[2px]"
                 hitSlop={10}
                 onPress={() => {
                   setAcceptedLegalTerms((current) => !current);
@@ -344,10 +344,10 @@ export default function SignUpScreen() {
                 <MaterialCommunityIcons
                   color="#FFFFFF"
                   name={acceptedLegalTerms ? "checkbox-marked" : "checkbox-blank-outline"}
-                  size={22}
+                  size={18}
                 />
               </Pressable>
-              <Text className={`flex-1 text-center text-[12px] leading-5 ${errorTextClassName}`}>
+              <Text className={`max-w-[360px] text-left text-[12px] leading-5 ${errorTextClassName}`}>
                 By continuing, you agree to our{" "}
                 <Text className="underline" onPress={() => setLegalModal("terms")}>
                   Terms of Service
