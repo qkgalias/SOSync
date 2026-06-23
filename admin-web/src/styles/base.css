@@ -254,7 +254,7 @@ button:disabled {
   z-index: 200;
   display: grid;
   gap: 12px;
-  width: min(340px, 76vw);
+  width: min(420px, 88vw);
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--card);
@@ -279,12 +279,42 @@ button:disabled {
   line-height: 1;
 }
 
+.notification-popover__header > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notification-popover__header > div button:first-child:not(:last-child) {
+  width: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+
+.notification-popover__error {
+  margin: 0;
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 8px 10px;
+}
+
 .notification-list {
   display: grid;
   gap: 8px;
+  max-height: min(520px, 68vh);
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
-.notification-list span {
+.notification-empty {
   display: block;
   border-radius: 10px;
   background: color-mix(in srgb, var(--card) 80%, var(--accent-soft));
@@ -293,10 +323,105 @@ button:disabled {
   padding: 10px 12px;
 }
 
-.notification-popover p {
+.notification-item {
+  display: grid;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card) 94%, var(--accent-soft));
+  padding: 12px;
+}
+
+.notification-item__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.notification-item__header span {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.notification-item__header time {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.notification-item__header > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notification-item__header button {
+  width: 22px;
+  min-height: 22px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.notification-item > strong {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.notification-item p,
+.notification-popover > p {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
+}
+
+.notification-item p {
+  font-size: 11px;
+}
+
+.notification-item dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.notification-item dl div {
+  min-width: 0;
+}
+
+.notification-item dt {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.notification-item dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.notification-item > button {
+  justify-self: start;
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 6px 10px;
 }
 
 .eyebrow {
